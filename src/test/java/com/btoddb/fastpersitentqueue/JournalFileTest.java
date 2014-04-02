@@ -17,42 +17,42 @@ import static org.junit.Assert.fail;
 /**
  *
  */
-public class CommitLogFileTest {
+public class JournalFileTest {
     File theDir;
     File theFile;
 
     @Test
     public void testContstruction() throws IOException {
-        CommitLogFile clf = new CommitLogFile(theFile);
+        JournalFile clf = new JournalFile(theFile);
         assertThat(clf.getWriterFilePosition(), is(0L));
         assertThat(clf.getReaderFilePosition(), is(0L));
         assertThat(clf.getLength(), is(0L));
-        assertThat(clf.getWriterFile().getChannel().isOpen(), is(true));
-        assertThat(clf.getReaderFile().getChannel().isOpen(), is(true));
+        assertThat(clf.getRandomAccessWriterFile().getChannel().isOpen(), is(true));
+        assertThat(clf.getRandomAccessReaderFile().getChannel().isOpen(), is(true));
     }
 
     @Test
     public void testClose() throws IOException {
-        CommitLogFile clf = new CommitLogFile(theFile);
+        JournalFile clf = new JournalFile(theFile);
         clf.close();
-        assertThat(clf.getWriterFile().getChannel().isOpen(), is(false));
-        assertThat(clf.getReaderFile().getChannel().isOpen(), is(false));
+        assertThat(clf.getRandomAccessWriterFile().getChannel().isOpen(), is(false));
+        assertThat(clf.getRandomAccessReaderFile().getChannel().isOpen(), is(false));
     }
 
     @Test
     public void testAppendThenRead() throws Exception {
-        String data = new String("my test data");
-        CommitLogFile clf1 = new CommitLogFile(theFile);
+        String data = "my test data";
+        JournalFile clf1 = new JournalFile(theFile);
 
-        clf1.append(new Entry(CommitLogFile.VERSION_1, data.getBytes(), 0));
-        assertThat(clf1.getWriterFilePosition(), is((long)CommitLogFile.VERSION_1_OVERHEAD+data.length()));
+        clf1.append(new Entry(data.getBytes()));
+        assertThat(clf1.getWriterFilePosition(), is((long) JournalFile.VERSION_1_OVERHEAD+data.length()));
 
         assertThat(clf1.getReaderFilePosition(), is(0L));
-        assertThat(clf1.getLength(), is((long)CommitLogFile.VERSION_1_OVERHEAD+data.length()));
+        assertThat(clf1.getLength(), is((long) JournalFile.VERSION_1_OVERHEAD+data.length()));
 
         Entry entry = clf1.readNextEntry();
         assertThat(clf1.getReaderFilePosition(), is(clf1.getLength()));
-        assertThat(entry.getVersion(), is(CommitLogFile.VERSION_1));
+        assertThat(entry.getVersion(), is(JournalFile.VERSION_1));
         assertThat(entry.getFilePosition(), is(0L));
         assertThat(entry.getData(), is(data.getBytes()));
 
@@ -61,15 +61,15 @@ public class CommitLogFileTest {
 
     @Test
     public void testReadNoData() throws Exception {
-        CommitLogFile clf1 = new CommitLogFile(theFile);
+        JournalFile clf1 = new JournalFile(theFile);
         assertThat(clf1.readNextEntry(), is(nullValue()));
     }
 
     @Test
     public void testReadBadVersion() throws Exception {
         try {
-            CommitLogFile clf1 = new CommitLogFile(theFile);
-            clf1.getWriterFile().writeInt(0);
+            JournalFile clf1 = new JournalFile(theFile);
+            clf1.getRandomAccessWriterFile().writeInt(0);
             clf1.readNextEntry();
             fail("should have thrown QueryException");
         }
@@ -81,9 +81,9 @@ public class CommitLogFileTest {
     @Test
     public void testReadBadLength() throws Exception {
         try {
-            CommitLogFile clf1 = new CommitLogFile(theFile);
-            clf1.getWriterFile().writeInt(1);
-            clf1.getWriterFile().writeInt(1);
+            JournalFile clf1 = new JournalFile(theFile);
+            clf1.getRandomAccessWriterFile().writeInt(1);
+            clf1.getRandomAccessWriterFile().writeInt(1);
             clf1.readNextEntry();
             fail("should have thrown QueryException");
         }
@@ -97,7 +97,7 @@ public class CommitLogFileTest {
     @Before
     public void setup() throws IOException {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
-        theDir.mkdir();
+        FileUtils.forceMkdir(theDir);
         theFile = generateLogFileName();
     }
 
@@ -107,6 +107,6 @@ public class CommitLogFileTest {
     }
 
     private File generateLogFileName() throws IOException {
-        return File.createTempFile("junitTest", ".commitlog", theDir);
+        return File.createTempFile("junitTest", ".journal", theDir);
     }
 }

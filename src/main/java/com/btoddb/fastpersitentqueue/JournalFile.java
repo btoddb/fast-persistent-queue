@@ -16,22 +16,22 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *   - replenish global memory queue if it was previously full
  *
  */
-public class CommitLogFile {
-    private static final Logger logger = LoggerFactory.getLogger(CommitLogFile.class);
+public class JournalFile {
+    private static final Logger logger = LoggerFactory.getLogger(JournalFile.class);
 
-    private static final int SIZEOF_INT = 4;
     public static final int VERSION_1 = 1;
     public static final int VERSION_1_OVERHEAD = 8;
 
+    private File file;
     private RandomAccessFile writerFile;
     private RandomAccessFile readerFile;
     private ReentrantReadWriteLock writerLock = new ReentrantReadWriteLock();
 
-
-    public CommitLogFile(File f) throws IOException {
+    public JournalFile(File file) throws IOException {
+        this.file = file;
         try {
-            writerFile = new RandomAccessFile(f, "rw");
-            readerFile = new RandomAccessFile(f, "r");
+            writerFile = new RandomAccessFile(file, "rw");
+            readerFile = new RandomAccessFile(file, "r");
         }
         catch (FileNotFoundException e) {
             logger.error("exception while instantiating RandomAccessFile", e);
@@ -39,7 +39,7 @@ public class CommitLogFile {
         }
     }
 
-    public void append(Entry entry) throws IOException {
+    public Entry append(Entry entry) throws IOException {
         writerLock.writeLock().lock();
         try {
             entry.setFilePosition(writerFile.getFilePointer());
@@ -56,6 +56,8 @@ public class CommitLogFile {
         finally {
             writerLock.writeLock().unlock();
         }
+
+        return entry;
     }
     
     public void forceFlush() throws IOException {
@@ -125,13 +127,17 @@ public class CommitLogFile {
         return writerFile.length();
     }
 
+    public File getFile() {
+        return file;
+    }
+
     // junit testing only
-    RandomAccessFile getWriterFile() {
+    RandomAccessFile getRandomAccessWriterFile() {
         return writerFile;
     }
 
     // junit testing only
-    RandomAccessFile getReaderFile() {
+    RandomAccessFile getRandomAccessReaderFile() {
         return readerFile;
     }
 }
