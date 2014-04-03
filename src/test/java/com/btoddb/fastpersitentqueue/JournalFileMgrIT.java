@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.fail;
 
 
 /**
@@ -137,6 +138,11 @@ public class JournalFileMgrIT {
         assertThat(mgr.getCurrentJournalDescriptor().isAnyWritesHappened(), is(false));
         mgr.append(new byte[] {0, 1});
         assertThat(mgr.getCurrentJournalDescriptor().isAnyWritesHappened(), is(true));
+    }
+
+    @Test
+    public void testShutdown() {
+        fail("not implemented");
     }
 
     // --------------

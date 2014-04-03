@@ -1,7 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
 import com.eaio.uuid.UUID;
-import com.sun.istack.internal.NotNull;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,7 +100,9 @@ public class JournalFileMgr {
 
     public Entry append(byte[] data) throws IOException {
         JournalDescriptor desc = getCurrentJournalDescriptor();
-
+        if (null == desc) {
+            logAndThrow(String.format("no current journal descriptor.  did you call %s.start()?", this.getClass().getSimpleName()));
+        }
         Entry entry = desc.getFile().append(new Entry(data));
         entry.setJournalId(desc.getId());
 
@@ -148,19 +149,35 @@ public class JournalFileMgr {
                 desc.setLastPositionRead(entry.getFilePosition()+entry.getData().length+JournalFile.VERSION_1_OVERHEAD-1);
             }
             if (desc.isWritingFinished() && 0 == count && desc.getLength() == desc.getLastPositionRead()-1) {
-                scheduleJournalRemoval(desc);
+                submitJournalRemoval(desc);
             }
         }
     }
 
-    private void scheduleJournalRemoval(final JournalDescriptor desc) {
+    private void submitJournalRemoval(final JournalDescriptor desc) {
         generalExec.submit(new Runnable() {
             @Override
             public void run() {
                 desc.getFuture().cancel(false);
-
+                try {
+                    FileUtils.forceDelete(desc.getFile().getFile());
+                }
+                catch (IOException e) {
+                    logger.error("could not delete journal file, {} - will not try again", desc.getFile().getFile().getAbsolutePath());
+                }
             }
         });
+    }
+
+    public void shutdown() {
+        // TODO:BTB - do something to insure no data is lost or re-popped on restart
+        flushExec.shutdown();
+        generalExec.shutdown();
+    }
+
+    private void logAndThrow(String msg) throws QueueException {
+        logger.error(msg);
+        throw new QueueException(msg);
     }
 
     private String createNewJournalName(String id) {
