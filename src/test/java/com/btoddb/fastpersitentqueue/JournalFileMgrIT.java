@@ -1,12 +1,15 @@
 package com.btoddb.fastpersitentqueue;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.IOFileFilter;
+import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -147,7 +150,6 @@ public class JournalFileMgrIT {
         assertThat(mgr.getJournalIdMap(), not(hasKey(entry1.getJournalId())));
         assertThat(mgr.getJournalIdMap(), not(hasKey(entry2.getJournalId())));
         assertThat(mgr.getJournalIdMap().get(entry3.getJournalId()).getNumberOfUnconsumedEntries(), is(0L));
-
     }
 
     @Test
@@ -159,8 +161,46 @@ public class JournalFileMgrIT {
     }
 
     @Test
-    public void testShutdown() {
-        fail("not implemented");
+    public void testShutdownAllDataTaken() throws IOException {
+        mgr.setMaxJournalFileSize(15);
+        mgr.init();
+
+        Entry entry1 = mgr.append(new byte[] {0, 1});
+        Entry entry2 = mgr.append(new byte[] {0, 1});
+        Entry entry3 = mgr.append(new byte[] {0, 1});
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
+
+        mgr.reportTake(entry1);
+        mgr.reportTake(entry2);
+        mgr.reportTake(entry3);
+        mgr.shutdown();
+
+        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry1.getJournalId())));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry2.getJournalId())));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry3.getJournalId())));
+    }
+
+    @Test
+    public void testShutdownRemainingData() throws IOException {
+        mgr.setMaxJournalFileSize(15);
+        mgr.init();
+
+        Entry entry1 = mgr.append(new byte[] {0, 1});
+        Entry entry2 = mgr.append(new byte[] {0, 1});
+        Entry entry3 = mgr.append(new byte[] {0, 1});
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
+
+        mgr.reportTake(entry1);
+        mgr.reportTake(entry2);
+        mgr.shutdown();
+
+        Collection<File> remainingFiles = FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE);
+        assertThat(remainingFiles, hasSize(1));
+        assertThat(remainingFiles, contains(mgr.getJournalIdMap().get(entry3.getJournalId()).getFile().getFile().getAbsoluteFile()));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry1.getJournalId())));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry2.getJournalId())));
+        assertThat(mgr.getJournalIdMap(), hasKey(entry3.getJournalId()));
     }
 
     // --------------
@@ -178,6 +218,7 @@ public class JournalFileMgrIT {
 
     @After
     public void cleanup() throws IOException {
+        mgr.shutdown();
         FileUtils.deleteDirectory(theDir);
     }
 }

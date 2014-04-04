@@ -169,8 +169,6 @@ public class JournalFileMgr {
             // keep decr before isWritingFinished
             // this is thrad-safe, because only one thread can decrement down to zero when isWritingFinished
             if (0 == desc.decrementEntryCount(1) && desc.isWritingFinished()) {
-                journalIdMap.remove(desc.getId());
-                journalsRemoved.incrementAndGet();
                 submitJournalRemoval(desc);
             }
         }
@@ -180,28 +178,57 @@ public class JournalFileMgr {
         generalExec.submit(new Runnable() {
             @Override
             public void run() {
-                desc.getFuture().cancel(false);
-                try {
-                    FileUtils.forceDelete(desc.getFile().getFile());
-                }
-                catch (IOException e) {
-                    logger.error("could not delete journal file, {} - will not try again", desc.getFile().getFile().getAbsolutePath());
-                }
+                removeJournal(desc);
             }
         });
     }
 
-    public void shutdown() {
-
-
-        flushExec.shutdown();
-        generalExec.shutdown();
+    private void removeJournal(JournalDescriptor desc) {
+        desc.getFuture().cancel(false);
+        journalIdMap.remove(desc.getId());
         try {
-            generalExec.awaitTermination(10, TimeUnit.SECONDS);
+            FileUtils.forceDelete(desc.getFile().getFile());
         }
-        catch (InterruptedException e) {
-            Thread.interrupted();
-            // ignore
+        catch (IOException e) {
+            logger.error("could not delete journal file, {} - will not try again", desc.getFile().getFile().getAbsolutePath());
+        }
+        journalsRemoved.incrementAndGet();
+    }
+
+    public void shutdown() {
+        if (null != flushExec) {
+            flushExec.shutdown();
+            try {
+                flushExec.awaitTermination(60, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e) {
+                Thread.interrupted();
+                // ignore
+            }
+        }
+        if (null != generalExec) {
+            generalExec.shutdown();
+            try {
+                generalExec.awaitTermination(60, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e) {
+                Thread.interrupted();
+                // ignore
+            }
+        }
+
+        for (JournalDescriptor desc: journalIdMap.values()) {
+            if (0 == desc.getNumberOfUnconsumedEntries()) {
+                removeJournal(desc);
+            }
+            else {
+                try {
+                    desc.getFile().forceFlush();
+                }
+                catch (IOException e) {
+                    logger.error("on shutdown - could not fsync journal file, {} -- ignoring", desc.getFile().getFile().getAbsolutePath());
+                }
+            }
         }
     }
 
