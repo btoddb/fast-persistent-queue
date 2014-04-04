@@ -26,6 +26,7 @@ public class JournalFileMgrIT {
         mgr.init();
 
         assertThat(mgr.getJournalFiles().size(), is(1));
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(1));
 
         JournalDescriptor jd = mgr.getJournalFiles().values().iterator().next();
         assertThat(jd.getFile().getFile().getParent(), is(theDir.getAbsolutePath()));
@@ -82,6 +83,7 @@ public class JournalFileMgrIT {
         assertThat(jd1.isWritingFinished(), is(true));
         assertThat(mgr.getCurrentJournalDescriptor().isWritingFinished(), is(false));
         assertThat(mgr.getJournalFiles().entrySet(), hasSize(2));
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
     }
 
     @Test
@@ -100,10 +102,12 @@ public class JournalFileMgrIT {
         assertThat(jd1.isWritingFinished(), is(true));
         assertThat(mgr.getCurrentJournalDescriptor().isWritingFinished(), is(false));
         assertThat(mgr.getJournalFiles().entrySet(), hasSize(2));
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
     }
 
     @Test
     public void testAppend() throws IOException {
+        mgr.setMaxJournalFileSize(20);
         mgr.init();
 
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(0L));
@@ -111,25 +115,39 @@ public class JournalFileMgrIT {
 
         byte[] data = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         mgr.append(data);
+        assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(greaterThanOrEqualTo(now)));
+        mgr.append(data);
+        assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(0L));
+        mgr.append(data);
 
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(greaterThanOrEqualTo(now)));
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
     }
 
     @Test
     public void testReportConsumption() throws IOException {
+        mgr.setMaxJournalFileSize(15);
         mgr.init();
+
         Entry entry1 = mgr.append(new byte[] {0, 1});
         Entry entry2 = mgr.append(new byte[] {0, 1});
         Entry entry3 = mgr.append(new byte[] {0, 1});
-        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
 
         mgr.reportTake(entry1);
-        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(2L));
+        assertThat(mgr.getJournalIdMap().get(entry1.getJournalId()).getNumberOfUnconsumedEntries(), is(1L));
+        assertThat(mgr.getJournalIdMap().get(entry3.getJournalId()).getNumberOfUnconsumedEntries(), is(1L));
 
         mgr.reportTake(entry2);
-        mgr.reportTake(entry3);
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry1.getJournalId())));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry2.getJournalId())));
+        assertThat(mgr.getJournalIdMap().get(entry3.getJournalId()).getNumberOfUnconsumedEntries(), is(1L));
 
-        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0L));
+        mgr.reportTake(entry3);
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry1.getJournalId())));
+        assertThat(mgr.getJournalIdMap(), not(hasKey(entry2.getJournalId())));
+        assertThat(mgr.getJournalIdMap().get(entry3.getJournalId()).getNumberOfUnconsumedEntries(), is(0L));
+
     }
 
     @Test

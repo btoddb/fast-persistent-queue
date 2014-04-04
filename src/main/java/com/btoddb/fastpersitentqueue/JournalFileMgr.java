@@ -167,7 +167,9 @@ public class JournalFileMgr {
             }
 
             // keep decr before isWritingFinished
+            // this is thrad-safe, because only one thread can decrement down to zero when isWritingFinished
             if (0 == desc.decrementEntryCount(1) && desc.isWritingFinished()) {
+                journalIdMap.remove(desc.getId());
                 journalsRemoved.incrementAndGet();
                 submitJournalRemoval(desc);
             }
@@ -190,7 +192,8 @@ public class JournalFileMgr {
     }
 
     public void shutdown() {
-        // TODO:BTB - do something to insure no data is lost or re-popped on restart
+
+
         flushExec.shutdown();
         generalExec.shutdown();
         try {
@@ -265,5 +268,9 @@ public class JournalFileMgr {
 
     public long getJournalsRemoved() {
         return journalsRemoved.get();
+    }
+
+    public TreeMap<UUID, JournalDescriptor> getJournalIdMap() {
+        return journalIdMap;
     }
 }
