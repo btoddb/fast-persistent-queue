@@ -15,15 +15,17 @@ public class SpeedPushWorker implements Runnable {
     private final BToddBPersistentQueue queue;
     private final long durationOfTest;
     private final int entrySize;
+    private final int batchSize;
 
     private boolean finished = false;
     private boolean success = false;
     int numberOfEntries = 0;
 
-    public SpeedPushWorker(BToddBPersistentQueue queue, long durationOfTest, int entrySize) {
+    public SpeedPushWorker(BToddBPersistentQueue queue, long durationOfTest, int entrySize, int batchSize) {
         this.queue = queue;
         this.entrySize = entrySize;
         this.durationOfTest = durationOfTest;
+        this.batchSize = batchSize;
     }
 
     @Override
@@ -36,9 +38,12 @@ public class SpeedPushWorker implements Runnable {
                 queue.push(context, new byte[entrySize]);
                 numberOfEntries++;
 
-                if (context.size() >= queue.getMaxTransactionSize()) {
+                if (context.size() >= batchSize) {
                     queue.commit(context);
                 }
+            }
+            if (0 < context.size()) {
+                queue.commit(context);
             }
             success = true;
         }

@@ -16,16 +16,16 @@ public class SpeedPopWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPopWorker.class);
 
     private final BToddBPersistentQueue queue;
-    private final long durationOfTest;
+    private final int batchSize;
 
     private boolean finished = false;
     private boolean success = false;
     int numberOfEntries = 0;
     private boolean stopWhenQueueEmpty = false;
 
-    public SpeedPopWorker(BToddBPersistentQueue queue, long durationOfTest) {
+    public SpeedPopWorker(BToddBPersistentQueue queue, int batchSize) {
         this.queue = queue;
-        this.durationOfTest = durationOfTest;
+        this.batchSize = batchSize;
     }
 
     @Override
@@ -36,12 +36,15 @@ public class SpeedPopWorker implements Runnable {
                 Thread.sleep(100);
                 Collection<Entry> entries;
                 do {
-                    entries = queue.pop(context, queue.getMaxTransactionSize());
+                    entries = queue.pop(context, batchSize);
                     if (!entries.isEmpty()) {
                         numberOfEntries += entries.size();
                         queue.commit(context);
                     }
                 } while (!entries.isEmpty());
+            }
+            if (0 < context.size()) {
+                queue.commit(context);
             }
             success = true;
         }
@@ -58,10 +61,6 @@ public class SpeedPopWorker implements Runnable {
 
     public boolean isFinished() {
         return finished;
-    }
-
-    public long getDurationOfTest() {
-        return durationOfTest;
     }
 
     public int getNumberOfEntries() {

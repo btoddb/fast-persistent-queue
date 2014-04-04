@@ -25,11 +25,13 @@ public class SpeedTest {
 
         BToddBPersistentQueue queue = null;
 
-        int maxTransactionSize = 1000;
+        int maxTransactionSize = 2000;
+        int pushBatchSize = 1;
+        int popBatchSize = 2000;
 
         int numberOfPushers = 4;
         int numberOfPoppers = 4;
-        int durationOfTest = 60; // seconds
+        int durationOfTest = 120; // seconds
         int entrySize = 1000;
 
         int maxJournalFileSize = 10000000;
@@ -51,12 +53,12 @@ public class SpeedTest {
 
             Set<SpeedPushWorker> pushWorkers = new HashSet<SpeedPushWorker>();
             for (int i=0;i < numberOfPushers;i++) {
-                pushWorkers.add(new SpeedPushWorker(queue, durationOfTest, entrySize));
+                pushWorkers.add(new SpeedPushWorker(queue, durationOfTest, entrySize, pushBatchSize));
             }
 
             Set<SpeedPopWorker> popWorkers = new HashSet<SpeedPopWorker>();
             for (int i=0;i < numberOfPoppers;i++) {
-                popWorkers.add(new SpeedPopWorker(queue, durationOfTest));
+                popWorkers.add(new SpeedPopWorker(queue, popBatchSize));
             }
 
             ExecutorService pusherExecSrvc = Executors.newFixedThreadPool(numberOfPushers+numberOfPoppers, new ThreadFactory() {
