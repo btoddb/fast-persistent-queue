@@ -4,8 +4,7 @@ import com.eaio.uuid.UUID;
 
 import java.io.IOException;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -16,21 +15,16 @@ public class JournalDescriptor {
     private final JournalFile file;
     private final ScheduledFuture future;
     private long startTime;
-    private final AtomicBoolean rollFileNeeded = new AtomicBoolean();
 
-    private long lastPositionRead = -1;
-    private AtomicInteger numberOfUnconsumedEntries = new AtomicInteger();
+//    private long lastPositionRead = -1;
+    private AtomicLong numberOfUnconsumedEntries = new AtomicLong();
     private boolean writingFinished;
-    private long length;
+//    private long length;
 
     public JournalDescriptor(UUID id, JournalFile file, ScheduledFuture future) {
         this.id = id;
         this.file = file;
         this.future = future;
-    }
-
-    public boolean isRollFileNeeded() {
-        return rollFileNeeded.compareAndSet(false, true);
     }
 
     public UUID getId() {
@@ -45,11 +39,11 @@ public class JournalDescriptor {
         return future;
     }
 
-    public int incrementEntryCount() {
-        return numberOfUnconsumedEntries.incrementAndGet();
+    public long incrementEntryCount(int size) {
+        return numberOfUnconsumedEntries.addAndGet(size);
     }
-    public int decrementEntryCount() {
-        return numberOfUnconsumedEntries.decrementAndGet();
+    public long decrementEntryCount(int size) {
+        return numberOfUnconsumedEntries.addAndGet(-size);
     }
 
     public boolean isWritingFinished() {
@@ -57,7 +51,7 @@ public class JournalDescriptor {
     }
 
     public void setWritingFinished(boolean writingFinished) throws IOException {
-        length = getFile().getLength();
+//        length = getFile().getWriterFilePosition();
         this.writingFinished = writingFinished;
     }
 
@@ -69,7 +63,7 @@ public class JournalDescriptor {
         this.startTime = startTime;
     }
 
-    int getNumberOfUnconsumedEntries() {
+    long getNumberOfUnconsumedEntries() {
         return numberOfUnconsumedEntries.get();
     }
 
@@ -77,15 +71,15 @@ public class JournalDescriptor {
         return 0 < startTime;
     }
 
-    public long getLastPositionRead() {
-        return lastPositionRead;
-    }
+//    public long getLastPositionRead() {
+//        return lastPositionRead;
+//    }
+//
+//    public void setLastPositionRead(long lastPositionRead) {
+//        this.lastPositionRead = lastPositionRead;
+//    }
 
-    public void setLastPositionRead(long lastPositionRead) {
-        this.lastPositionRead = lastPositionRead;
-    }
-
-    public long getLength() {
-        return length;
-    }
+//    public long getLength() {
+//        return length;
+//    }
 }

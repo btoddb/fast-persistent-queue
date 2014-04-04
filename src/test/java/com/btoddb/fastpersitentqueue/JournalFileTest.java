@@ -26,7 +26,6 @@ public class JournalFileTest {
         JournalFile clf = new JournalFile(theFile);
         assertThat(clf.getWriterFilePosition(), is(0L));
         assertThat(clf.getReaderFilePosition(), is(0L));
-        assertThat(clf.getLength(), is(0L));
         assertThat(clf.getRandomAccessWriterFile().getChannel().isOpen(), is(true));
         assertThat(clf.getRandomAccessReaderFile().getChannel().isOpen(), is(true));
     }
@@ -48,10 +47,9 @@ public class JournalFileTest {
         assertThat(clf1.getWriterFilePosition(), is((long) JournalFile.VERSION_1_OVERHEAD+data.length()));
 
         assertThat(clf1.getReaderFilePosition(), is(0L));
-        assertThat(clf1.getLength(), is((long) JournalFile.VERSION_1_OVERHEAD+data.length()));
 
         Entry entry = clf1.readNextEntry();
-        assertThat(clf1.getReaderFilePosition(), is(clf1.getLength()));
+        assertThat(clf1.getReaderFilePosition(), is(clf1.getWriterFilePosition()));
         assertThat(entry.getVersion(), is(JournalFile.VERSION_1));
         assertThat(entry.getFilePosition(), is(0L));
         assertThat(entry.getData(), is(data.getBytes()));

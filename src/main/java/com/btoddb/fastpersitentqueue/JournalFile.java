@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
@@ -40,15 +42,22 @@ public class JournalFile {
     }
 
     public Entry append(Entry entry) throws IOException {
+        Collection<Entry> entries = append(Collections.singleton(entry));
+        return entries.iterator().next();
+    }
+
+    public Collection<Entry> append(Collection<Entry> entries) throws IOException {
         writerLock.writeLock().lock();
         try {
-            entry.setFilePosition(writerFile.getFilePointer());
-            switch (entry.getVersion()) {
-                case 1:
-                    writeVersion1Entry(entry);
-                    break;
-                default:
-                    logAndThrow(String.format("invalid version (%d) found, cannot continue", entry.getVersion()));
+            for (Entry entry : entries) {
+                entry.setFilePosition(writerFile.getFilePointer());
+                switch (entry.getVersion()) {
+                    case 1:
+                        writeVersion1Entry(entry);
+                        break;
+                    default:
+                        logAndThrow(String.format("invalid version (%d) found, cannot continue", entry.getVersion()));
+                }
             }
 
             // fsync will be called periodically in a separate thread
@@ -57,7 +66,7 @@ public class JournalFile {
             writerLock.writeLock().unlock();
         }
 
-        return entry;
+        return entries;
     }
     
     public void forceFlush() throws IOException {
@@ -121,10 +130,6 @@ public class JournalFile {
 
     public long getWriterFilePosition() throws IOException {
         return writerFile.getFilePointer();
-    }
-
-    public long getLength() throws IOException {
-        return writerFile.length();
     }
 
     public File getFile() {

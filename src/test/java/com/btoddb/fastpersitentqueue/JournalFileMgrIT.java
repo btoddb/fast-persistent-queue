@@ -23,7 +23,7 @@ public class JournalFileMgrIT {
 
     @Test
     public void testStart() throws Exception {
-        mgr.start();
+        mgr.init();
 
         assertThat(mgr.getJournalFiles().size(), is(1));
 
@@ -34,9 +34,9 @@ public class JournalFileMgrIT {
     }
 
     @Test
-    public void testJournalDirNameSetter() {
-        mgr.setJournalDirName("/dirname");
-        assertThat(mgr.getJournalDirName(), is("/dirname"));
+    public void testJournalDirectorySetter() {
+        mgr.setJournalDirectory(new File("/dirname"));
+        assertThat(mgr.getJournalDirectory(), is(new File("/dirname")));
     }
 
     @Test
@@ -60,7 +60,7 @@ public class JournalFileMgrIT {
     @Test
     public void testJournalRollingBecauseOfSize() throws IOException {
         mgr.setMaxJournalFileSize(100);
-        mgr.start();
+        mgr.init();
 
         JournalDescriptor jd1 = mgr.getCurrentJournalDescriptor();
         mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -88,7 +88,7 @@ public class JournalFileMgrIT {
     public void testJournalRollingBecauseOfTime() throws Exception {
         mgr.setMaxJournalFileSize(100);
         mgr.setMaxJournalDurationInMs(500);
-        mgr.start();
+        mgr.init();
 
         JournalDescriptor jd1 = mgr.getCurrentJournalDescriptor();
         mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -104,7 +104,7 @@ public class JournalFileMgrIT {
 
     @Test
     public void testAppend() throws IOException {
-        mgr.start();
+        mgr.init();
         byte[] data = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         mgr.append(data);
 
@@ -114,27 +114,24 @@ public class JournalFileMgrIT {
 
     @Test
     public void testReportConsumption() throws IOException {
-        mgr.start();
+        mgr.init();
         Entry entry1 = mgr.append(new byte[] {0, 1});
         Entry entry2 = mgr.append(new byte[] {0, 1});
         Entry entry3 = mgr.append(new byte[] {0, 1});
-        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3));
-        assertThat(mgr.getCurrentJournalDescriptor().getLastPositionRead(), is(-1L));
+        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
 
         mgr.reportTake(entry1);
-        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(2));
-        assertThat(mgr.getCurrentJournalDescriptor().getLastPositionRead(), is(entry1.getFilePosition()+entry1.getData().length+JournalFile.VERSION_1_OVERHEAD-1));
+        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(2L));
 
         mgr.reportTake(entry2);
         mgr.reportTake(entry3);
 
-        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0));
-        assertThat(mgr.getCurrentJournalDescriptor().getLastPositionRead(), is(mgr.getCurrentJournalDescriptor().getFile().getLength() - 1));
+        assertThat(mgr.getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0L));
     }
 
     @Test
     public void testAnyWritesHappened() throws IOException {
-        mgr.start();
+        mgr.init();
         assertThat(mgr.getCurrentJournalDescriptor().isAnyWritesHappened(), is(false));
         mgr.append(new byte[] {0, 1});
         assertThat(mgr.getCurrentJournalDescriptor().isAnyWritesHappened(), is(true));
@@ -149,11 +146,11 @@ public class JournalFileMgrIT {
 
     @Before
     public void setup() throws IOException {
-        theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
+        theDir = new File("junitTmp_"+ UUID.randomUUID().toString()).getCanonicalFile();
         FileUtils.forceMkdir(theDir);
 
         mgr = new JournalFileMgr();
-        mgr.setJournalDirName(theDir.getAbsolutePath());
+        mgr.setJournalDirectory(theDir);
         mgr.setNumberOfFlushWorkers(4);
         mgr.setFlushPeriodInMs(1000);
     }
