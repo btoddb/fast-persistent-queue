@@ -1,7 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.junit.After;
 import org.junit.Before;
@@ -22,7 +21,7 @@ import static org.junit.Assert.fail;
  */
 public class JournalFileMgrIT {
     File theDir;
-    JournalFileMgr mgr;
+    FpqJournalMgr mgr;
 
     @Test
     public void testStart() throws Exception {
@@ -132,9 +131,9 @@ public class JournalFileMgrIT {
         mgr.setMaxJournalFileSize(15);
         mgr.init();
 
-        Entry entry1 = mgr.append(new byte[] {0, 1});
-        Entry entry2 = mgr.append(new byte[] {0, 1});
-        Entry entry3 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry1 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry2 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry3 = mgr.append(new byte[] {0, 1});
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
 
         mgr.reportTake(entry1);
@@ -165,9 +164,9 @@ public class JournalFileMgrIT {
         mgr.setMaxJournalFileSize(15);
         mgr.init();
 
-        Entry entry1 = mgr.append(new byte[] {0, 1});
-        Entry entry2 = mgr.append(new byte[] {0, 1});
-        Entry entry3 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry1 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry2 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry3 = mgr.append(new byte[] {0, 1});
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
 
         mgr.reportTake(entry1);
@@ -186,9 +185,9 @@ public class JournalFileMgrIT {
         mgr.setMaxJournalFileSize(15);
         mgr.init();
 
-        Entry entry1 = mgr.append(new byte[] {0, 1});
-        Entry entry2 = mgr.append(new byte[] {0, 1});
-        Entry entry3 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry1 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry2 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry3 = mgr.append(new byte[] {0, 1});
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
 
         mgr.reportTake(entry1);
@@ -210,7 +209,7 @@ public class JournalFileMgrIT {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString()).getCanonicalFile();
         FileUtils.forceMkdir(theDir);
 
-        mgr = new JournalFileMgr();
+        mgr = new FpqJournalMgr();
         mgr.setJournalDirectory(theDir);
         mgr.setNumberOfFlushWorkers(4);
         mgr.setFlushPeriodInMs(1000);

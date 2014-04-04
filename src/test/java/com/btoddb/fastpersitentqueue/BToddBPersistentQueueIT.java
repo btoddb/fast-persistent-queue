@@ -20,13 +20,13 @@ import static org.junit.Assert.fail;
  */
 public class BToddBPersistentQueueIT {
     File theDir;
-    BToddBPersistentQueue q;
+    Fpq q;
 
     @Test
     public void testPushNoCommit() throws Exception {
         q.init();
 
-        BToddBContext ctxt = q.createContext();
+        FpqContext ctxt = q.createContext();
         q.push(ctxt, new byte[10]);
         q.push(ctxt, new byte[10]);
         q.push(ctxt, new byte[10]);
@@ -50,7 +50,7 @@ public class BToddBPersistentQueueIT {
         q.setMaxTransactionSize(2);
         q.init();
 
-        BToddBContext ctxt = q.createContext();
+        FpqContext ctxt = q.createContext();
         q.push(ctxt, new byte[10]);
         q.push(ctxt, new byte[10]);
 
@@ -58,7 +58,7 @@ public class BToddBPersistentQueueIT {
             q.push(ctxt, new byte[10]);
             fail("should have thrown exception because of exceeding transaction size");
         }
-        catch (BToddBException e) {
+        catch (FpqException e) {
             // yay!!
         }
 
@@ -68,7 +68,7 @@ public class BToddBPersistentQueueIT {
     public void testPop() throws Exception {
         q.init();
 
-        BToddBContext ctxt = q.createContext();
+        FpqContext ctxt = q.createContext();
         q.push(ctxt, new byte[10]);
         q.push(ctxt, new byte[10]);
         q.push(ctxt, new byte[10]);
@@ -76,7 +76,7 @@ public class BToddBPersistentQueueIT {
 
         assertThat(q.getQueue().size(), is(3L));
 
-        Collection<Entry> entries = q.pop(ctxt, q.getMaxTransactionSize());
+        Collection<FpqEntry> entries = q.pop(ctxt, q.getMaxTransactionSize());
 
         assertThat(entries, hasSize(3));
         assertThat(ctxt.isPushing(), is(false));
@@ -101,7 +101,7 @@ public class BToddBPersistentQueueIT {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        q = new BToddBPersistentQueue();
+        q = new Fpq();
         q.setMaxTransactionSize(100);
         q.setJournalDirectory(theDir);
     }

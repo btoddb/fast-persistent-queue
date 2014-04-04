@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  *
  */
-public class JournalFileMgr {
-    private static final Logger logger = LoggerFactory.getLogger(JournalFileMgr.class);
+public class FpqJournalMgr {
+    private static final Logger logger = LoggerFactory.getLogger(FpqJournalMgr.class);
 
     private File journalDirectory;
     private long flushPeriodInMs = 10000;
@@ -100,14 +100,14 @@ public class JournalFileMgr {
     }
 
 
-    public Entry append(byte[] event) throws IOException {
-        Collection<Entry> entries = append(Collections.singleton(event));
+    public FpqEntry append(byte[] event) throws IOException {
+        Collection<FpqEntry> entries = append(Collections.singleton(event));
         return entries.iterator().next();
     }
 
-    public Collection<Entry> append(Collection<byte[]> events) throws IOException {
+    public Collection<FpqEntry> append(Collection<byte[]> events) throws IOException {
         // TODO:BTB - optimize this by calling file.append() with collection of data
-        List<Entry> entryList = new ArrayList<Entry>(events.size());
+        List<FpqEntry> entryList = new ArrayList<FpqEntry>(events.size());
         for (byte[] data : events) {
             // TODO:BTB - could use multiple journal files to prevent lock contention - each thread in an "append" pool gets one?
             boolean appended = false;
@@ -118,7 +118,7 @@ public class JournalFileMgr {
                 }
                 synchronized (desc) {
                     if (!desc.isWritingFinished()) {
-                        Entry entry = desc.getFile().append(new Entry(data));
+                        FpqEntry entry = desc.getFile().append(new FpqEntry(data));
                         entry.setJournalId(desc.getId());
                         entryList.add(entry);
 
@@ -154,12 +154,12 @@ public class JournalFileMgr {
 
     }
 
-    public void reportTake(Entry entry) throws IOException {
+    public void reportTake(FpqEntry entry) throws IOException {
         reportTake(Collections.singleton(entry));
     }
 
-    public void reportTake(Collection<Entry> entries) throws IOException {
-        for (Entry entry : entries) {
+    public void reportTake(Collection<FpqEntry> entries) throws IOException {
+        for (FpqEntry entry : entries) {
             JournalDescriptor desc = journalIdMap.get(entry.getJournalId());
             if (null == desc) {
                 logger.error("illegal state - reported consumption of journal entry, but journal descriptor no longer exists!");
@@ -232,9 +232,9 @@ public class JournalFileMgr {
         }
     }
 
-    private void logAndThrow(String msg) throws QueueException {
+    private void logAndThrow(String msg) throws FpqException {
         logger.error(msg);
-        throw new QueueException(msg);
+        throw new FpqException(msg);
     }
 
     private String createNewJournalName(String id) {

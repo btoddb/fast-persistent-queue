@@ -1,6 +1,6 @@
 package com.btoddb.fastpersitentqueue.speedtest;
 
-import com.btoddb.fastpersitentqueue.BToddBPersistentQueue;
+import com.btoddb.fastpersitentqueue.Fpq;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -23,7 +23,7 @@ public class SpeedTest {
         File theDir = new File("speed"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        BToddBPersistentQueue queue = null;
+        Fpq queue = null;
 
         int maxTransactionSize = 2000;
         int pushBatchSize = 1;
@@ -41,7 +41,7 @@ public class SpeedTest {
 
 
         try {
-            queue = new BToddBPersistentQueue();
+            queue = new Fpq();
             queue.setMemoryQueueMaxSize(10000000);
             queue.setMaxTransactionSize(maxTransactionSize);
             queue.setJournalDirectory(theDir);

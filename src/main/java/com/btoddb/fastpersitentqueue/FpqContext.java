@@ -9,14 +9,14 @@ import java.util.LinkedList;
  * !! NOT thread-safe.  use multiple contexts if multiple threads need to push/pop from queue.
  *
  */
-public class BToddBContext {
+public class FpqContext {
     private final int maxTransactionSize;
 
     private Collection queue;
     private boolean pushing;
     private boolean popping;
 
-    BToddBContext(int maxTransactionSize) {
+    FpqContext(int maxTransactionSize) {
         this.maxTransactionSize = maxTransactionSize;
     }
 
@@ -31,7 +31,7 @@ public class BToddBContext {
             pushing = true;
         }
         else {
-            throw new BToddBException("This context has already been used for 'popping'.  can't switch to pushing - create a new context");
+            throw new FpqException("This context has already been used for 'popping'.  can't switch to pushing - create a new context");
         }
 
         if (null == queue) {
@@ -42,16 +42,16 @@ public class BToddBContext {
             queue.addAll(events);
         }
         else {
-            throw new BToddBException("pushing " + events.size() + " will exceed maximum transaction size of " + maxTransactionSize + " events");
+            throw new FpqException("pushing " + events.size() + " will exceed maximum transaction size of " + maxTransactionSize + " events");
         }
     }
 
-    public void createPoppedEntries(Collection<Entry> entries) {
+    public void createPoppedEntries(Collection<FpqEntry> entries) {
         if (!pushing) {
             popping = true;
         }
         else {
-            throw new BToddBException("This context has already been used for 'pushing'.  can't switch to popping - create a new context");
+            throw new FpqException("This context has already been used for 'pushing'.  can't switch to popping - create a new context");
         }
 
         this.queue = entries;

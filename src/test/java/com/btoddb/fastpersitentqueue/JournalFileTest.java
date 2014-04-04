@@ -43,12 +43,12 @@ public class JournalFileTest {
         String data = "my test data";
         JournalFile clf1 = new JournalFile(theFile);
 
-        clf1.append(new Entry(data.getBytes()));
+        clf1.append(new FpqEntry(data.getBytes()));
         assertThat(clf1.getWriterFilePosition(), is((long) JournalFile.VERSION_1_OVERHEAD+data.length()));
 
         assertThat(clf1.getReaderFilePosition(), is(0L));
 
-        Entry entry = clf1.readNextEntry();
+        FpqEntry entry = clf1.readNextEntry();
         assertThat(clf1.getReaderFilePosition(), is(clf1.getWriterFilePosition()));
         assertThat(entry.getVersion(), is(JournalFile.VERSION_1));
         assertThat(entry.getFilePosition(), is(0L));
@@ -71,7 +71,7 @@ public class JournalFileTest {
             clf1.readNextEntry();
             fail("should have thrown QueryException");
         }
-        catch (QueueException e) {
+        catch (FpqException e) {
             assertThat(e.getMessage(), startsWith("invalid version"));
         }
     }
@@ -85,7 +85,7 @@ public class JournalFileTest {
             clf1.readNextEntry();
             fail("should have thrown QueryException");
         }
-        catch (QueueException e) {
+        catch (FpqException e) {
             assertThat(e.getMessage(), containsString("entry length (1) could not be satisfied"));
         }
     }

@@ -1,8 +1,8 @@
 package com.btoddb.fastpersitentqueue.speedtest;
 
-import com.btoddb.fastpersitentqueue.BToddBContext;
-import com.btoddb.fastpersitentqueue.BToddBPersistentQueue;
-import com.btoddb.fastpersitentqueue.Entry;
+import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.FpqContext;
+import com.btoddb.fastpersitentqueue.FpqEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +15,7 @@ import java.util.Collection;
 public class SpeedPopWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPopWorker.class);
 
-    private final BToddBPersistentQueue queue;
+    private final Fpq queue;
     private final int batchSize;
 
     private boolean finished = false;
@@ -23,7 +23,7 @@ public class SpeedPopWorker implements Runnable {
     int numberOfEntries = 0;
     private boolean stopWhenQueueEmpty = false;
 
-    public SpeedPopWorker(BToddBPersistentQueue queue, int batchSize) {
+    public SpeedPopWorker(Fpq queue, int batchSize) {
         this.queue = queue;
         this.batchSize = batchSize;
     }
@@ -31,10 +31,10 @@ public class SpeedPopWorker implements Runnable {
     @Override
     public void run() {
         try {
-            BToddBContext context = queue.createContext();
+            FpqContext context = queue.createContext();
             while (!stopWhenQueueEmpty || !queue.isEmpty()) {
                 Thread.sleep(100);
-                Collection<Entry> entries;
+                Collection<FpqEntry> entries;
                 do {
                     entries = queue.pop(context, batchSize);
                     if (!entries.isEmpty()) {

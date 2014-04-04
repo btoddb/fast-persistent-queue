@@ -1,7 +1,7 @@
 package com.btoddb.fastpersitentqueue.speedtest;
 
-import com.btoddb.fastpersitentqueue.BToddBContext;
-import com.btoddb.fastpersitentqueue.BToddBPersistentQueue;
+import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.FpqContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 public class SpeedPushWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPushWorker.class);
 
-    private final BToddBPersistentQueue queue;
+    private final Fpq queue;
     private final long durationOfTest;
     private final int entrySize;
     private final int batchSize;
@@ -21,7 +21,7 @@ public class SpeedPushWorker implements Runnable {
     private boolean success = false;
     int numberOfEntries = 0;
 
-    public SpeedPushWorker(BToddBPersistentQueue queue, long durationOfTest, int entrySize, int batchSize) {
+    public SpeedPushWorker(Fpq queue, long durationOfTest, int entrySize, int batchSize) {
         this.queue = queue;
         this.entrySize = entrySize;
         this.durationOfTest = durationOfTest;
@@ -33,7 +33,7 @@ public class SpeedPushWorker implements Runnable {
         try {
             long start = System.currentTimeMillis();
             long end = start + durationOfTest * 1000;
-            BToddBContext context = queue.createContext();
+            FpqContext context = queue.createContext();
             while (System.currentTimeMillis() < end) {
                 queue.push(context, new byte[entrySize]);
                 numberOfEntries++;

@@ -7,20 +7,20 @@ import com.eaio.uuid.UUID;
 /**
  *
  */
-public class Entry {
+public class FpqEntry {
     private int version = JournalFile.VERSION_1;
     private byte[] data;
     private UUID journalId;
     private long filePosition;
 
-    public Entry() {
+    public FpqEntry() {
     }
 
-    public Entry(byte[] data) {
+    public FpqEntry(byte[] data) {
         this.data = data;
     }
 
-//    public Entry(int version, byte[] data, UUID journalId, long filePosition) {
+//    public FpqEntry(int version, byte[] data, UUID journalId, long filePosition) {
 //        this.version = version;
 //        this.data = data;
 //        this.journalId = journalId;

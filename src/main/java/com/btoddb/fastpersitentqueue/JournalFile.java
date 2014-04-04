@@ -41,15 +41,15 @@ public class JournalFile {
         }
     }
 
-    public Entry append(Entry entry) throws IOException {
-        Collection<Entry> entries = append(Collections.singleton(entry));
+    public FpqEntry append(FpqEntry entry) throws IOException {
+        Collection<FpqEntry> entries = append(Collections.singleton(entry));
         return entries.iterator().next();
     }
 
-    public Collection<Entry> append(Collection<Entry> entries) throws IOException {
+    public Collection<FpqEntry> append(Collection<FpqEntry> entries) throws IOException {
         writerLock.writeLock().lock();
         try {
-            for (Entry entry : entries) {
+            for (FpqEntry entry : entries) {
                 entry.setFilePosition(writerFile.getFilePointer());
                 switch (entry.getVersion()) {
                     case 1:
@@ -82,14 +82,14 @@ public class JournalFile {
         readerFile.close();
     }
 
-    private void writeVersion1Entry(Entry entry) throws IOException{
+    private void writeVersion1Entry(FpqEntry entry) throws IOException{
         writerFile.writeInt(entry.getVersion());
         writerFile.writeInt(entry.getData().length);
         writerFile.write(entry.getData());
     }
 
-    public Entry readNextEntry() throws IOException {
-        Entry entry = new Entry();
+    public FpqEntry readNextEntry() throws IOException {
+        FpqEntry entry = new FpqEntry();
 
         try {
             entry.setVersion(readerFile.readInt());
@@ -109,12 +109,12 @@ public class JournalFile {
         return entry;
     }
 
-    private void logAndThrow(String msg) throws QueueException {
+    private void logAndThrow(String msg) throws FpqException {
         logger.error(msg);
-        throw new QueueException(msg);
+        throw new FpqException(msg);
     }
 
-    private void readVersion1Entry(Entry entry) throws IOException {
+    private void readVersion1Entry(FpqEntry entry) throws IOException {
         int entryLength = readerFile.readInt();
         byte[] data = new byte[entryLength];
         int readLength = readerFile.read(data);
