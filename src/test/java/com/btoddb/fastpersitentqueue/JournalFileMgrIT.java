@@ -105,10 +105,13 @@ public class JournalFileMgrIT {
     @Test
     public void testAppend() throws IOException {
         mgr.init();
+
+        assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(0L));
+        long now = System.currentTimeMillis();
+
         byte[] data = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         mgr.append(data);
 
-        long now = System.currentTimeMillis();
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(greaterThanOrEqualTo(now)));
     }
 
