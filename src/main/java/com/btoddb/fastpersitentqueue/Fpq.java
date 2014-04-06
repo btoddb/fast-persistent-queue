@@ -13,9 +13,9 @@ public class Fpq {
     private File journalDirectory;
     private FpqJournalMgr journalFileMgr;
 
-    private FpqMemoryMgr queue;
+    private FpqMemoryMgr memoryMgr;
 
-    private long memoryQueueMaxSize = 100;
+    private long maxMemorySegmentSizeInBytes = 1000000;
     private int maxTransactionSize = 100;
     private int numberOfFlushWorkers = 4;
     private int flushPeriodInMs = 10000;
@@ -31,8 +31,9 @@ public class Fpq {
         journalFileMgr.setMaxJournalDurationInMs(maxJournalDurationInMs);
         journalFileMgr.init();
 
-        queue = new FpqMemoryMgr();
-        queue.setMaxSize(memoryQueueMaxSize);
+        memoryMgr = new FpqMemoryMgr();
+        memoryMgr.setMaxSegmentSizeInBytes(maxMemorySegmentSizeInBytes);
+        memoryMgr.init();
     }
 
     public FpqContext createContext() {
@@ -62,7 +63,7 @@ public class Fpq {
             throw new FpqException("size of " + size + " exceeds maximum transaction size of " + maxTransactionSize);
         }
 
-        Collection<FpqEntry> entries=queue.pop(size);
+        Collection<FpqEntry> entries= memoryMgr.pop(size);
         context.createPoppedEntries(entries);
         return context.getQueue();
     }
@@ -95,7 +96,7 @@ public class Fpq {
         // - roll persistent queue
 
         Collection<FpqEntry> entries = journalFileMgr.append(context.getQueue());
-        queue.push(entries);
+        memoryMgr.push(entries);
     }
 
     private void rollbackForPush(FpqContext context) {
@@ -108,7 +109,7 @@ public class Fpq {
     }
 
     public boolean isEmpty() {
-        return 0 == queue.size();
+        return 0 == memoryMgr.size();
     }
 
     public void shutdown() {
@@ -131,20 +132,20 @@ public class Fpq {
         this.journalDirectory = journalDirectory;
     }
 
-    public long getMemoryQueueMaxSize() {
-        return memoryQueueMaxSize;
+    public long getMaxMemorySegmentSizeInBytes() {
+        return maxMemorySegmentSizeInBytes;
     }
 
-    public void setMemoryQueueMaxSize(long memoryQueueMaxSize) {
-        this.memoryQueueMaxSize = memoryQueueMaxSize;
+    public void setMaxMemorySegmentSizeInBytes(long maxMemorySegmentSizeInBytes) {
+        this.maxMemorySegmentSizeInBytes = maxMemorySegmentSizeInBytes;
     }
 
     public FpqJournalMgr getJournalFileMgr() {
         return journalFileMgr;
     }
 
-    public FpqMemoryMgr getQueue() {
-        return queue;
+    public FpqMemoryMgr getMemoryMgr() {
+        return memoryMgr;
     }
 
     public void setNumberOfFlushWorkers(int numberOfFlushWorkers) {

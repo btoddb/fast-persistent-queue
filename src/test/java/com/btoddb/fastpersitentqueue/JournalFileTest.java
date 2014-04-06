@@ -42,16 +42,15 @@ public class JournalFileTest {
     public void testAppendThenRead() throws Exception {
         String data = "my test data";
         JournalFile clf1 = new JournalFile(theFile);
-
-        clf1.append(new FpqEntry(data.getBytes()));
-        assertThat(clf1.getWriterFilePosition(), is((long) JournalFile.VERSION_1_OVERHEAD+data.length()));
+        FpqEntry entry1 = new FpqEntry(data.getBytes());
+        clf1.append(entry1);
+        assertThat(clf1.getWriterFilePosition(), is(entry1.getDiskSize()));
 
         assertThat(clf1.getReaderFilePosition(), is(0L));
 
         FpqEntry entry = clf1.readNextEntry();
         assertThat(clf1.getReaderFilePosition(), is(clf1.getWriterFilePosition()));
-        assertThat(entry.getVersion(), is(JournalFile.VERSION_1));
-        assertThat(entry.getFilePosition(), is(0L));
+        assertThat(entry.getVersion(), is(FpqEntry.VERSION));
         assertThat(entry.getData(), is(data.getBytes()));
 
         assertThat(clf1.readNextEntry(), is(nullValue()));

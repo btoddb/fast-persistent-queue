@@ -42,7 +42,7 @@ public class SpeedTest {
 
         try {
             queue = new Fpq();
-            queue.setMemoryQueueMaxSize(10000000);
+            queue.setMaxMemorySegmentSizeInBytes(10000000);
             queue.setMaxTransactionSize(maxTransactionSize);
             queue.setJournalDirectory(theDir);
             queue.setNumberOfFlushWorkers(numberOfFlushWorkers);

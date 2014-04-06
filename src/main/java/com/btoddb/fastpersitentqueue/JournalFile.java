@@ -21,9 +21,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class JournalFile {
     private static final Logger logger = LoggerFactory.getLogger(JournalFile.class);
 
-    public static final int VERSION_1 = 1;
-    public static final int VERSION_1_OVERHEAD = 8;
-
     private File file;
     private RandomAccessFile writerFile;
     private RandomAccessFile readerFile;
@@ -50,7 +47,7 @@ public class JournalFile {
         writerLock.writeLock().lock();
         try {
             for (FpqEntry entry : entries) {
-                entry.setFilePosition(writerFile.getFilePointer());
+//                entry.setFilePosition(writerFile.getFilePointer());
                 switch (entry.getVersion()) {
                     case 1:
                         writeVersion1Entry(entry);
@@ -83,9 +80,7 @@ public class JournalFile {
     }
 
     private void writeVersion1Entry(FpqEntry entry) throws IOException{
-        writerFile.writeInt(entry.getVersion());
-        writerFile.writeInt(entry.getData().length);
-        writerFile.write(entry.getData());
+        entry.writeToDisk(writerFile);
     }
 
     public FpqEntry readNextEntry() throws IOException {

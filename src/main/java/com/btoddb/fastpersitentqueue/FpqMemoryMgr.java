@@ -1,32 +1,47 @@
 package com.btoddb.fastpersitentqueue;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
- * - has fixed size
+ * - has fixed size (in bytes) queue segments
  */
 public class FpqMemoryMgr {
-    private long maxSize;
-    private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
+    private long maxSegmentSizeInBytes;
+    private LinkedList<MemorySegment> segments = new LinkedList<MemorySegment>();
 
-    private AtomicLong size = new AtomicLong();
+    private AtomicLong numberOfEntries = new AtomicLong();
+
+    public void init() {
+        // TODO:BTB - reload any segments flushed to disk
+        createNewSegment();
+    }
+
+    public void push(FpqEntry fpqEntry) {
+        push(Collections.singleton(fpqEntry));
+    }
 
     public void push(Collection<FpqEntry> events) {
-        // TODO:BTB - manage rolling and flushing queue to disk if filled because popping is too slow
-        // - if enough free size to handle batch, then push events onto queue
-        //   - if not, then throw exception
+        // - if enough free size to handle batch, then push events onto current segments
+        // - if not, then create new segments and push there
+        //   - if too many queues already, then flush newewst one we are not pushing to and load it later
+        //
 
-        long newSize = size.addAndGet(events.size());
-        if (newSize > maxSize) {
-            size.addAndGet(-events.size());
-            throw new FpqException("pushing " + events.size() + " will exceed maximum queue size of " + maxSize + " events");
+        while (!segments.peekLast().push(events)) {
+            createNewSegment();
         }
 
-        queue.addAll(events);
+        numberOfEntries.addAndGet(events.size());
+    }
+
+    private void createNewSegment() {
+        MemorySegment seg = new MemorySegment();
+        seg.setMaxSizeInBytes(maxSegmentSizeInBytes);
+        segments.add(seg);
     }
 
     public Collection<FpqEntry> pop(int batchSize) {
@@ -35,24 +50,56 @@ public class FpqMemoryMgr {
         // - pop at most batchSize events from queue - do not wait to reach batchSize
         //   - if queue empty, do not wait, return empty list immediately
 
-        ArrayList<FpqEntry> entryList = new ArrayList<FpqEntry>(batchSize);
-        FpqEntry entry;
-        while (entryList.size() < batchSize && null != (entry=queue.poll())) {
-            entryList.add(entry);
+        // find the memory segment we need and reserve our entries
+        MemorySegment chosenSegment = null;
+        synchronized (segments) {
+            Iterator<MemorySegment> iter = segments.iterator();
+            while (iter.hasNext()) {
+                MemorySegment seg = iter.next();
+                long available = seg.getNumberOfAvailableEntries();
+                if (0 < available) {
+                    chosenSegment = seg;
+                    seg.decrementAvailable(batchSize <= available ? batchSize : available);
+                    break;
+                }
+            }
         }
-        size.addAndGet(-entryList.size());
-        return entryList;
+
+        // if didn't find anything, return null
+        if (null == chosenSegment) {
+//            loadFromDiskIfAvailable();
+            return null;
+        }
+
+        Collection<FpqEntry> entries = chosenSegment.pop(batchSize);
+        numberOfEntries.addAndGet(-entries.size());
+
+        if (chosenSegment.isAvailableForCleanup() && 0 == chosenSegment.getNumberOfAvailableEntries()) {
+            synchronized (segments) {
+                segments.remove(chosenSegment);
+            }
+        }
+
+        return entries;
     }
 
     public long size() {
-        return size.get();
+        return numberOfEntries.get();
     }
 
-    public long getMaxSize() {
-        return maxSize;
+    Collection<MemorySegment> getSegments() {
+        return segments;
     }
 
-    public void setMaxSize(long maxSize) {
-        this.maxSize = maxSize;
+    public long getMaxSegmentSizeInBytes() {
+        return maxSegmentSizeInBytes;
+    }
+
+    public void setMaxSegmentSizeInBytes(long maxSegmentSizeInBytes) {
+        this.maxSegmentSizeInBytes = maxSegmentSizeInBytes;
+    }
+
+    public long getNumberOfEntries() {
+        return numberOfEntries.get();
     }
 }
