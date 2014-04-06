@@ -1,5 +1,7 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.eaio.uuid.UUID;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -10,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  */
 public class MemorySegment {
+    private UUID id;
     private long maxSizeInBytes;
 
     private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
@@ -57,6 +60,14 @@ public class MemorySegment {
 
     public void decrementAvailable(long count) {
         numberOfAvailableEntries.addAndGet(-count);
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
     }
 
     public long getMaxSizeInBytes() {

@@ -11,9 +11,9 @@ import java.util.Collections;
  */
 public class Fpq {
     private File journalDirectory;
-    private FpqJournalMgr journalFileMgr;
+    private JournalMgr journalFileMgr;
 
-    private FpqMemoryMgr memoryMgr;
+    private InMemorySegmentMgr memoryMgr;
 
     private long maxMemorySegmentSizeInBytes = 1000000;
     private int maxTransactionSize = 100;
@@ -23,7 +23,7 @@ public class Fpq {
     private int maxJournalDurationInMs = 5 * 60 * 1000;
 
     public void init() throws IOException {
-        journalFileMgr = new FpqJournalMgr();
+        journalFileMgr = new JournalMgr();
         journalFileMgr.setJournalDirectory(journalDirectory);
         journalFileMgr.setNumberOfFlushWorkers(numberOfFlushWorkers);
         journalFileMgr.setFlushPeriodInMs(flushPeriodInMs);
@@ -31,7 +31,7 @@ public class Fpq {
         journalFileMgr.setMaxJournalDurationInMs(maxJournalDurationInMs);
         journalFileMgr.init();
 
-        memoryMgr = new FpqMemoryMgr();
+        memoryMgr = new InMemorySegmentMgr();
         memoryMgr.setMaxSegmentSizeInBytes(maxMemorySegmentSizeInBytes);
         memoryMgr.init();
     }
@@ -140,11 +140,11 @@ public class Fpq {
         this.maxMemorySegmentSizeInBytes = maxMemorySegmentSizeInBytes;
     }
 
-    public FpqJournalMgr getJournalFileMgr() {
+    public JournalMgr getJournalFileMgr() {
         return journalFileMgr;
     }
 
-    public FpqMemoryMgr getMemoryMgr() {
+    public InMemorySegmentMgr getMemoryMgr() {
         return memoryMgr;
     }
 

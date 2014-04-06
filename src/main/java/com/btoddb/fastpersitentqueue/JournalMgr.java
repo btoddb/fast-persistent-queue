@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  *
  */
-public class FpqJournalMgr {
-    private static final Logger logger = LoggerFactory.getLogger(FpqJournalMgr.class);
+public class JournalMgr {
+    private static final Logger logger = LoggerFactory.getLogger(JournalMgr.class);
 
     private File journalDirectory;
     private long flushPeriodInMs = 10000;

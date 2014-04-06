@@ -21,7 +21,7 @@ import static org.junit.Assert.fail;
  */
 public class JournalFileMgrIT {
     File theDir;
-    FpqJournalMgr mgr;
+    JournalMgr mgr;
 
     @Test
     public void testStart() throws Exception {
@@ -209,7 +209,7 @@ public class JournalFileMgrIT {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString()).getCanonicalFile();
         FileUtils.forceMkdir(theDir);
 
-        mgr = new FpqJournalMgr();
+        mgr = new JournalMgr();
         mgr.setJournalDirectory(theDir);
         mgr.setNumberOfFlushWorkers(4);
         mgr.setFlushPeriodInMs(1000);
