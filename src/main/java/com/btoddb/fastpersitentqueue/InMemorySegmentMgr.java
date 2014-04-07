@@ -121,7 +121,7 @@ public class InMemorySegmentMgr {
         Collection<FpqEntry> entries = chosenSegment.pop(batchSize);
         numberOfEntries.addAndGet(-entries.size());
 
-        if (chosenSegment.isAvailableForCleanup() && 0 == chosenSegment.getNumberOfAvailableEntries()) {
+        if (chosenSegment.isFull() && 0 == chosenSegment.getNumberOfAvailableEntries()) {
             segmentsLock.writeLock().lock();
             try {
                 segments.remove(chosenSegment);

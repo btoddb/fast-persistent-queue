@@ -42,17 +42,19 @@ public class FpqEntry {
         this.journalId = journalId;
     }
 
-    public long getDiskSize() {
-        return 4 + // data length integer
-                data.length;
-    }
     public long getMemorySize() {
         return 4 + // data length integer
                 24 + // UUID
                 data.length;
     }
 
-    public void writeToDisk(RandomAccessFile raFile) throws IOException {
+    public void writeToJournal(RandomAccessFile raFile) throws IOException {
+        raFile.writeInt(getData().length);
+        raFile.write(getData());
+    }
+
+    public void writeToSpill(RandomAccessFile raFile) throws IOException {
+        Utils.writeUuidToFile(raFile, journalId);
         raFile.writeInt(getData().length);
         raFile.write(getData());
     }

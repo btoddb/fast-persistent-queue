@@ -84,7 +84,7 @@ public class JournalFile {
             for (FpqEntry entry : entries) {
                 switch (getVersion()) {
                     case 1:
-                        entry.writeToDisk(writerFile);
+                        entry.writeToJournal(writerFile);
                         break;
                     default:
                         Utils.logAndThrow(logger, String.format("invalid version (%d) found, cannot continue", getVersion()));

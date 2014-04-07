@@ -76,11 +76,11 @@ public class JournalFileTest {
         jf1.initForWriting(new UUID());
         FpqEntry entry1 = new FpqEntry(data.getBytes());
         jf1.append(entry1);
-        assertThat(jf1.getWriterFilePosition(), is(JournalFile.HEADER_SIZE+entry1.getDiskSize()));
+        assertThat(jf1.getWriterFilePosition(), is(JournalFile.HEADER_SIZE+4L+entry1.getData().length));
         jf1.close();
 
         jf1.initForReading();
-        assertThat(jf1.getReaderFilePosition(), is((long)JournalFile.HEADER_SIZE));
+        assertThat(jf1.getReaderFilePosition(), is((long) JournalFile.HEADER_SIZE));
 
         FpqEntry entry = jf1.readNextEntry();
         assertThat(jf1.getReaderFilePosition(), is(jf1.getRandomAccessReaderFile().length()));

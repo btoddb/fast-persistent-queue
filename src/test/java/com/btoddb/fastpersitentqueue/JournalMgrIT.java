@@ -19,7 +19,7 @@ import static org.junit.Assert.fail;
 /**
  *
  */
-public class JournalFileMgrIT {
+public class JournalMgrIT {
     File theDir;
     JournalMgr mgr;
 

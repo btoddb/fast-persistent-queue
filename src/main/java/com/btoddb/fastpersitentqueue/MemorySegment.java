@@ -31,7 +31,7 @@ public class MemorySegment {
     private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
     private AtomicLong sizeInBytes = new AtomicLong();
     private AtomicLong numberOfAvailableEntries = new AtomicLong();
-    private boolean availableForCleanup;
+    private boolean full;
 
     public boolean push(Collection<FpqEntry> events) {
         // - if enough free sizeInBytes to handle batch, then push events onto current queue
@@ -47,7 +47,7 @@ public class MemorySegment {
 
         synchronized (queue) {
             if (newSize > maxSizeInBytes) {
-                availableForCleanup = true;
+                full = true;
                 sizeInBytes.addAndGet(-additionalSize);
                 numberOfAvailableEntries.addAndGet(-events.size());
                 return false;
@@ -86,11 +86,11 @@ public class MemorySegment {
         Utils.writeUuidToFile(raFile, id);
         raFile.writeLong(getNumberOfAvailableEntries());
         for (FpqEntry entry : getQueue()) {
-            entry.writeToDisk(raFile);
+            entry.writeToJournal(raFile);
         }
     }
 
-    public void readFromDisk(RandomAccessFile raFile) throws IOException {
+    public MemorySegment readFromDisk(RandomAccessFile raFile) throws IOException {
         version = raFile.readInt();
         id = Utils.readUuidFromFile(raFile);
         numberOfAvailableEntries.set(raFile.readLong());
@@ -101,6 +101,7 @@ public class MemorySegment {
             entry.readFromDisk(raFile);
             entry.setJournalId(id);
         }
+        return segment;
     }
 
     public Status getStatus() {
@@ -135,12 +136,14 @@ public class MemorySegment {
         return numberOfAvailableEntries.get();
     }
 
-    public boolean isAvailableForCleanup() {
-        return availableForCleanup;
+    public void setNumberOfAvailableEntries(long numberOfAvailableEntries) { this.numberOfAvailableEntries.set(numberOfAvailableEntries);}
+
+    public boolean isFull() {
+        return full;
     }
 
-    public void setAvailableForCleanup(boolean availableForCleanup) {
-        this.availableForCleanup = availableForCleanup;
+    public void setFull(boolean full) {
+        this.full = full;
     }
 
     public ConcurrentLinkedQueue<FpqEntry> getQueue() {

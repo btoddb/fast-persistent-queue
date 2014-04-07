@@ -21,7 +21,7 @@ public class MemorySegmentSerializer {
     public void saveToDisk(MemorySegment segment) throws IOException {
         FileUtils.forceMkdir(directory);
         File theFile = new File(directory, segment.getId().toString());
-        RandomAccessFile raFile = new RandomAccessFile(theFile, "w");
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
         try {
             segment.writeToDisk(raFile);
         }
@@ -30,9 +30,11 @@ public class MemorySegmentSerializer {
         }
     }
 
-    public MemorySegment loadFromDisk(UUID segmentId) throws IOException {
-        File theFile = new File(directory, segmentId.toString());
+    public MemorySegment loadFromDisk(String fn) throws IOException {
+        File theFile = new File(directory, fn);
         MemorySegment segment = new MemorySegment();
+        segment.setFull(true);
+        segment.setStatus(MemorySegment.Status.READY);
         RandomAccessFile raFile = new RandomAccessFile(theFile, "r");
         try {
             segment.readFromDisk(raFile);
