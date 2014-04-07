@@ -2,7 +2,10 @@ package com.btoddb.fastpersitentqueue;
 
 
 import com.eaio.uuid.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
@@ -11,26 +14,16 @@ import java.io.RandomAccessFile;
  *
  */
 public class FpqEntry {
-    public static final int VERSION = 1;
+    private static final Logger logger = LoggerFactory.getLogger(FpqEntry.class);
 
-    private int version = VERSION;
     private byte[] data;
     private UUID journalId;
-//    private long filePosition;
 
     public FpqEntry() {
     }
 
     public FpqEntry(byte[] data) {
         this.data = data;
-    }
-
-    public int getVersion() {
-        return version;
-    }
-
-    public void setVersion(int version) {
-        this.version = version;
     }
 
     public byte[] getData() {
@@ -41,14 +34,6 @@ public class FpqEntry {
         this.data = data;
     }
 
-//    public long getFilePosition() {
-//        return filePosition;
-//    }
-//
-//    public void setFilePosition(long filePosition) {
-//        this.filePosition = filePosition;
-//    }
-
     public UUID getJournalId() {
         return journalId;
     }
@@ -58,21 +43,34 @@ public class FpqEntry {
     }
 
     public long getDiskSize() {
-        return 4 + // version
-                4 + // data length
+        return 4 + // data length integer
                 data.length;
     }
     public long getMemorySize() {
-        return 4 + // version
-                4 + // data length
+        return 4 + // data length integer
                 24 + // UUID
-//                8 + // filePosition
                 data.length;
     }
 
-    public void writeToDisk(RandomAccessFile writerFile) throws IOException {
-        writerFile.writeInt(getVersion());
-        writerFile.writeInt(getData().length);
-        writerFile.write(getData());
+    public void writeToDisk(RandomAccessFile raFile) throws IOException {
+        raFile.writeInt(getData().length);
+        raFile.write(getData());
+    }
+
+    public void readFromDisk(RandomAccessFile raFile) throws IOException {
+        int entryLength;
+        try {
+            entryLength = raFile.readInt();
+        }
+        catch (EOFException e) {
+            // ignore
+            return;
+        }
+
+        data = new byte[entryLength];
+        int readLength = raFile.read(data);
+        if (readLength != data.length) {
+            Utils.logAndThrow(logger, String.format("FPQ entry length (%s) could not be satisfied - file may be corrupted or code is out of sync with file version", entryLength));
+        }
     }
 }

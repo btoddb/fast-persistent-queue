@@ -91,6 +91,8 @@ public class JournalMgr {
 
     private JournalDescriptor addNewJournal(UUID id, String fn) throws IOException {
         JournalFile jf = new JournalFile(new File(journalDirectory, fn));
+        jf.initForWriting(id);
+
         // this could possibly create a race, if the flushPeriodInMs is very very low ;)
         ScheduledFuture future = flushExec.scheduleWithFixedDelay(new FlushRunner(jf), flushPeriodInMs, flushPeriodInMs, TimeUnit.MILLISECONDS);
         JournalDescriptor jd = new JournalDescriptor(id, jf, future);
@@ -114,7 +116,7 @@ public class JournalMgr {
             while (!appended) {
                 JournalDescriptor desc = getCurrentJournalDescriptor();
                 if (null == desc) {
-                    logAndThrow(String.format("no current journal descriptor.  did you call %s.init()?", this.getClass().getSimpleName()));
+                    Utils.logAndThrow(logger, String.format("no current journal descriptor.  did you call %s.init()?", this.getClass().getSimpleName()));
                 }
                 synchronized (desc) {
                     if (!desc.isWritingFinished()) {
@@ -230,11 +232,6 @@ public class JournalMgr {
                 }
             }
         }
-    }
-
-    private void logAndThrow(String msg) throws FpqException {
-        logger.error(msg);
-        throw new FpqException(msg);
     }
 
     private String createNewJournalName(String id) {

@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.eaio.uuid.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,22 +21,56 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class JournalFile {
     private static final Logger logger = LoggerFactory.getLogger(JournalFile.class);
+    public static final int VERSION = 1;
+    public static final int HEADER_SIZE = 20;
 
+    private int version = VERSION;
     private File file;
+    private UUID id;
     private RandomAccessFile writerFile;
     private RandomAccessFile readerFile;
     private ReentrantReadWriteLock writerLock = new ReentrantReadWriteLock();
 
     public JournalFile(File file) throws IOException {
         this.file = file;
+    }
+
+    public void initForReading() throws IOException {
+        if (!file.exists()) {
+            throw new FpqException("File does not exist with ID, " + id.toString());
+        }
+
         try {
-            writerFile = new RandomAccessFile(file, "rw");
             readerFile = new RandomAccessFile(file, "r");
         }
         catch (FileNotFoundException e) {
             logger.error("exception while instantiating RandomAccessFile", e);
             throw e;
         }
+
+        int tmp = readerFile.readInt();
+        if (tmp != version) {
+            throw new FpqException(String.format("version, %d, read from file, %s, does not match any expected versions", tmp, file.getCanonicalPath()));
+        }
+        id = Utils.readUuidFromFile(readerFile);
+    }
+
+    public void initForWriting(UUID id) throws IOException {
+        if (file.exists()) {
+            throw new FpqException("File already exists with ID, " + this.id.toString());
+        }
+
+        this.id = id;
+        try {
+            writerFile = new RandomAccessFile(file, "rw");
+        }
+        catch (FileNotFoundException e) {
+            logger.error("exception while instantiating RandomAccessFile", e);
+            throw e;
+        }
+
+        writerFile.writeInt(version);
+        Utils.writeUuidToFile(writerFile, id);
     }
 
     public FpqEntry append(FpqEntry entry) throws IOException {
@@ -47,13 +82,12 @@ public class JournalFile {
         writerLock.writeLock().lock();
         try {
             for (FpqEntry entry : entries) {
-//                entry.setFilePosition(writerFile.getFilePointer());
-                switch (entry.getVersion()) {
+                switch (getVersion()) {
                     case 1:
-                        writeVersion1Entry(entry);
+                        entry.writeToDisk(writerFile);
                         break;
                     default:
-                        logAndThrow(String.format("invalid version (%d) found, cannot continue", entry.getVersion()));
+                        Utils.logAndThrow(logger, String.format("invalid version (%d) found, cannot continue", getVersion()));
                 }
             }
 
@@ -67,56 +101,36 @@ public class JournalFile {
     }
     
     public void forceFlush() throws IOException {
-        writerFile.getChannel().force(true);
+        if (null != writerFile) {
+            writerFile.getChannel().force(true);
+        }
     }
 
     public void close() throws IOException {
         // do flush otherwise channel.isOpen will report open, even after close
         forceFlush();
-        readerFile.getChannel().force(true);
+        if (null != readerFile) {
+            readerFile.getChannel().force(true);
+        }
 
-        writerFile.close();
-        readerFile.close();
-    }
-
-    private void writeVersion1Entry(FpqEntry entry) throws IOException{
-        entry.writeToDisk(writerFile);
+        if (null != writerFile) {
+            writerFile.close();
+        }
+        if (null != readerFile) {
+            readerFile.close();
+        }
     }
 
     public FpqEntry readNextEntry() throws IOException {
         FpqEntry entry = new FpqEntry();
-
-        try {
-            entry.setVersion(readerFile.readInt());
+        entry.setJournalId(id);
+        entry.readFromDisk(readerFile);
+        if (null != entry.getData()) {
+            return entry;
         }
-        catch (EOFException e) {
-            // no data - done
+        else {
             return null;
         }
-
-        switch (entry.getVersion()) {
-            case 1:
-                readVersion1Entry(entry);
-                break;
-            default:
-                logAndThrow(String.format("invalid version (%d) found, cannot continue - file is corrupt or code is out of sync with file version", entry.getVersion()));
-        }
-        return entry;
-    }
-
-    private void logAndThrow(String msg) throws FpqException {
-        logger.error(msg);
-        throw new FpqException(msg);
-    }
-
-    private void readVersion1Entry(FpqEntry entry) throws IOException {
-        int entryLength = readerFile.readInt();
-        byte[] data = new byte[entryLength];
-        int readLength = readerFile.read(data);
-        if (readLength != data.length) {
-            logAndThrow(String.format("entry version %s : entry length (%s) could not be satisfied - file may be corrupted or code is out of sync with file version", entry.getVersion(), entryLength));
-        }
-        entry.setData(data);
     }
 
     public long getReaderFilePosition() throws IOException {
@@ -139,5 +153,17 @@ public class JournalFile {
     // junit testing only
     RandomAccessFile getRandomAccessReaderFile() {
         return readerFile;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
     }
 }

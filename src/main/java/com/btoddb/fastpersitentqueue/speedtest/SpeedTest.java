@@ -31,9 +31,10 @@ public class SpeedTest {
 
         int numberOfPushers = 4;
         int numberOfPoppers = 4;
-        int durationOfTest = 120; // seconds
+        int durationOfTest = 10; // seconds
         int entrySize = 1000;
 
+        long maxMemorySegmentSizeInBytes = 10000000;
         int maxJournalFileSize = 10000000;
         int journalMaxDurationInMs = 20000;
         int flushPeriodInMs = 1000;
@@ -42,7 +43,7 @@ public class SpeedTest {
 
         try {
             queue = new Fpq();
-            queue.setMaxMemorySegmentSizeInBytes(10000000);
+            queue.setMaxMemorySegmentSizeInBytes(maxMemorySegmentSizeInBytes);
             queue.setMaxTransactionSize(maxTransactionSize);
             queue.setJournalDirectory(theDir);
             queue.setNumberOfFlushWorkers(numberOfFlushWorkers);

@@ -20,11 +20,11 @@ public class InMemorySegmentMgr {
     private AtomicInteger numberOfActiveSegments = new AtomicInteger();
 
     private ReentrantReadWriteLock segmentsLock = new ReentrantReadWriteLock();
-    private LinkedList<MemorySegmentDescriptor> segments = new LinkedList<MemorySegmentDescriptor>();
+    private LinkedList<MemorySegment> segments = new LinkedList<MemorySegment>();
     private AtomicLong numberOfEntries = new AtomicLong();
 
     public void init() {
-        // TODO:BTB - reload any segment descriptors flushed to disk
+        // TODO:BTB - reload any segments flushed to disk
 
         createNewSegment();
     }
@@ -39,13 +39,13 @@ public class InMemorySegmentMgr {
         //   - if too many queues already, then flush newewst one we are not pushing to and load it later
         //
 
-        while (!segments.peekLast().getSegment().push(events)) {
+        while (!segments.peekLast().push(events)) {
             segmentsLock.writeLock().lock();
             try {
                 createNewSegment();
                 if (numberOfActiveSegments.get() > maxNumberOfSegments) {
                     // don't serialize the newest because we are "pushing" to it
-                        Iterator<MemorySegmentDescriptor> iter = segments.descendingIterator();
+                        Iterator<MemorySegment> iter = segments.descendingIterator();
                         iter.next(); // get past the newest
                         serializeToDisk(iter.next());
                 }
@@ -60,26 +60,26 @@ public class InMemorySegmentMgr {
 
     private void createNewSegment() {
         UUID newId = new UUID();
+
         MemorySegment seg = new MemorySegment();
         seg.setId(newId);
         seg.setMaxSizeInBytes(maxSegmentSizeInBytes);
-        MemorySegmentDescriptor memDesc = new MemorySegmentDescriptor();
-        memDesc.setId(newId);
-        memDesc.setStatus(MemorySegmentDescriptor.Status.READY);
-        memDesc.setSegment(seg);
+        seg.setStatus(MemorySegment.Status.READY);
+
+        segments.add(seg);
         numberOfActiveSegments.incrementAndGet();
-        segments.add(memDesc);
     }
 
     public FpqEntry pop() {
         Collection<FpqEntry> entries = pop(1);
-        if (!entries.isEmpty()) {
+        if (null != entries) {
             return entries.iterator().next();
         }
         else {
             return null;
         }
     }
+
     public Collection<FpqEntry> pop(int batchSize) {
         // TODO:BTB - manage reading new queue segment from disk if exists
 
@@ -88,23 +88,23 @@ public class InMemorySegmentMgr {
 
         // find the memory segment we need and reserve our entries
         // will not use multiple segments to achieve 'batchSize'
-        MemorySegmentDescriptor chosenSegment = null;
+        MemorySegment chosenSegment = null;
         segmentsLock.readLock().lock();
         try {
-            Iterator<MemorySegmentDescriptor> iter = segments.iterator();
+            Iterator<MemorySegment> iter = segments.iterator();
             while (iter.hasNext()) {
-                MemorySegmentDescriptor seg = iter.next();
-                if (MemorySegmentDescriptor.Status.READY != seg.getStatus()) {
+                MemorySegment seg = iter.next();
+                if (MemorySegment.Status.READY != seg.getStatus()) {
                     if (seg.needLoadingTest()) {
                         kickOffLoad(seg);
                     }
                     continue;
                 }
 
-                long available = seg.getSegment().getNumberOfAvailableEntries();
+                long available = seg.getNumberOfAvailableEntries();
                 if (0 < available) {
                     chosenSegment = seg;
-                    seg.getSegment().decrementAvailable(batchSize <= available ? batchSize : available);
+                    seg.decrementAvailable(batchSize <= available ? batchSize : available);
                     break;
                 }
             }
@@ -118,10 +118,10 @@ public class InMemorySegmentMgr {
             return null;
         }
 
-        Collection<FpqEntry> entries = chosenSegment.getSegment().pop(batchSize);
+        Collection<FpqEntry> entries = chosenSegment.pop(batchSize);
         numberOfEntries.addAndGet(-entries.size());
 
-        if (chosenSegment.getSegment().isAvailableForCleanup() && 0 == chosenSegment.getSegment().getNumberOfAvailableEntries()) {
+        if (chosenSegment.isAvailableForCleanup() && 0 == chosenSegment.getNumberOfAvailableEntries()) {
             segmentsLock.writeLock().lock();
             try {
                 segments.remove(chosenSegment);
@@ -134,28 +134,28 @@ public class InMemorySegmentMgr {
         return entries;
     }
 
-    private void serializeToDisk(MemorySegmentDescriptor memDesc) {
+    private void serializeToDisk(MemorySegment segment) {
         // synchronization should already be done
         numberOfActiveSegments.decrementAndGet();
-        memDesc.setStatus(MemorySegmentDescriptor.Status.SAVING);
-        memDesc.setStatus(MemorySegmentDescriptor.Status.OFFLINE);
-        memDesc.resetNeedLoadingTest();
+        segment.setStatus(MemorySegment.Status.SAVING);
+        segment.setStatus(MemorySegment.Status.OFFLINE);
+        segment.resetNeedLoadingTest();
     }
 
-    private void kickOffLoad(MemorySegmentDescriptor memDesc) {
+    private void kickOffLoad(MemorySegment segment) {
         // synchronization should already be done
         // TODO:BTB - put this in thread
-        memDesc.setStatus(MemorySegmentDescriptor.Status.LOADING);
-        memDesc.setStatus(MemorySegmentDescriptor.Status.READY);
+        segment.setStatus(MemorySegment.Status.LOADING);
+        segment.setStatus(MemorySegment.Status.READY);
         numberOfActiveSegments.incrementAndGet();
-        memDesc.resetNeedLoadingTest();
+        segment.resetNeedLoadingTest();
     }
 
     public long size() {
         return numberOfEntries.get();
     }
 
-    Collection<MemorySegmentDescriptor> getSegments() {
+    Collection<MemorySegment> getSegments() {
         return segments;
     }
 

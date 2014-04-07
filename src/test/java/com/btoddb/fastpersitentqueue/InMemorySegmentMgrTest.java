@@ -25,7 +25,7 @@ public class InMemorySegmentMgrTest {
 
         assertThat(mgr.getSegments(), hasSize(5));
         assertThat(mgr.getNumberOfEntries(), is(numEntries));
-        assertThat(mgr.getSegments().iterator().next().getSegment().isAvailableForCleanup(), is(true));
+        assertThat(mgr.getSegments().iterator().next().isAvailableForCleanup(), is(true));
     }
 
     @Test

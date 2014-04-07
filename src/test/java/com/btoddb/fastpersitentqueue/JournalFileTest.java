@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.eaio.uuid.UUID;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -7,7 +8,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.UUID;
+import java.io.RandomAccessFile;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -22,70 +23,117 @@ public class JournalFileTest {
     File theFile;
 
     @Test
-    public void testContstruction() throws IOException {
-        JournalFile clf = new JournalFile(theFile);
-        assertThat(clf.getWriterFilePosition(), is(0L));
-        assertThat(clf.getReaderFilePosition(), is(0L));
-        assertThat(clf.getRandomAccessWriterFile().getChannel().isOpen(), is(true));
-        assertThat(clf.getRandomAccessReaderFile().getChannel().isOpen(), is(true));
+    public void testInitForWritingThenClose() throws IOException {
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        assertThat(jf1.getRandomAccessReaderFile(), is(nullValue()));
+        assertThat(jf1.getRandomAccessWriterFile().getChannel().isOpen(), is(true));
+        assertThat(jf1.getWriterFilePosition(), is((long)JournalFile.HEADER_SIZE));
+        jf1.close();
+
+        assertThat(jf1.getRandomAccessWriterFile().getChannel().isOpen(), is(false));
+
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
+        assertThat(raFile.readInt(), is(JournalFile.VERSION));
+        assertThat(Utils.readUuidFromFile(raFile), is(jf1.getId()));
+        raFile.close();
     }
 
     @Test
-    public void testClose() throws IOException {
-        JournalFile clf = new JournalFile(theFile);
-        clf.close();
-        assertThat(clf.getRandomAccessWriterFile().getChannel().isOpen(), is(false));
-        assertThat(clf.getRandomAccessReaderFile().getChannel().isOpen(), is(false));
+    public void testInitForReadingThenClose() throws IOException {
+        UUID id = new UUID();
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
+        raFile.writeInt(1);
+        Utils.writeUuidToFile(raFile, id);
+        raFile.close();
+
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForReading();
+        assertThat(jf1.getRandomAccessReaderFile().getChannel().isOpen(), is(true));
+        assertThat(jf1.getRandomAccessWriterFile(), is(nullValue()));
+        assertThat(jf1.getReaderFilePosition(), is((long)JournalFile.HEADER_SIZE));
+        jf1.close();
+
+        assertThat(jf1.getRandomAccessReaderFile().getChannel().isOpen(), is(false));
+    }
+
+    @Test
+    public void testCloseAfterOpenForRead() throws IOException {
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        jf1.close();
+
+        jf1 = new JournalFile(theFile);
+        jf1.initForReading();
+        jf1.close();
+        assertThat(jf1.getRandomAccessReaderFile().getChannel().isOpen(), is(false));
     }
 
     @Test
     public void testAppendThenRead() throws Exception {
         String data = "my test data";
-        JournalFile clf1 = new JournalFile(theFile);
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
         FpqEntry entry1 = new FpqEntry(data.getBytes());
-        clf1.append(entry1);
-        assertThat(clf1.getWriterFilePosition(), is(entry1.getDiskSize()));
+        jf1.append(entry1);
+        assertThat(jf1.getWriterFilePosition(), is(JournalFile.HEADER_SIZE+entry1.getDiskSize()));
+        jf1.close();
 
-        assertThat(clf1.getReaderFilePosition(), is(0L));
+        jf1.initForReading();
+        assertThat(jf1.getReaderFilePosition(), is((long)JournalFile.HEADER_SIZE));
 
-        FpqEntry entry = clf1.readNextEntry();
-        assertThat(clf1.getReaderFilePosition(), is(clf1.getWriterFilePosition()));
-        assertThat(entry.getVersion(), is(FpqEntry.VERSION));
+        FpqEntry entry = jf1.readNextEntry();
+        assertThat(jf1.getReaderFilePosition(), is(jf1.getRandomAccessReaderFile().length()));
         assertThat(entry.getData(), is(data.getBytes()));
 
-        assertThat(clf1.readNextEntry(), is(nullValue()));
+        assertThat(jf1.readNextEntry(), is(nullValue()));
     }
 
     @Test
     public void testReadNoData() throws Exception {
-        JournalFile clf1 = new JournalFile(theFile);
-        assertThat(clf1.readNextEntry(), is(nullValue()));
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        jf1.close();
+
+        jf1.initForReading();
+        assertThat(jf1.readNextEntry(), is(nullValue()));
     }
 
     @Test
     public void testReadBadVersion() throws Exception {
+        UUID id = new UUID();
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
+        raFile.writeInt(123);
+        Utils.writeUuidToFile(raFile, id);
+        raFile.close();
+
         try {
-            JournalFile clf1 = new JournalFile(theFile);
-            clf1.getRandomAccessWriterFile().writeInt(0);
-            clf1.readNextEntry();
-            fail("should have thrown QueryException");
+            JournalFile jf2 = new JournalFile(theFile);
+            jf2.initForReading();
+            fail("should have thrown " + FpqException.class.getSimpleName());
         }
         catch (FpqException e) {
-            assertThat(e.getMessage(), startsWith("invalid version"));
+            assertThat(e.getMessage(), containsString("does not match any expected version"));
         }
     }
 
     @Test
-    public void testReadBadLength() throws Exception {
+    public void testReadLengthOfEntryTooLarge() throws Exception {
+        UUID id = new UUID();
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
+        raFile.writeInt(1);
+        Utils.writeUuidToFile(raFile, id);
+        raFile.writeInt(12345);
+        raFile.close();
+
         try {
-            JournalFile clf1 = new JournalFile(theFile);
-            clf1.getRandomAccessWriterFile().writeInt(1);
-            clf1.getRandomAccessWriterFile().writeInt(1);
-            clf1.readNextEntry();
-            fail("should have thrown QueryException");
+            JournalFile jf1 = new JournalFile(theFile);
+            jf1.initForReading();
+            jf1.readNextEntry();
+            fail("should have thrown " + FpqException.class.getSimpleName());
         }
         catch (FpqException e) {
-            assertThat(e.getMessage(), containsString("entry length (1) could not be satisfied"));
+            assertThat(e.getMessage(), containsString("entry length (12345) could not be satisfied"));
         }
     }
 
@@ -93,7 +141,7 @@ public class JournalFileTest {
 
     @Before
     public void setup() throws IOException {
-        theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
+        theDir = new File("junitTmp_"+new UUID().toString());
         FileUtils.forceMkdir(theDir);
         theFile = generateLogFileName();
     }
@@ -104,6 +152,6 @@ public class JournalFileTest {
     }
 
     private File generateLogFileName() throws IOException {
-        return File.createTempFile("junitTest", ".journal", theDir);
+        return new File(theDir, new UUID().toString());
     }
 }
