@@ -65,10 +65,12 @@ public class MemorySegment {
 
         ArrayList<FpqEntry> entryList = new ArrayList<FpqEntry>(batchSize);
         FpqEntry entry;
+        long size = 0;
         while (entryList.size() < batchSize && null != (entry=queue.poll())) {
             entryList.add(entry);
+            size += entry.getMemorySize();
         }
-        sizeInBytes.addAndGet(-entryList.size());
+        sizeInBytes.addAndGet(-size);
         return entryList;
     }
 

@@ -93,8 +93,23 @@ public class InMemorySegmentMgrTest {
     }
 
     @Test
-    public void testPushPopPushPopEtc() {
-        fail();
+    public void testPushPopPushPopEtc() throws Exception {
+        int numEntries = 1000;
+        mgr.init();
+
+        for (int i=0;i < numEntries;i++) {
+            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
+            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
+            mgr.pop();
+            mgr.pop();
+            assertThat("i="+i+" : segments", mgr.getSegments(), hasSize(1));
+            assertThat("i="+i+" : entries", mgr.getNumberOfEntries(), is(0L));
+        }
+
+        assertThat(mgr.getSegments(), hasSize(1));
+        assertThat(mgr.getNumberOfEntries(), is(0L));
+
+        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
     }
 
     @Test
