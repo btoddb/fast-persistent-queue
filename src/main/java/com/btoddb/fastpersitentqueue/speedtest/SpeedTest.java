@@ -66,7 +66,7 @@ public class SpeedTest {
                 @Override
                 public Thread newThread(Runnable runnable) {
                     Thread t = new Thread(runnable);
-                    t.setName(runnable.getClass().getSimpleName());
+                    t.setName("SpeedTest-"+runnable.getClass().getSimpleName());
                     return t;
                 }
             });
@@ -75,7 +75,7 @@ public class SpeedTest {
                 @Override
                 public Thread newThread(Runnable runnable) {
                     Thread t = new Thread(runnable);
-                    t.setName(runnable.getClass().getSimpleName());
+                    t.setName("SpeedTest-"+runnable.getClass().getSimpleName());
                     return t;
                 }
             });

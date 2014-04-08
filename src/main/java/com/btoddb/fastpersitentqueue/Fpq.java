@@ -15,6 +15,7 @@ public class Fpq {
 
     private InMemorySegmentMgr memoryMgr;
 
+    private File pagingDirectory;
     private long maxMemorySegmentSizeInBytes = 1000000;
     private int maxTransactionSize = 100;
     private int numberOfFlushWorkers = 4;
@@ -33,6 +34,7 @@ public class Fpq {
 
         memoryMgr = new InMemorySegmentMgr();
         memoryMgr.setMaxSegmentSizeInBytes(maxMemorySegmentSizeInBytes);
+        memoryMgr.setPagingDirectory(pagingDirectory);
         memoryMgr.init();
     }
 
@@ -183,7 +185,16 @@ public class Fpq {
     public long getJournalsCreated() {
         return journalFileMgr.getJournalsCreated();
     }
+
     public long getJournalsRemoved() {
         return journalFileMgr.getJournalsRemoved();
+    }
+
+    public File getPagingDirectory() {
+        return pagingDirectory;
+    }
+
+    public void setPagingDirectory(File pagingDirectory) {
+        this.pagingDirectory = pagingDirectory;
     }
 }

@@ -23,15 +23,16 @@ public class MemorySegment {
 
     private int version = VERSION;
     private UUID id;
-    private long maxSizeInBytes;
+    private long maxSizeInBytes = 10000000;
 
-    private Status status;
-    private AtomicBoolean needLoadingTest = new AtomicBoolean();
+    private volatile Status status;
+    private AtomicBoolean loaderTestAndSet = new AtomicBoolean();
+    private AtomicBoolean removerTestAndSet = new AtomicBoolean();
 
     private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
     private AtomicLong sizeInBytes = new AtomicLong();
     private AtomicLong numberOfAvailableEntries = new AtomicLong();
-    private boolean full;
+    private volatile boolean pushingFinished;
 
     public boolean push(Collection<FpqEntry> events) {
         // - if enough free sizeInBytes to handle batch, then push events onto current queue
@@ -47,7 +48,7 @@ public class MemorySegment {
 
         synchronized (queue) {
             if (newSize > maxSizeInBytes) {
-                full = true;
+                pushingFinished = true;
                 sizeInBytes.addAndGet(-additionalSize);
                 numberOfAvailableEntries.addAndGet(-events.size());
                 return false;
@@ -71,37 +72,55 @@ public class MemorySegment {
         return entryList;
     }
 
+    public void clearQueue() {
+        queue.clear();
+        sizeInBytes.set(0);
+        numberOfAvailableEntries.set(0);
+    }
+
     public void decrementAvailable(long count) {
         numberOfAvailableEntries.addAndGet(-count);
     }
-    public boolean needLoadingTest() {
-        return needLoadingTest.compareAndSet(true, false);
+
+    public boolean loaderTestAndSet() {
+        return loaderTestAndSet.compareAndSet(true, false);
     }
+
+    public boolean removerTestAndSet() {
+        return removerTestAndSet.compareAndSet(true, false);
+    }
+
     public void resetNeedLoadingTest() {
-        needLoadingTest.set(true);
+        loaderTestAndSet.set(true);
     }
 
     public void writeToDisk(RandomAccessFile raFile) throws IOException {
         raFile.writeInt(getVersion());
         Utils.writeUuidToFile(raFile, id);
+        raFile.writeLong(maxSizeInBytes);
         raFile.writeLong(getNumberOfAvailableEntries());
+        raFile.writeLong(sizeInBytes.get());
         for (FpqEntry entry : getQueue()) {
             entry.writeToJournal(raFile);
         }
     }
 
-    public MemorySegment readFromDisk(RandomAccessFile raFile) throws IOException {
-        version = raFile.readInt();
-        id = Utils.readUuidFromFile(raFile);
-        numberOfAvailableEntries.set(raFile.readLong());
-
-        MemorySegment segment = new MemorySegment();
+    public void readFromDisk(RandomAccessFile raFile) throws IOException {
+        readHeaderFromDisk(raFile);
         for ( int i=0;i < numberOfAvailableEntries.get();i++ ) {
             FpqEntry entry = new FpqEntry();
             entry.readFromDisk(raFile);
             entry.setJournalId(id);
+            queue.add(entry);
         }
-        return segment;
+    }
+
+    public void readHeaderFromDisk(RandomAccessFile raFile) throws IOException {
+        version = raFile.readInt();
+        id = Utils.readUuidFromFile(raFile);
+        maxSizeInBytes = raFile.readLong();
+        numberOfAvailableEntries.set(raFile.readLong());
+        sizeInBytes.set(raFile.readLong());
     }
 
     public Status getStatus() {
@@ -138,12 +157,12 @@ public class MemorySegment {
 
     public void setNumberOfAvailableEntries(long numberOfAvailableEntries) { this.numberOfAvailableEntries.set(numberOfAvailableEntries);}
 
-    public boolean isFull() {
-        return full;
+    public boolean isPushingFinished() {
+        return pushingFinished;
     }
 
-    public void setFull(boolean full) {
-        this.full = full;
+    public void setPushingFinished(boolean pushingFinished) {
+        this.pushingFinished = pushingFinished;
     }
 
     public ConcurrentLinkedQueue<FpqEntry> getQueue() {

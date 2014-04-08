@@ -104,7 +104,11 @@ public class FpqIT {
         q = new Fpq();
         q.setMaxMemorySegmentSizeInBytes(10000);
         q.setMaxTransactionSize(100);
-        q.setJournalDirectory(theDir);
+        q.setJournalDirectory(new File(theDir, "journal"));
+        q.setPagingDirectory(new File(theDir, "paging"));
+
+        FileUtils.forceMkdir(q.getJournalDirectory());
+        FileUtils.forceMkdir(q.getPagingDirectory());
     }
 
     @After

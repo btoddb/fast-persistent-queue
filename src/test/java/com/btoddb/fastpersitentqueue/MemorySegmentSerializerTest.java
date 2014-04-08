@@ -34,7 +34,7 @@ public class MemorySegmentSerializerTest {
 
         MemorySegment seg1 = new MemorySegment();
         seg1.setId(new UUID());
-        seg1.setNumberOfAvailableEntries(3);
+        seg1.setMaxSizeInBytes(1000);
         seg1.push(entries);
 
         serializer.saveToDisk(seg1);
@@ -44,10 +44,28 @@ public class MemorySegmentSerializerTest {
 
         MemorySegment seg2 = serializer.loadFromDisk(files.iterator().next().getName());
         assertThat(seg2.getId(), is(seg1.getId()));
-        assertThat(seg2.getMaxSizeInBytes(), is(0L));
-        assertThat(seg2.isFull(), is(true));
+        assertThat(seg2.getQueue().size(), is(seg1.getQueue().size()));
+        assertThat(seg2.getMaxSizeInBytes(), is(1000L));
         assertThat(seg2.getNumberOfAvailableEntries(), is(3L));
-        assertThat(seg2.getStatus(), is(MemorySegment.Status.READY));
+    }
+
+    @Test
+    public void testLoadHeader() throws Exception {
+        Collection<FpqEntry> entries = new LinkedList<FpqEntry>();
+        entries.add(new FpqEntry(new byte[] {0, 1, 2}));
+        entries.add(new FpqEntry(new byte[] {3, 4, 5}));
+        entries.add(new FpqEntry(new byte[] {6, 7, 8}));
+        MemorySegment seg1 = new MemorySegment();
+        seg1.setId(new UUID());
+        seg1.setMaxSizeInBytes(1000);
+        seg1.push(entries);
+        serializer.saveToDisk(seg1);
+
+        MemorySegment seg2 = serializer.loadHeaderOnly(seg1.getId().toString());
+        assertThat(seg2.getId(), is(seg1.getId()));
+        assertThat(seg2.getQueue(), is(empty()));
+        assertThat(seg2.getMaxSizeInBytes(), is(1000L));
+        assertThat(seg2.getNumberOfAvailableEntries(), is(3L));
     }
 
     @Test
