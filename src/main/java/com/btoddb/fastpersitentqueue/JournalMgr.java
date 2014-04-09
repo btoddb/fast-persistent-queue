@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 /**
@@ -18,18 +19,20 @@ import java.util.concurrent.atomic.AtomicLong;
 public class JournalMgr {
     private static final Logger logger = LoggerFactory.getLogger(JournalMgr.class);
 
-    private File journalDirectory;
+    private File directory;
     private long flushPeriodInMs = 10000;
     private int numberOfFlushWorkers = 4;
     private int numberOfGeneralWorkers = 2;
     private long maxJournalFileSize = 100000000L;
     private long maxJournalDurationInMs = (10 * 60 * 1000); // 10 minutes
 
+    private volatile boolean shutdownInProgress;
     private AtomicLong journalsCreated = new AtomicLong();
     private AtomicLong journalsRemoved = new AtomicLong();
 
     private volatile JournalDescriptor currentJournalDescriptor;
 
+    ReentrantReadWriteLock journalLock = new ReentrantReadWriteLock();
     private TreeMap<UUID, JournalDescriptor> journalIdMap = new TreeMap<UUID, JournalDescriptor>(new Comparator<UUID>() {
         @Override
         public int compare(UUID uuid, UUID uuid2) {
@@ -75,7 +78,7 @@ public class JournalMgr {
     }
 
     private void prepareJournaling() throws IOException {
-        FileUtils.forceMkdir(journalDirectory);
+        FileUtils.forceMkdir(directory);
     }
 
     private void reloadJournalFiles() {
@@ -90,13 +93,19 @@ public class JournalMgr {
         }
 
     private JournalDescriptor addNewJournal(UUID id, String fn) throws IOException {
-        JournalFile jf = new JournalFile(new File(journalDirectory, fn));
+        JournalFile jf = new JournalFile(new File(directory, fn));
         jf.initForWriting(id);
 
         // this could possibly create a race, if the flushPeriodInMs is very very low ;)
         ScheduledFuture future = flushExec.scheduleWithFixedDelay(new FlushRunner(jf), flushPeriodInMs, flushPeriodInMs, TimeUnit.MILLISECONDS);
         JournalDescriptor jd = new JournalDescriptor(id, jf, future);
-        journalIdMap.put(id, jd);
+        journalLock.writeLock().lock();
+        try {
+            journalIdMap.put(id, jd);
+        }
+        finally {
+            journalLock.writeLock().unlock();
+        }
         journalsCreated.incrementAndGet();
         return jd;
     }
@@ -108,6 +117,10 @@ public class JournalMgr {
     }
 
     public Collection<FpqEntry> append(Collection<byte[]> events) throws IOException {
+        if (shutdownInProgress) {
+            throw new FpqException("FPQ has been shutdown or is in progress, cannot append");
+        }
+
         // TODO:BTB - optimize this by calling file.append() with collection of data
         List<FpqEntry> entryList = new ArrayList<FpqEntry>(events.size());
         for (byte[] data : events) {
@@ -161,16 +174,29 @@ public class JournalMgr {
     }
 
     public void reportTake(Collection<FpqEntry> entries) throws IOException {
+        if (shutdownInProgress) {
+            throw new FpqException("FPQ has been shutdown or is in progress, cannot report TAKE");
+        }
+
         for (FpqEntry entry : entries) {
-            JournalDescriptor desc = journalIdMap.get(entry.getJournalId());
-            if (null == desc) {
-                logger.error("illegal state - reported consumption of journal entry, but journal descriptor no longer exists!");
-                return;
+            JournalDescriptor desc;
+            journalLock.readLock().lock();
+            try {
+                desc = journalIdMap.get(entry.getJournalId());
+            }
+            finally {
+                journalLock.readLock().unlock();
             }
 
-            // keep decr before isWritingFinished
-            // this is thrad-safe, because only one thread can decrement down to zero when isWritingFinished
-            if (0 == desc.decrementEntryCount(1) && desc.isWritingFinished()) {
+            if (null == desc) {
+                logger.error("illegal state - reported consumption of journal entry, but journal descriptor doesn't exist!");
+                continue;
+            }
+
+            long remaining = desc.decrementEntryCount(1);
+
+            // this is therad-safe, because only one thread can decrement down to zero when isWritingFinished
+            if (0 == remaining && desc.isWritingFinished()) {
                 submitJournalRemoval(desc);
             }
         }
@@ -187,17 +213,25 @@ public class JournalMgr {
 
     private void removeJournal(JournalDescriptor desc) {
         desc.getFuture().cancel(false);
-        journalIdMap.remove(desc.getId());
+        journalLock.writeLock().lock();
         try {
-            FileUtils.forceDelete(desc.getFile().getFile());
+            journalIdMap.remove(desc.getId());
+            try {
+                FileUtils.forceDelete(desc.getFile().getFile());
+            }
+            catch (IOException e) {
+                logger.error("could not delete journal file, {} - will not try again", desc.getFile().getFile().getAbsolutePath());
+            }
         }
-        catch (IOException e) {
-            logger.error("could not delete journal file, {} - will not try again", desc.getFile().getFile().getAbsolutePath());
+        finally {
+            journalLock.writeLock().unlock();
         }
+
         journalsRemoved.incrementAndGet();
     }
 
     public void shutdown() {
+        shutdownInProgress = true;
         if (null != flushExec) {
             flushExec.shutdown();
             try {
@@ -250,12 +284,12 @@ public class JournalMgr {
         this.flushPeriodInMs = flushPeriodInMs;
     }
 
-    public File getJournalDirectory() {
-        return journalDirectory;
+    public File getDirectory() {
+        return directory;
     }
 
-    public void setJournalDirectory(File journalDirectory) {
-        this.journalDirectory = journalDirectory;
+    public void setDirectory(File directory) {
+        this.directory = directory;
     }
 
     public Map<UUID, JournalDescriptor> getJournalFiles() {

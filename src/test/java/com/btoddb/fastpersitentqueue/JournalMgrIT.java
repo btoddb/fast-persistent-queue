@@ -8,12 +8,13 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.fail;
 
 
 /**
@@ -38,8 +39,8 @@ public class JournalMgrIT {
 
     @Test
     public void testJournalDirectorySetter() {
-        mgr.setJournalDirectory(new File("/dirname"));
-        assertThat(mgr.getJournalDirectory(), is(new File("/dirname")));
+        mgr.setDirectory(new File("/dirname"));
+        assertThat(mgr.getDirectory(), is(new File("/dirname")));
     }
 
     @Test
@@ -204,6 +205,91 @@ public class JournalMgrIT {
         assertThat(mgr.getJournalIdMap(), hasKey(entry3.getJournalId()));
     }
 
+    @Test
+    public void testThreading() throws IOException, ExecutionException {
+        final int numEntries = 10000;
+        int numPushers = 3;
+        int numPoppers = 3;
+
+        final Random pushRand = new Random(1000L);
+        final Random popRand = new Random(1000000L);
+        final ConcurrentLinkedQueue<FpqEntry> events = new ConcurrentLinkedQueue<FpqEntry>();
+        final AtomicBoolean pushingFinished = new AtomicBoolean(false);
+        final AtomicInteger numPops = new AtomicInteger();
+
+        mgr.setMaxJournalFileSize(1000);
+        mgr.init();
+
+        ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers+numPoppers);
+
+        Set<Future> pushFutures = new HashSet<Future>();
+//        Set<Future> popFutures = new HashSet<Future>();
+
+        // start pushing
+        for (int i=0;i < numPushers;i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < numEntries; i++) {
+                        try {
+                            FpqEntry entry = mgr.append(new byte[100]);
+                            events.offer(entry);
+                            Thread.sleep(pushRand.nextInt(5));
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    pushingFinished.set(true);
+                }
+            });
+            pushFutures.add(future);
+        }
+
+        // start popping
+        for (int i=0;i < numPoppers;i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    while (!pushingFinished.get() || !events.isEmpty()) {
+                        try {
+                            FpqEntry entry;
+                            while (null != (entry = events.poll())) {
+                                numPops.incrementAndGet();
+                                mgr.reportTake(entry);
+                                Thread.sleep(popRand.nextInt(5));
+                            }
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+            pushFutures.add(future);
+        }
+
+        boolean finished = false;
+        while (!finished) {
+            try {
+                for (Future f : pushFutures) {
+                    f.get();
+                }
+//                for (Future f : popFutures) {
+//                    f.get();
+//                }
+                finished = true;
+            }
+            catch (InterruptedException e) {
+                // ignore
+                Thread.interrupted();
+            }
+        }
+
+        assertThat(numPops.get(), is(numEntries*numPushers));
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(1));
+    }
+
     // --------------
 
     @Before
@@ -212,7 +298,7 @@ public class JournalMgrIT {
         FileUtils.forceMkdir(theDir);
 
         mgr = new JournalMgr();
-        mgr.setJournalDirectory(theDir);
+        mgr.setDirectory(theDir);
         mgr.setNumberOfFlushWorkers(4);
         mgr.setFlushPeriodInMs(1000);
     }
