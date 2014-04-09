@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
@@ -72,13 +73,23 @@ public class MemorySegmentSerializer {
         File theFile = new File(directory, segment.getId().toString());
         try {
             FileUtils.forceDelete(theFile);
+            logger.debug("removed memory paging file {}", theFile.toString());
         }
-        catch (IOException e) {
+        catch (FileNotFoundException e) {
             try {
-                logger.error("exception while removing paging file, {}", theFile.getCanonicalFile());
+                logger.debug("File not found (this is normal) while removing memory paging file, {}", theFile.getCanonicalFile());
             }
             catch (IOException e1) {
                 // ignore
+            }
+        }
+        catch (IOException e) {
+            try {
+                logger.error("exception while removing memory paging file, {}", theFile.getCanonicalFile(), e);
+            }
+            catch (IOException e1) {
+                // ignore
+                logger.error("another exception while removing memory paging file", e);
             }
         }
     }
@@ -87,11 +98,15 @@ public class MemorySegmentSerializer {
         return directory;
     }
 
-    public void setDirectory(File directory) {
+    public void setDirectory(File directory) throws IOException {
         this.directory = directory;
     }
 
     public void shutdown() {
         // ignore for now
+    }
+
+    public void init() throws IOException {
+        FileUtils.forceMkdir(directory);
     }
 }

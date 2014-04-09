@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class MemorySegment {
     enum Status {
-        READY, SAVING, LOADING, OFFLINE
+        READY, SAVING, LOADING, OFFLINE, REMOVING
     }
 
     public static final int VERSION = 1;
@@ -26,37 +26,23 @@ public class MemorySegment {
     private long maxSizeInBytes = 10000000;
 
     private volatile Status status;
+    private volatile boolean pushingFinished;
+
     private AtomicBoolean loaderTestAndSet = new AtomicBoolean();
-    private AtomicBoolean removerTestAndSet = new AtomicBoolean();
+    private AtomicBoolean removerTestAndSet = new AtomicBoolean(true);
 
     private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
     private AtomicLong sizeInBytes = new AtomicLong();
     private AtomicLong numberOfAvailableEntries = new AtomicLong();
-    private volatile boolean pushingFinished;
+    private AtomicLong totalEventsPushed = new AtomicLong();
+    private AtomicLong totalEventsPopped = new AtomicLong();
 
-    public boolean push(Collection<FpqEntry> events) {
-        // - if enough free sizeInBytes to handle batch, then push events onto current queue
-        // - if not, then throw exception
-
-        long additionalSize = 0;
-        for (FpqEntry entry : events) {
-            additionalSize += entry.getMemorySize();
-        }
-
-        long newSize = sizeInBytes.addAndGet(additionalSize);
-        numberOfAvailableEntries.addAndGet(events.size());
-
-        synchronized (queue) {
-            if (newSize > maxSizeInBytes) {
-                pushingFinished = true;
-                sizeInBytes.addAndGet(-additionalSize);
-                numberOfAvailableEntries.addAndGet(-events.size());
-                return false;
-            }
-        }
-
+    public void push(Collection<FpqEntry> events) {
         queue.addAll(events);
-        return true;
+        totalEventsPushed.addAndGet(events.size());
+
+        // this must be done last as it signals when events are ready to be popped from this segment
+        numberOfAvailableEntries.addAndGet(events.size());
     }
 
     public Collection<FpqEntry> pop(int batchSize) {
@@ -71,6 +57,7 @@ public class MemorySegment {
             size += entry.getMemorySize();
         }
         sizeInBytes.addAndGet(-size);
+        totalEventsPopped.addAndGet(entryList.size());
         return entryList;
     }
 
@@ -80,8 +67,16 @@ public class MemorySegment {
         numberOfAvailableEntries.set(0);
     }
 
-    public void decrementAvailable(long count) {
-        numberOfAvailableEntries.addAndGet(-count);
+    public long adjustSizeInBytes(long additionalSize) {
+        return sizeInBytes.addAndGet(additionalSize);
+    }
+
+    public long decrementAvailable(long count) {
+        return numberOfAvailableEntries.addAndGet(-count);
+    }
+
+    public long incrementAvailable(long count) {
+        return numberOfAvailableEntries.addAndGet(count);
     }
 
     public boolean loaderTestAndSet() {
@@ -102,6 +97,8 @@ public class MemorySegment {
         raFile.writeLong(maxSizeInBytes);
         raFile.writeLong(getNumberOfAvailableEntries());
         raFile.writeLong(sizeInBytes.get());
+        raFile.writeLong(totalEventsPushed.get());
+        raFile.writeLong(totalEventsPopped.get());
         for (FpqEntry entry : getQueue()) {
             entry.writeToJournal(raFile);
         }
@@ -123,6 +120,8 @@ public class MemorySegment {
         maxSizeInBytes = raFile.readLong();
         numberOfAvailableEntries.set(raFile.readLong());
         sizeInBytes.set(raFile.readLong());
+        totalEventsPushed.set(raFile.readLong());
+        totalEventsPopped.set(raFile.readLong());
     }
 
     public Status getStatus() {
@@ -169,5 +168,28 @@ public class MemorySegment {
 
     public ConcurrentLinkedQueue<FpqEntry> getQueue() {
         return queue;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        MemorySegment segment = (MemorySegment) o;
+
+        if (id != null ? !id.equals(segment.id) : segment.id != null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
     }
 }

@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -67,7 +69,6 @@ public class InMemorySegmentMgrTest {
             mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
         }
 
-
         long end = System.currentTimeMillis() + 1000;
         while (System.currentTimeMillis() < end && mgr.getNumberOfActiveSegments() > 4) {
             Thread.sleep(100);
@@ -88,26 +89,6 @@ public class InMemorySegmentMgrTest {
         assertThat(seg.getStatus(), is(MemorySegment.Status.READY));
         assertThat(seg.getNumberOfAvailableEntries(), is(0L));
         assertThat(seg.getQueue(), is(empty()));
-
-        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
-    }
-
-    @Test
-    public void testPushPopPushPopEtc() throws Exception {
-        int numEntries = 1000;
-        mgr.init();
-
-        for (int i=0;i < numEntries;i++) {
-            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
-            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
-            mgr.pop();
-            mgr.pop();
-            assertThat("i="+i+" : segments", mgr.getSegments(), hasSize(1));
-            assertThat("i="+i+" : entries", mgr.getNumberOfEntries(), is(0L));
-        }
-
-        assertThat(mgr.getSegments(), hasSize(1));
-        assertThat(mgr.getNumberOfEntries(), is(0L));
 
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
     }
@@ -144,6 +125,89 @@ public class InMemorySegmentMgrTest {
         assertThat(mgr.getNumberOfActiveSegments(), is(4));
         assertThat(mgr.getNumberOfEntries(), is(30L));
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(2));
+    }
+
+
+    @Test
+    public void testThreading() throws IOException, ExecutionException {
+        final int numEntries = 10000;
+        final int numPushers = 3;
+        int numPoppers = 3;
+
+        final Random pushRand = new Random(1000L);
+        final Random popRand = new Random(1000000L);
+        final AtomicInteger pusherFinishCount = new AtomicInteger();
+        final AtomicInteger numPops = new AtomicInteger();
+
+        mgr.setMaxSegmentSizeInBytes(1000);
+        mgr.init();
+
+        ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers + numPoppers);
+
+        Set<Future> futures = new HashSet<Future>();
+
+        // start pushing
+        for (int i = 0; i < numPushers; i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < numEntries; i++) {
+                        try {
+                            FpqEntry entry = new FpqEntry(new byte[100]);
+                            mgr.push(entry);
+                            Thread.sleep(pushRand.nextInt(5));
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    pusherFinishCount.incrementAndGet();
+                }
+            });
+            futures.add(future);
+        }
+
+        // start popping
+        for (int i = 0; i < numPoppers; i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    while (pusherFinishCount.get() < numPushers || !mgr.isEmpty()) {
+                        try {
+                            FpqEntry entry;
+                            while (null != (entry=mgr.pop())) {
+                                numPops.incrementAndGet();
+                                Thread.sleep(popRand.nextInt(5));
+                            }
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+            futures.add(future);
+        }
+
+        boolean finished = false;
+        while (!finished) {
+            try {
+                for (Future f : futures) {
+                    f.get();
+                }
+                finished = true;
+            }
+            catch (InterruptedException e) {
+                // ignore
+                Thread.interrupted();
+            }
+        }
+
+        assertThat(numPops.get(), is(numEntries * numPushers));
+        assertThat(mgr.getNumberOfEntries(), is(0L));
+        assertThat(mgr.getNumberOfActiveSegments(), is(1));
+        assertThat(mgr.getSegments(), hasSize(1));
+        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
     }
 
     // ---------

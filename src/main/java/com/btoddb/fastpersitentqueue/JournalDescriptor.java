@@ -18,7 +18,7 @@ public class JournalDescriptor {
 
 //    private long lastPositionRead = -1;
     private AtomicLong numberOfUnconsumedEntries = new AtomicLong();
-    private boolean writingFinished;
+    private volatile boolean writingFinished;
 //    private long length;
 
     public JournalDescriptor(UUID id, JournalFile file, ScheduledFuture future) {

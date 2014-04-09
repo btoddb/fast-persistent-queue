@@ -27,6 +27,7 @@ public class InMemorySegmentMgr {
     private long maxSegmentSizeInBytes;
     private int maxNumberOfActiveSegments = 4;
     private AtomicInteger numberOfActiveSegments = new AtomicInteger();
+    private volatile boolean shutdownInProgress;
 
     private ReentrantReadWriteLock segmentsLock = new ReentrantReadWriteLock();
     private LinkedList<MemorySegment> segments = new LinkedList<MemorySegment>();
@@ -55,10 +56,10 @@ public class InMemorySegmentMgr {
                                                                                       return t;
                                                                                   }
                                                                               });
-    private boolean shutdownInProgress;
 
     public void init() throws IOException {
         segmentSerializer.setDirectory(pagingDirectory);
+        segmentSerializer.init();
 
         loadPagedSegments();
 
@@ -124,21 +125,30 @@ public class InMemorySegmentMgr {
             throw new FpqException("FPQ has been shutdown or is in progress, cannot push events");
         }
 
-        while (!segments.peekLast().push(events)) {
+        long additionalSize = 0;
+        for (FpqEntry entry : events) {
+            additionalSize += entry.getMemorySize();
+        }
+
+        MemorySegment segment = segments.peekLast();
+
+        // this must be done first as it signals if events can be pushed to this segment
+        while (segment.adjustSizeInBytes(additionalSize) > maxSegmentSizeInBytes) {
+            segment.adjustSizeInBytes(-additionalSize);
             segmentsLock.writeLock().lock();
             try {
-                createNewSegment();
-                if (numberOfActiveSegments.get() > maxNumberOfActiveSegments) {
-                    // don't serialize the newest because we are "pushing" to it
-                    Iterator<MemorySegment> iter = segments.descendingIterator();
-                    iter.next(); // get past the newest
-                    serializeToDisk(iter.next());
+                if (!segment.isPushingFinished()) {
+                    segment.setPushingFinished(true);
+                    createNewSegment();
                 }
             }
             finally {
                 segmentsLock.writeLock().unlock();
             }
+            segment = segments.peekLast();
         }
+
+        segment.push(events);
 
         numberOfEntries.addAndGet(events.size());
     }
@@ -151,7 +161,7 @@ public class InMemorySegmentMgr {
         seg.setMaxSizeInBytes(maxSegmentSizeInBytes);
         seg.setStatus(MemorySegment.Status.READY);
 
-        segments.add(seg);
+        segments.offer(seg);
         numberOfActiveSegments.incrementAndGet();
     }
 
@@ -176,31 +186,59 @@ public class InMemorySegmentMgr {
         // find the memory segment we need and reserve our entries
         // will not use multiple segments to achieve 'batchSize'
         MemorySegment chosenSegment = null;
+        int available = -1;
         segmentsLock.readLock().lock();
         try {
-            Iterator<MemorySegment> iter = segments.iterator();
-            while (iter.hasNext()) {
-                final MemorySegment seg = iter.next();
-                if (MemorySegment.Status.READY != seg.getStatus()) {
-                    if (seg.loaderTestAndSet()) {
-                        kickOffLoad(seg);
+            for (final MemorySegment seg : segments) {
+                // if segment is not READY then we can't pop from it.  however, if it is OFFLINE
+                // we need to load it because it is next in FIFO order and *should* be popping from it
+                synchronized (seg) {
+                    if (MemorySegment.Status.READY != seg.getStatus()) {
+                        if (MemorySegment.Status.OFFLINE == seg.getStatus() && seg.loaderTestAndSet()) {
+                            kickOffLoad(seg);
+                        }
+                        continue;
                     }
-                    continue;
                 }
 
-                long available = seg.getNumberOfAvailableEntries();
-                if (0 < available) {
+                // find out if enough data remains in the segment - uses Atomic so we can safely do this without
+                // worrying about synchronization.
+                long remaining = seg.decrementAvailable(batchSize);
+
+                if (remaining+batchSize > 0) {
                     chosenSegment = seg;
-                    seg.decrementAvailable(batchSize <= available ? batchSize : available);
+
+                    // adjust for partial batch
+                    if (remaining < 0) {
+                        // don't just set to zero, could give improper indicator
+                        seg.incrementAvailable(-remaining);
+                        available = batchSize + (int)remaining;
+                    }
+                    else {
+                        available = batchSize;
+                    }
                     break;
                 }
-                else if (seg.isPushingFinished() && seg.removerTestAndSet()) {
-                    cleanupExecSrvc.submit(new Runnable() {
-                        @Override
-                        public void run() {
-                            removeSegment(seg);
+                // means not even a single event ready
+                else {
+                    // put back what we took as the segment may receive more events soon
+                    seg.incrementAvailable(batchSize);
+
+                    // if pushing finished, then schedule segment to be removed
+                    // make sure the 'isPushingFinished' is always before the test-and-set
+                    synchronized (seg) {
+                        if (seg.isPushingFinished() && seg.getNumberOfAvailableEntries() == 0 && seg.removerTestAndSet()) {
+                            logger.debug("removing segment {} because its empty and pushing has finished" +
+                                                 "", seg.getId().toString());
+                            seg.setStatus(MemorySegment.Status.REMOVING);
+                            cleanupExecSrvc.submit(new Runnable() {
+                                @Override
+                                public void run() {
+                                    removeSegment(seg);
+                                }
+                            });
                         }
-                    });
+                    }
                 }
             }
         }
@@ -213,18 +251,8 @@ public class InMemorySegmentMgr {
             return null;
         }
 
-        Collection<FpqEntry> entries = chosenSegment.pop(batchSize);
+        Collection<FpqEntry> entries = chosenSegment.pop(available);
         numberOfEntries.addAndGet(-entries.size());
-
-        if (chosenSegment.isPushingFinished() && 0 == chosenSegment.getNumberOfAvailableEntries()) {
-            segmentsLock.writeLock().lock();
-            try {
-                segments.remove(chosenSegment);
-            }
-            finally {
-                segmentsLock.writeLock().unlock();
-            }
-        }
 
         return entries;
     }
@@ -253,23 +281,25 @@ public class InMemorySegmentMgr {
     }
 
     private void kickOffLoad(final MemorySegment segment) {
-        // synchronization should already be done
-
-        segment.setStatus(MemorySegment.Status.LOADING);
+        synchronized (segment) {
+            segment.setStatus(MemorySegment.Status.LOADING);
+        }
 
         serializerExecSrvc.submit(new Runnable() {
             @Override
             public void run() {
                 try {
-                    segmentSerializer.loadFromDisk(segment);
+                    synchronized (segment) {
+                        segmentSerializer.loadFromDisk(segment);
 
-                    // remove paging file before setting to READY in case something happens during remove
-                    segmentSerializer.removePagingFile(segment);
+                        // remove paging file before setting to READY in case something happens during remove
+                        segmentSerializer.removePagingFile(segment);
 
-                    segment.setPushingFinished(true);
-                    segment.setStatus(MemorySegment.Status.READY);
-                    numberOfActiveSegments.incrementAndGet();
-                    segment.resetNeedLoadingTest();
+                        segment.setPushingFinished(true);
+                        segment.setStatus(MemorySegment.Status.READY);
+                        numberOfActiveSegments.incrementAndGet();
+                        segment.resetNeedLoadingTest();
+                    }
                 }
                 catch (IOException e) {
                     logger.error("exception while loading memory segment, {}, from disk - discarding", segment.getId().toString(), e);
@@ -280,6 +310,7 @@ public class InMemorySegmentMgr {
     }
 
     private void removeSegment(MemorySegment segment) {
+        logger.debug("removing segment {}", segment.getId().toString());
         numberOfActiveSegments.decrementAndGet();
         segmentsLock.writeLock().lock();
         try {
@@ -293,6 +324,10 @@ public class InMemorySegmentMgr {
 
     public long size() {
         return numberOfEntries.get();
+    }
+
+    public boolean isEmpty() {
+        return 0 == size();
     }
 
     public void shutdown() {
