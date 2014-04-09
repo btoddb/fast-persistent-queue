@@ -45,7 +45,7 @@ public class FpqEntry {
     public long getMemorySize() {
         return 4 + // data length integer
                 24 + // UUID
-                data.length;
+                (null != data ? data.length : 0);
     }
 
     public void writeToJournal(RandomAccessFile raFile) throws IOException {

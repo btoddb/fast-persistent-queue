@@ -140,6 +140,9 @@ public class InMemorySegmentMgr {
                 if (!segment.isPushingFinished()) {
                     segment.setPushingFinished(true);
                     createNewSegment();
+                    if (numberOfActiveSegments.get() > maxNumberOfActiveSegments) {
+                        pageSegmentToReduceActive();
+                    }
                 }
             }
             finally {
@@ -255,6 +258,15 @@ public class InMemorySegmentMgr {
         numberOfEntries.addAndGet(-entries.size());
 
         return entries;
+    }
+
+    private void pageSegmentToReduceActive() {
+        // synchronization should already be done
+
+        // don't serialize the newest because we are "pushing" to it
+        Iterator<MemorySegment> iter = segments.descendingIterator();
+        iter.next(); // get past the newest
+        serializeToDisk(iter.next());
     }
 
     private void serializeToDisk(final MemorySegment segment) {

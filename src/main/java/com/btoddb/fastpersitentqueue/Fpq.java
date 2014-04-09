@@ -25,7 +25,7 @@ public class Fpq {
 
     public void init() throws IOException {
         journalFileMgr = new JournalMgr();
-        journalFileMgr.setJournalDirectory(journalDirectory);
+        journalFileMgr.setDirectory(journalDirectory);
         journalFileMgr.setNumberOfFlushWorkers(numberOfFlushWorkers);
         journalFileMgr.setFlushPeriodInMs(flushPeriodInMs);
         journalFileMgr.setMaxJournalFileSize(maxJournalFileSize);
@@ -115,7 +115,12 @@ public class Fpq {
     }
 
     public void shutdown() {
+        memoryMgr.shutdown();
         journalFileMgr.shutdown();
+    }
+
+    public long size() {
+        return memoryMgr.size();
     }
 
     public int getMaxTransactionSize() {

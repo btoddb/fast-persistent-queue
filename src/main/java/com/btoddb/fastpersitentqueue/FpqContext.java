@@ -67,7 +67,7 @@ public class FpqContext {
     }
 
     public int size() {
-        return queue.size();
+        return null != queue ? queue.size() : 0;
     }
 
     public boolean isPushing() {
