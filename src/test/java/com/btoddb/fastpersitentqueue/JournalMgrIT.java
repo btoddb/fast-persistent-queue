@@ -208,13 +208,13 @@ public class JournalMgrIT {
     @Test
     public void testThreading() throws IOException, ExecutionException {
         final int numEntries = 10000;
-        int numPushers = 3;
+        final int numPushers = 3;
         int numPoppers = 3;
 
         final Random pushRand = new Random(1000L);
         final Random popRand = new Random(1000000L);
         final ConcurrentLinkedQueue<FpqEntry> events = new ConcurrentLinkedQueue<FpqEntry>();
-        final AtomicBoolean pushingFinished = new AtomicBoolean(false);
+        final AtomicInteger pusherFinishCount = new AtomicInteger();
         final AtomicInteger numPops = new AtomicInteger();
 
         mgr.setMaxJournalFileSize(1000);
@@ -222,8 +222,7 @@ public class JournalMgrIT {
 
         ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers+numPoppers);
 
-        Set<Future> pushFutures = new HashSet<Future>();
-//        Set<Future> popFutures = new HashSet<Future>();
+        Set<Future> futures = new HashSet<Future>();
 
         // start pushing
         for (int i=0;i < numPushers;i++) {
@@ -240,10 +239,10 @@ public class JournalMgrIT {
                             e.printStackTrace();
                         }
                     }
-                    pushingFinished.set(true);
+                    pusherFinishCount.incrementAndGet();
                 }
             });
-            pushFutures.add(future);
+            futures.add(future);
         }
 
         // start popping
@@ -251,7 +250,7 @@ public class JournalMgrIT {
             Future future = execSrvc.submit(new Runnable() {
                 @Override
                 public void run() {
-                    while (!pushingFinished.get() || !events.isEmpty()) {
+                    while (pusherFinishCount.get() < numPushers || !events.isEmpty()) {
                         try {
                             FpqEntry entry;
                             while (null != (entry = events.poll())) {
@@ -266,18 +265,15 @@ public class JournalMgrIT {
                     }
                 }
             });
-            pushFutures.add(future);
+            futures.add(future);
         }
 
         boolean finished = false;
         while (!finished) {
             try {
-                for (Future f : pushFutures) {
+                for (Future f : futures) {
                     f.get();
                 }
-//                for (Future f : popFutures) {
-//                    f.get();
-//                }
                 finished = true;
             }
             catch (InterruptedException e) {
@@ -288,6 +284,7 @@ public class JournalMgrIT {
 
         assertThat(numPops.get(), is(numEntries*numPushers));
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(1));
+        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(1));
     }
 
     // --------------
