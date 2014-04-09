@@ -59,7 +59,8 @@ public class FpqContext {
 
     public void cleanup() {
         if (null != queue) {
-            queue.clear();
+            // don't do queue.clear because more than likely the customer only copied reference to the list
+            // not the individual items in the list
             queue = null;
         }
         pushing = false;
@@ -83,11 +84,6 @@ public class FpqContext {
     }
 
     public Collection getQueue() {
-        if (null != queue) {
-            return Collections.unmodifiableCollection(queue);
-        }
-        else {
-            return null;
-        }
+        return queue;
     }
 }

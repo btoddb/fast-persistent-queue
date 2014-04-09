@@ -31,25 +31,24 @@ public class SpeedPopWorker implements Runnable {
     @Override
     public void run() {
         try {
-            FpqContext context = queue.createContext();
             while (!stopWhenQueueEmpty || !queue.isEmpty()) {
-                Thread.sleep(100);
+                Thread.sleep(10);
                 Collection<FpqEntry> entries;
                 do {
+                    FpqContext context = queue.createContext();
                     entries = queue.pop(context, batchSize);
-                    if (!entries.isEmpty()) {
-                        numberOfEntries += entries.size();
+                    if (null != entries && !entries.isEmpty()) {
                         queue.commit(context);
+                        numberOfEntries += entries.size();
+                        entries.clear();
                     }
-                } while (!entries.isEmpty());
-            }
-            if (0 < context.size()) {
-                queue.commit(context);
+                } while (null != entries && !entries.isEmpty());
             }
             success = true;
         }
         catch (Throwable e) {
             logger.error("exception while appending to journal", e);
+            e.printStackTrace();
         }
 
         finished = true;
