@@ -89,13 +89,19 @@ public class Fpq {
         // - context.clearBatch
         // - if commit log file is no longer needed, remove in background work thread
 
-        journalFileMgr.reportTake(context.getQueue());
+        if (!context.isQueueEmpty()) {
+            journalFileMgr.reportTake(context.getQueue());
+        }
     }
 
     private void commitForPush(FpqContext context) throws IOException {
         // - write events to commit log file (don't fsync)
         // - write events to globalMemoryQueue (for popping)
         // - roll persistent queue
+
+        if (context.isQueueEmpty()) {
+            return;
+        }
 
         Collection<FpqEntry> entries = journalFileMgr.append(context.getQueue());
         memoryMgr.push(entries);
@@ -201,5 +207,9 @@ public class Fpq {
 
     public void setPagingDirectory(File pagingDirectory) {
         this.pagingDirectory = pagingDirectory;
+    }
+
+    public long getNumberOfEntries() {
+        return memoryMgr.getNumberOfEntries();
     }
 }

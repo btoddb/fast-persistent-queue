@@ -1,14 +1,18 @@
 package com.btoddb.fastpersitentqueue;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -92,6 +96,95 @@ public class FpqIT {
         assertThat(ctxt.getQueue(), is(nullValue()));
         assertThat(q.getMemoryMgr().size(), is(0L));
         assertThat(q.getJournalFileMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0L));
+    }
+
+    @Test
+    public void testThreading() throws Exception {
+        q.setMaxMemorySegmentSizeInBytes(10000);
+        q.setMaxTransactionSize(100);
+
+        final int numEntries = 10000;
+        final int numPushers = 3;
+        int numPoppers = 3;
+
+        final Random pushRand = new Random(1000L);
+        final Random popRand = new Random(1000000L);
+        final AtomicInteger pusherFinishCount = new AtomicInteger();
+        final AtomicInteger numPops = new AtomicInteger();
+
+        q.init();
+
+        ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers + numPoppers);
+
+        Set<Future> futures = new HashSet<Future>();
+
+        // start pushing
+        for (int i = 0; i < numPushers; i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < numEntries; i++) {
+                        try {
+                            FpqContext context = q.createContext();
+                            q.push(context, new byte[100]);
+                            q.commit(context);
+                            Thread.sleep(pushRand.nextInt(5));
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    pusherFinishCount.incrementAndGet();
+                }
+            });
+            futures.add(future);
+        }
+
+        // start popping
+        for (int i = 0; i < numPoppers; i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    while (pusherFinishCount.get() < numPushers || !q.isEmpty()) {
+                        try {
+                            FpqContext context = q.createContext();
+                            Collection<FpqEntry> entries;
+                            while (null != (entries=q.pop(context, 1))) {
+                                numPops.incrementAndGet();
+                                Thread.sleep(popRand.nextInt(5));
+                            }
+                            q.commit(context);
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+            futures.add(future);
+        }
+
+        boolean finished = false;
+        while (!finished) {
+            try {
+                for (Future f : futures) {
+                    f.get();
+                }
+                finished = true;
+            }
+            catch (InterruptedException e) {
+                // ignore
+                Thread.interrupted();
+            }
+        }
+
+        assertThat(numPops.get(), is(numEntries * numPushers));
+        assertThat(q.getNumberOfEntries(), is(0L));
+        assertThat(q.getMemoryMgr().getNumberOfActiveSegments(), is(1));
+        assertThat(q.getMemoryMgr().getSegments(), hasSize(1));
+        assertThat(q.getJournalFileMgr().getJournalFiles().entrySet(), hasSize(1));
+        assertThat(FileUtils.listFiles(q.getPagingDirectory(), TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
+        assertThat(FileUtils.listFiles(q.getJournalDirectory(), TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(1));
     }
 
     // --------------

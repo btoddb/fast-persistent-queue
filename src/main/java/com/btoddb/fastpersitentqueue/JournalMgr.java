@@ -178,6 +178,11 @@ public class JournalMgr {
             throw new FpqException("FPQ has been shutdown or is in progress, cannot report TAKE");
         }
 
+        if (null == entries || entries.isEmpty()) {
+            logger.debug("provided null or empty collection - ignoring");
+            return;
+        }
+
         for (FpqEntry entry : entries) {
             JournalDescriptor desc;
             journalLock.readLock().lock();

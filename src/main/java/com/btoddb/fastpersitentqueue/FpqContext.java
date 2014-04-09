@@ -78,6 +78,10 @@ public class FpqContext {
         return popping;
     }
 
+    public boolean isQueueEmpty() {
+        return null == queue || queue.isEmpty();
+    }
+
     public Collection getQueue() {
         if (null != queue) {
             return Collections.unmodifiableCollection(queue);
