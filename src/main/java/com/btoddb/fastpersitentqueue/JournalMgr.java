@@ -183,22 +183,31 @@ public class JournalMgr {
             return;
         }
 
+        Map<UUID, Integer> journalIds = new HashMap<UUID, Integer>();
         for (FpqEntry entry : entries) {
-            JournalDescriptor desc;
+            Integer count = journalIds.get(entry.getJournalId());
+            if (null == count) {
+                count = 0;
+            }
+            journalIds.put(entry.getJournalId(), count + 1);
+        }
+
+        for (Map.Entry<UUID, Integer> entry : journalIds.entrySet()) {
             journalLock.readLock().lock();
+            JournalDescriptor desc;
             try {
-                desc = journalIdMap.get(entry.getJournalId());
+                desc = journalIdMap.get(entry.getKey());
             }
             finally {
                 journalLock.readLock().unlock();
             }
 
             if (null == desc) {
-                logger.error("illegal state - reported consumption of journal entry, but journal descriptor doesn't exist!");
+                logger.error("illegal state - reported consumption of journal entry, {}, but journal descriptor doesn't exist!", entry.getKey());
                 continue;
             }
 
-            long remaining = desc.decrementEntryCount(1);
+            long remaining = desc.decrementEntryCount(entry.getValue());
 
             // this is therad-safe, because only one thread can decrement down to zero when isWritingFinished
             if (0 == remaining && desc.isWritingFinished()) {
@@ -258,6 +267,7 @@ public class JournalMgr {
             }
         }
 
+        // for journals that are completely popped, but not removed (because a client still could have pushed)
         for (JournalDescriptor desc: journalIdMap.values()) {
             if (0 == desc.getNumberOfUnconsumedEntries()) {
                 removeJournal(desc);

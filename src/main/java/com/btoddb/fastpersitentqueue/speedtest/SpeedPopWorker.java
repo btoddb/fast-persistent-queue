@@ -16,16 +16,14 @@ public class SpeedPopWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPopWorker.class);
 
     private final Fpq queue;
-    private final int batchSize;
+    private final Config config;
 
-    private boolean finished = false;
-    private boolean success = false;
     int numberOfEntries = 0;
     private boolean stopWhenQueueEmpty = false;
 
-    public SpeedPopWorker(Fpq queue, int batchSize) {
+    public SpeedPopWorker(Fpq queue, Config config) {
         this.queue = queue;
-        this.batchSize = batchSize;
+        this.config = config;
     }
 
     @Override
@@ -36,30 +34,19 @@ public class SpeedPopWorker implements Runnable {
                 Collection<FpqEntry> entries;
                 do {
                     FpqContext context = queue.createContext();
-                    entries = queue.pop(context, batchSize);
+                    entries = queue.pop(context, config.getPopBatchSize());
                     if (null != entries && !entries.isEmpty()) {
-                        queue.commit(context);
                         numberOfEntries += entries.size();
+                        queue.commit(context);
                         entries.clear();
                     }
                 } while (null != entries && !entries.isEmpty());
             }
-            success = true;
         }
         catch (Throwable e) {
             logger.error("exception while appending to journal", e);
             e.printStackTrace();
         }
-
-        finished = true;
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public boolean isFinished() {
-        return finished;
     }
 
     public int getNumberOfEntries() {

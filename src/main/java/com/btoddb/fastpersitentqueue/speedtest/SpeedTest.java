@@ -19,38 +19,33 @@ import java.util.concurrent.TimeUnit;
  */
 public class SpeedTest {
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        File theDir = new File("speed-"+ UUID.randomUUID().toString());
+    public static void main(String[] args) throws Exception {
+        if (0 == args.length) {
+            System.out.println();
+            System.out.println("ERROR: must specify the config file path/name");
+            System.out.println();
+            System.exit(1);
+        }
+
+        Config config = new Config(args[0]);
+
+        System.out.println(config.toString());
+
+        File theDir = new File(config.getDirectory(), "speed-"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
         Fpq queue = null;
 
-        int durationOfTest = 60; // seconds
-        int numberOfPushers = 4;
-        int numberOfPoppers = 4;
-        int entrySize = 1000;
-        int maxTransactionSize = 2000;
-        int pushBatchSize = 1;
-        int popBatchSize = 2000;
-
-
-        long maxMemorySegmentSizeInBytes = 10000000;
-        int maxJournalFileSize = 10000000;
-        int journalMaxDurationInMs = 30000;
-        int flushPeriodInMs = 1000;
-        int numberOfFlushWorkers = 4;
-
-
         try {
             queue = new Fpq();
-            queue.setMaxMemorySegmentSizeInBytes(maxMemorySegmentSizeInBytes);
-            queue.setMaxTransactionSize(maxTransactionSize);
+            queue.setMaxMemorySegmentSizeInBytes(config.getMaxMemorySegmentSizeInBytes());
+            queue.setMaxTransactionSize(config.getMaxTransactionSize());
             queue.setJournalDirectory(new File(theDir, "journal"));
             queue.setPagingDirectory(new File(theDir, "paging"));
-            queue.setNumberOfFlushWorkers(numberOfFlushWorkers);
-            queue.setFlushPeriodInMs(flushPeriodInMs);
-            queue.setMaxJournalFileSize(maxJournalFileSize);
-            queue.setMaxJournalDurationInMs(journalMaxDurationInMs);
+            queue.setNumberOfFlushWorkers(config.getNumberOfFlushWorkers());
+            queue.setFlushPeriodInMs(config.getFlushPeriodInMs());
+            queue.setMaxJournalFileSize(config.getMaxJournalFileSize());
+            queue.setMaxJournalDurationInMs(config.getJournalMaxDurationInMs());
             queue.init();
 
             //
@@ -58,16 +53,16 @@ public class SpeedTest {
             //
 
             Set<SpeedPushWorker> pushWorkers = new HashSet<SpeedPushWorker>();
-            for (int i=0;i < numberOfPushers;i++) {
-                pushWorkers.add(new SpeedPushWorker(queue, durationOfTest, entrySize, pushBatchSize));
+            for (int i=0;i < config.getNumberOfPushers();i++) {
+                pushWorkers.add(new SpeedPushWorker(queue, config));
             }
 
             Set<SpeedPopWorker> popWorkers = new HashSet<SpeedPopWorker>();
-            for (int i=0;i < numberOfPoppers;i++) {
-                popWorkers.add(new SpeedPopWorker(queue, popBatchSize));
+            for (int i=0;i < config.getNumberOfPoppers();i++) {
+                popWorkers.add(new SpeedPopWorker(queue, config));
             }
 
-            ExecutorService pusherExecSrvc = Executors.newFixedThreadPool(numberOfPushers+numberOfPoppers, new ThreadFactory() {
+            ExecutorService pusherExecSrvc = Executors.newFixedThreadPool(config.getNumberOfPushers()+config.getNumberOfPoppers(), new ThreadFactory() {
                 @Override
                 public Thread newThread(Runnable runnable) {
                     Thread t = new Thread(runnable);
@@ -76,7 +71,7 @@ public class SpeedTest {
                 }
             });
 
-            ExecutorService popperExecSrvc = Executors.newFixedThreadPool(numberOfPushers+numberOfPoppers, new ThreadFactory() {
+            ExecutorService popperExecSrvc = Executors.newFixedThreadPool(config.getNumberOfPushers()+config.getNumberOfPoppers(), new ThreadFactory() {
                 @Override
                 public Thread newThread(Runnable runnable) {
                     Thread t = new Thread(runnable);
@@ -100,7 +95,7 @@ public class SpeedTest {
             //
 
             pusherExecSrvc.shutdown();
-            pusherExecSrvc.awaitTermination(durationOfTest*2, TimeUnit.SECONDS);
+            pusherExecSrvc.awaitTermination(config.getDurationOfTest()*2, TimeUnit.SECONDS);
             long endPushing = System.currentTimeMillis();
 
             // tell poppers, all pushers are finished
@@ -124,7 +119,7 @@ public class SpeedTest {
             }
 
             popperExecSrvc.shutdown();
-            popperExecSrvc.awaitTermination(durationOfTest*2, TimeUnit.SECONDS);
+            popperExecSrvc.awaitTermination(config.getDurationOfTest()*2, TimeUnit.SECONDS);
             long endPopping = System.currentTimeMillis();
 
             long numberOfPushes = 0;

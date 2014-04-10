@@ -82,8 +82,8 @@ public class InMemorySegmentMgrTest {
             System.out.println(new String(entry.getData()));
         }
 
-        assertThat(mgr.getSegments(), hasSize(1));
         assertThat(mgr.getNumberOfEntries(), is(0L));
+        assertThat(mgr.getSegments(), hasSize(1));
 
         MemorySegment seg = mgr.getSegments().iterator().next();
         assertThat(seg.getStatus(), is(MemorySegment.Status.READY));

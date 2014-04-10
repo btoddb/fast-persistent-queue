@@ -101,11 +101,13 @@ public class FpqIT {
     @Test
     public void testThreading() throws Exception {
         q.setMaxMemorySegmentSizeInBytes(10000);
+        q.setMaxJournalFileSize(1000);
         q.setMaxTransactionSize(100);
 
         final int numEntries = 10000;
         final int numPushers = 3;
-        int numPoppers = 3;
+        int numPoppers = 2;
+        final int popBatchSize = 100;
 
         final Random pushRand = new Random(1000L);
         final Random popRand = new Random(1000000L);
@@ -149,11 +151,12 @@ public class FpqIT {
                         try {
                             FpqContext context = q.createContext();
                             Collection<FpqEntry> entries;
-                            while (null != (entries=q.pop(context, 1))) {
-                                numPops.incrementAndGet();
-                                Thread.sleep(popRand.nextInt(5));
+                            while (null != (entries=q.pop(context, popBatchSize))) {
+                                numPops.addAndGet(entries.size());
+                                q.commit(context);
+                                entries.clear();
+                                Thread.sleep(popRand.nextInt(10));
                             }
-                            q.commit(context);
                         }
                         catch (Exception e) {
                             e.printStackTrace();

@@ -7,6 +7,10 @@ MAX_WAIT_FOR_TERMINATE=60
 CLASSPATH=conf:lib/*
 EXEC_CLASS=com.btoddb.fastpersitentqueue.speedtest.SpeedTest
 
+JMX_OPTS="-Dcom.sun.management.jmxremote.port=6786 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+DEBUG_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000"
+
+JAVA_OPTS="${JMX_OPTS} -Xms1G -Xmx1G -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:CMSInitiatingOccupancyFraction=75"
 echo
 
 pid_running() {
@@ -17,7 +21,7 @@ pid_running() {
 case "$1" in
   start)
     shift 
-    java -cp ${CLASSPATH} ${EXEC_CLASS}
+    java ${JAVA_OPTS} -cp ${CLASSPATH} ${EXEC_CLASS} $*
     echo $? > ${PID_FILE}
     ;;
 
