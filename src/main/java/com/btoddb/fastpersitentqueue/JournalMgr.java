@@ -83,7 +83,7 @@ public class JournalMgr {
         FileUtils.forceMkdir(directory);
         Collection<File> files = FileUtils.listFiles(directory, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE);
         if (null == files || 0 == files.size()) {
-            logger.info("no journal files to replay");
+            logger.info("no previous journal files found");
             return;
         }
 
@@ -104,19 +104,6 @@ public class JournalMgr {
 
         logger.info("completed journal descriptor loading.  found a total of {} entries", numberOfEntries.get());
     }
-
-//    private void replayJournal(File f) throws IOException {
-//        JournalFile jf = new JournalFile(f);
-//        jf.initForReading();
-//        try {
-//            for (FpqEntry entry : jf) {
-//                logger.info("journal file, {}, has {} entries to replay", f.getName(), jf.getNumberOfEntries());
-//            }
-//        }
-//        finally {
-//            jf.close();
-//        }
-//    }
 
     public JournalReplayIterable createReplayIterable() {
         return new JournalReplayIterable();
@@ -437,14 +424,15 @@ public class JournalMgr {
         }
 
         private void advanceToNextJobFile() {
-            if (jdIter.hasNext()) {
+            while (jdIter.hasNext()) {
                 jd = jdIter.next();
-                entryIter = jd.getFile().iterator();
+                if (jd.isWritingFinished()) {
+                    entryIter = jd.getFile().iterator();
+                    return;
+                }
             }
-            else {
-                jd = null;
-                entryIter = null;
-            }
+            jd = null;
+            entryIter = null;
         }
 
         public void close() throws IOException {

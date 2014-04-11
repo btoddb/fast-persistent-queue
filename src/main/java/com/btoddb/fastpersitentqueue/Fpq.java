@@ -55,8 +55,14 @@ public class Fpq {
     }
 
     private void replayJournals() {
-//        logger.info("replaying {} journal entries", journalMgr.getNumberOfEntries());
-//        JournalMgr.JournalReplayIterable replay = journalMgr.createReplayIterable();
+//        if (0 < journalMgr.getNumberOfEntries()) {
+//            logger.info("replaying {} journal entries", journalMgr.getNumberOfEntries());
+//            memoryMgr.clear();
+//            JournalMgr.JournalReplayIterable replay = journalMgr.createReplayIterable();
+//            for (FpqEntry entry : replay) {
+//                memoryMgr.push(entry);
+//            }
+//        }
     }
 
     public FpqContext createContext() {

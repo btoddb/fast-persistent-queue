@@ -101,6 +101,30 @@ public class FpqIT {
     }
 
     @Test
+    public void testReplay() throws Exception {
+        fpq.setMaxTransactionSize(100);
+        fpq.setMaxMemorySegmentSizeInBytes(1000);
+        fpq.setMaxJournalFileSize(1000);
+
+        int numEntries = 250;
+        fpq.init();
+
+        for (int i=0;i < numEntries;i++) {
+            byte[] data = new byte[100];
+            ByteBuffer.wrap(data).putInt(i);
+
+            FpqContext ctxt = fpq.createContext();
+            fpq.push(ctxt, data);
+            fpq.commit(ctxt);
+        }
+
+        // simulate improper shutdown
+        fpq.init();
+
+        fail();
+    }
+
+    @Test
     public void testThreading() throws Exception {
         final int numEntries = 10000;
         final int numPushers = 4;
@@ -216,8 +240,12 @@ public class FpqIT {
         FileUtils.forceMkdir(theDir);
 
         fpq = new Fpq();
-        fpq.setMaxMemorySegmentSizeInBytes(10000);
         fpq.setMaxTransactionSize(100);
+        fpq.setMaxMemorySegmentSizeInBytes(10000);
+        fpq.setMaxJournalFileSize(10000);
+        fpq.setMaxJournalDurationInMs(30000);
+        fpq.setFlushPeriodInMs(1000);
+        fpq.setNumberOfFlushWorkers(4);
         fpq.setJournalDirectory(new File(theDir, "journal"));
         fpq.setPagingDirectory(new File(theDir, "paging"));
 
