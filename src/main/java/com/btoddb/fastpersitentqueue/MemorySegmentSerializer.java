@@ -35,7 +35,6 @@ public class MemorySegmentSerializer {
 
     public MemorySegment loadFromDisk(String fn) throws IOException {
         MemorySegment segment = new MemorySegment();
-        segment.setMaxSizeInBytes(0);
         File theFile = new File(directory, fn);
         loadFromDisk(theFile, segment);
         return segment;
@@ -49,7 +48,7 @@ public class MemorySegmentSerializer {
     public void loadFromDisk(File theFile, MemorySegment segment) throws IOException {
         RandomAccessFile raFile = new RandomAccessFile(theFile, "r");
         try {
-            segment.readFromDisk(raFile);
+            segment.readFromPagingFile(raFile);
         }
         finally {
             raFile.close();

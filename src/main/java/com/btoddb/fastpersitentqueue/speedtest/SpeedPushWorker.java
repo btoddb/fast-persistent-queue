@@ -41,7 +41,7 @@ public class SpeedPushWorker implements Runnable {
             }
         }
         catch (Throwable e) {
-            logger.error("exception while appending to journal", e);
+            logger.error("exception while pushing to FPQ", e);
         }
     }
 

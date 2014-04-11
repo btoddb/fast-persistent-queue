@@ -124,7 +124,7 @@ public class JournalFile {
     public FpqEntry readNextEntry() throws IOException {
         FpqEntry entry = new FpqEntry();
         entry.setJournalId(id);
-        entry.readFromDisk(readerFile);
+        entry.readFromJournal(readerFile);
         if (null != entry.getData()) {
             return entry;
         }

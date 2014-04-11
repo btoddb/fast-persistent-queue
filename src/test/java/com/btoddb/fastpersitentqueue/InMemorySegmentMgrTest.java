@@ -53,7 +53,7 @@ public class InMemorySegmentMgrTest {
         MemorySegment seg = iter.next();
         assertThat(seg.isPushingFinished(), is(true));
         assertThat(seg.getStatus(), is(MemorySegment.Status.OFFLINE));
-        assertThat(seg.getNumberOfAvailableEntries(), is(0L));
+        assertThat(seg.getNumberOfAvailableEntries(), is(7L));
         assertThat(seg.getQueue(), is(empty()));
 
         // this one is still active

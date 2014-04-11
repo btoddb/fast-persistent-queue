@@ -100,14 +100,17 @@ public class FpqIT {
 
     @Test
     public void testThreading() throws Exception {
-        q.setMaxMemorySegmentSizeInBytes(10000);
-        q.setMaxJournalFileSize(1000);
-        q.setMaxTransactionSize(100);
-
         final int numEntries = 10000;
-        final int numPushers = 3;
-        int numPoppers = 2;
+        final int numPushers = 4;
+        final int numPoppers = 4;
+        final int entrySize = 1000;
+        q.setMaxTransactionSize(2000);
         final int popBatchSize = 100;
+        q.setMaxMemorySegmentSizeInBytes(10000000);
+        q.setMaxJournalFileSize(10000000);
+        q.setMaxJournalDurationInMs(30000);
+        q.setFlushPeriodInMs(1000);
+        q.setNumberOfFlushWorkers(4);
 
         final Random pushRand = new Random(1000L);
         final Random popRand = new Random(1000000L);
@@ -128,7 +131,7 @@ public class FpqIT {
                     for (int i = 0; i < numEntries; i++) {
                         try {
                             FpqContext context = q.createContext();
-                            q.push(context, new byte[100]);
+                            q.push(context, new byte[entrySize]);
                             q.commit(context);
                             Thread.sleep(pushRand.nextInt(5));
                         }

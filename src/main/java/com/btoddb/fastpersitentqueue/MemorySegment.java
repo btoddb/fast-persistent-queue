@@ -63,8 +63,8 @@ public class MemorySegment {
 
     public void clearQueue() {
         queue.clear();
-        sizeInBytes.set(0);
-        numberOfAvailableEntries.set(0);
+//        sizeInBytes.set(0);
+//        numberOfAvailableEntries.set(0);
     }
 
     public long adjustSizeInBytes(long additionalSize) {
@@ -100,16 +100,15 @@ public class MemorySegment {
         raFile.writeLong(totalEventsPushed.get());
         raFile.writeLong(totalEventsPopped.get());
         for (FpqEntry entry : getQueue()) {
-            entry.writeToJournal(raFile);
+            entry.writeToPaging(raFile);
         }
     }
 
-    public void readFromDisk(RandomAccessFile raFile) throws IOException {
+    public void readFromPagingFile(RandomAccessFile raFile) throws IOException {
         readHeaderFromDisk(raFile);
         for ( int i=0;i < numberOfAvailableEntries.get();i++ ) {
             FpqEntry entry = new FpqEntry();
-            entry.readFromDisk(raFile);
-            entry.setJournalId(id);
+            entry.readFromPaging(raFile);
             queue.add(entry);
         }
     }

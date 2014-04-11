@@ -398,7 +398,7 @@ public class InMemorySegmentMgr {
         return numberOfActiveSegments.get();
     }
 
-    Collection<MemorySegment> getSegments() {
+    public Collection<MemorySegment> getSegments() {
         return segments;
     }
 

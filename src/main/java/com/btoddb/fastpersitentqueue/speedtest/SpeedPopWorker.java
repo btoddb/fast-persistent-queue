@@ -44,7 +44,7 @@ public class SpeedPopWorker implements Runnable {
             }
         }
         catch (Throwable e) {
-            logger.error("exception while appending to journal", e);
+            logger.error("exception while popping from FPQ", e);
             e.printStackTrace();
         }
     }

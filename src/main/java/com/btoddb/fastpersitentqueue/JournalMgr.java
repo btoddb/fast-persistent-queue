@@ -106,6 +106,7 @@ public class JournalMgr {
         finally {
             journalLock.writeLock().unlock();
         }
+        logger.debug("added journal, {}", jd.getId());
         journalsCreated.incrementAndGet();
         return jd;
     }
@@ -203,7 +204,7 @@ public class JournalMgr {
             }
 
             if (null == desc) {
-                logger.error("illegal state - reported consumption of journal entry, {}, but journal descriptor doesn't exist!", entry.getKey());
+                logger.error("illegal state - reported consumption of journal entry, but journal descriptor, {}, doesn't exist!", entry.getKey());
                 continue;
             }
 
@@ -217,6 +218,7 @@ public class JournalMgr {
     }
 
     private void submitJournalRemoval(final JournalDescriptor desc) {
+        logger.debug("submitting journal, {}, for removal", desc.getId());
         generalExec.submit(new Runnable() {
             @Override
             public void run() {
@@ -242,6 +244,7 @@ public class JournalMgr {
         }
 
         journalsRemoved.incrementAndGet();
+        logger.debug("journal, {}, removed", desc.getId());
     }
 
     public void shutdown() {

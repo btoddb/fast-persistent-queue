@@ -52,6 +52,8 @@ public class SpeedTest {
             // start workers
             //
 
+            long startTime = System.currentTimeMillis();
+
             Set<SpeedPushWorker> pushWorkers = new HashSet<SpeedPushWorker>();
             for (int i=0;i < config.getNumberOfPushers();i++) {
                 pushWorkers.add(new SpeedPushWorker(queue, config));
@@ -91,36 +93,38 @@ public class SpeedTest {
             }
 
             //
-            // wait for pushers to finish
+            // wait to finish
             //
 
-            pusherExecSrvc.shutdown();
-            pusherExecSrvc.awaitTermination(config.getDurationOfTest()*2, TimeUnit.SECONDS);
-            long endPushing = System.currentTimeMillis();
+            long endTime = startTime + config.getDurationOfTest()*1000;
+            long endPushing = 0;
+            long displayTimer = 0;
+            while (0 == endPushing || !queue.isEmpty()) {
+                if (1000 < (System.currentTimeMillis()-displayTimer)) {
+                    System.out.println(String.format("status (%ds) : journals = %d : memory segments = %d",
+                                                     (endTime - System.currentTimeMillis()) / 1000,
+                                                     queue.getJournalFileMgr().getJournalIdMap().size(),
+                                                     queue.getMemoryMgr().getSegments().size()
+                    ));
+                    displayTimer = System.currentTimeMillis();
+                }
 
-            // tell poppers, all pushers are finished
-            for (SpeedPopWorker sw : popWorkers) {
-                sw.stopWhenQueueEmpty();
+                pusherExecSrvc.shutdown();
+                if (pusherExecSrvc.awaitTermination(0, TimeUnit.SECONDS)) {
+                    endPushing = System.currentTimeMillis();
+                    // tell poppers, all pushers are finished
+                    for (SpeedPopWorker sw : popWorkers) {
+                        sw.stopWhenQueueEmpty();
+                    }
+                }
+
+                Thread.sleep(100);
             }
 
-            //
-            // wait for poppers to finish
-            //
-
-            while (!queue.isEmpty()) {
-                System.out.println("remaing in queue = " + queue.size());
-                try {
-                    Thread.sleep(100);
-                }
-                catch (InterruptedException e) {
-                    // ignore
-                    Thread.interrupted();
-                }
-            }
+            long endPopping = System.currentTimeMillis();
 
             popperExecSrvc.shutdown();
-            popperExecSrvc.awaitTermination(config.getDurationOfTest()*2, TimeUnit.SECONDS);
-            long endPopping = System.currentTimeMillis();
+            popperExecSrvc.awaitTermination(10, TimeUnit.SECONDS);
 
             long numberOfPushes = 0;
             for (SpeedPushWorker sw : pushWorkers) {
