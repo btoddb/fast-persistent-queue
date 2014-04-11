@@ -1,17 +1,23 @@
 package com.btoddb.fastpersitentqueue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 
 
 /**
  *
  */
 public class Fpq {
+    private static final Logger logger = LoggerFactory.getLogger(Fpq.class);
+
     private File journalDirectory;
-    private JournalMgr journalFileMgr;
+    private JournalMgr journalMgr;
 
     private InMemorySegmentMgr memoryMgr;
 
@@ -23,19 +29,34 @@ public class Fpq {
     private int maxJournalFileSize = 100000000;
     private int maxJournalDurationInMs = 5 * 60 * 1000;
 
+    private boolean initializing;
+
     public void init() throws IOException {
-        journalFileMgr = new JournalMgr();
-        journalFileMgr.setDirectory(journalDirectory);
-        journalFileMgr.setNumberOfFlushWorkers(numberOfFlushWorkers);
-        journalFileMgr.setFlushPeriodInMs(flushPeriodInMs);
-        journalFileMgr.setMaxJournalFileSize(maxJournalFileSize);
-        journalFileMgr.setMaxJournalDurationInMs(maxJournalDurationInMs);
-        journalFileMgr.init();
+        initializing = true;
+
+        logger.info("initializing FPQ");
+
+        journalMgr = new JournalMgr();
+        journalMgr.setDirectory(journalDirectory);
+        journalMgr.setNumberOfFlushWorkers(numberOfFlushWorkers);
+        journalMgr.setFlushPeriodInMs(flushPeriodInMs);
+        journalMgr.setMaxJournalFileSize(maxJournalFileSize);
+        journalMgr.setMaxJournalDurationInMs(maxJournalDurationInMs);
+        journalMgr.init();
 
         memoryMgr = new InMemorySegmentMgr();
         memoryMgr.setMaxSegmentSizeInBytes(maxMemorySegmentSizeInBytes);
         memoryMgr.setPagingDirectory(pagingDirectory);
         memoryMgr.init();
+
+        replayJournals();
+
+        initializing = false;
+    }
+
+    private void replayJournals() {
+//        logger.info("replaying {} journal entries", journalMgr.getNumberOfEntries());
+//        JournalMgr.JournalReplayIterable replay = journalMgr.createReplayIterable();
     }
 
     public FpqContext createContext() {
@@ -90,7 +111,7 @@ public class Fpq {
         // - if commit log file is no longer needed, remove in background work thread
 
         if (!context.isQueueEmpty()) {
-            journalFileMgr.reportTake(context.getQueue());
+            journalMgr.reportTake(context.getQueue());
         }
     }
 
@@ -103,7 +124,7 @@ public class Fpq {
             return;
         }
 
-        Collection<FpqEntry> entries = journalFileMgr.append(context.getQueue());
+        Collection<FpqEntry> entries = journalMgr.append(context.getQueue());
         memoryMgr.push(entries);
     }
 
@@ -122,7 +143,7 @@ public class Fpq {
 
     public void shutdown() {
         memoryMgr.shutdown();
-        journalFileMgr.shutdown();
+        journalMgr.shutdown();
     }
 
     public long size() {
@@ -153,8 +174,8 @@ public class Fpq {
         this.maxMemorySegmentSizeInBytes = maxMemorySegmentSizeInBytes;
     }
 
-    public JournalMgr getJournalFileMgr() {
-        return journalFileMgr;
+    public JournalMgr getJournalMgr() {
+        return journalMgr;
     }
 
     public InMemorySegmentMgr getMemoryMgr() {
@@ -194,11 +215,11 @@ public class Fpq {
     }
 
     public long getJournalsCreated() {
-        return journalFileMgr.getJournalsCreated();
+        return journalMgr.getJournalsCreated();
     }
 
     public long getJournalsRemoved() {
-        return journalFileMgr.getJournalsRemoved();
+        return journalMgr.getJournalsRemoved();
     }
 
     public File getPagingDirectory() {

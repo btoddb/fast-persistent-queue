@@ -10,11 +10,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.fail;
 
 
 /**
@@ -25,7 +25,7 @@ public class JournalMgrIT {
     JournalMgr mgr;
 
     @Test
-    public void testStart() throws Exception {
+    public void testInitFreshJournalMgr() throws Exception {
         mgr.init();
 
         assertThat(mgr.getJournalFiles().size(), is(1));
@@ -113,7 +113,7 @@ public class JournalMgrIT {
         byte[] data = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         long now = System.currentTimeMillis();
 
-        mgr.setMaxJournalFileSize(40);
+        mgr.setMaxJournalFileSize(48);
         mgr.init();
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(0L));
 
@@ -129,7 +129,7 @@ public class JournalMgrIT {
 
     @Test
     public void testReportConsumption() throws IOException {
-        mgr.setMaxJournalFileSize(35);
+        mgr.setMaxJournalFileSize(43);
         mgr.init();
 
         FpqEntry entry1 = mgr.append(new byte[] {0, 1, 2, 3});
@@ -185,7 +185,7 @@ public class JournalMgrIT {
 
     @Test
     public void testShutdownHasRemainingData() throws IOException {
-        mgr.setMaxJournalFileSize(35);
+        mgr.setMaxJournalFileSize(43);
         mgr.init();
 
         FpqEntry entry1 = mgr.append(new byte[] {0, 1, 2, 3});
@@ -203,6 +203,30 @@ public class JournalMgrIT {
         assertThat(mgr.getJournalIdMap(), not(hasKey(entry1.getJournalId())));
         assertThat(mgr.getJournalIdMap(), not(hasKey(entry2.getJournalId())));
         assertThat(mgr.getJournalIdMap(), hasKey(entry3.getJournalId()));
+    }
+
+    @Test
+    public void testLoadingJournalsAtStartup() {
+        fail();
+    }
+
+    @Test
+    public void testJournalEntryIterator() throws IOException {
+        int numEntries = 250;
+        mgr.setMaxJournalFileSize(100);
+        mgr.init();
+        for (int i=0;i < numEntries;i++) {
+            mgr.append(new byte[] {(byte)i, 1, 2});
+        }
+        mgr.shutdown();
+
+        mgr.init();
+        byte count = 0;
+        JournalMgr.JournalReplayIterable replay = mgr.createReplayIterable();
+        for (FpqEntry entry : replay) {
+            assertThat(entry.getData()[0], is(count++));
+        }
+        replay.close();
     }
 
     @Test

@@ -4,7 +4,6 @@ import com.btoddb.fastpersitentqueue.Fpq;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -108,7 +107,7 @@ public class SpeedTest {
                 if (1000 < (System.currentTimeMillis()-displayTimer)) {
                     System.out.println(String.format("status (%ds) : journals = %d : memory segments = %d",
                                                      (endTime - System.currentTimeMillis()) / 1000,
-                                                     queue.getJournalFileMgr().getJournalIdMap().size(),
+                                                     queue.getJournalMgr().getJournalIdMap().size(),
                                                      queue.getMemoryMgr().getSegments().size()
                     ));
                     displayTimer = System.currentTimeMillis();

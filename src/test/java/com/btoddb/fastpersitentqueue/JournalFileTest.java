@@ -26,16 +26,17 @@ public class JournalFileTest {
     public void testInitForWritingThenClose() throws IOException {
         JournalFile jf1 = new JournalFile(theFile);
         jf1.initForWriting(new UUID());
-        assertThat(jf1.getRandomAccessReaderFile(), is(nullValue()));
-        assertThat(jf1.getRandomAccessWriterFile().getChannel().isOpen(), is(true));
-        assertThat(jf1.getWriterFilePosition(), is((long)JournalFile.HEADER_SIZE));
+        assertThat(jf1.isWriteMode(), is(true));
+        assertThat(jf1.isOpen(), is(true));
+        assertThat(jf1.getFilePosition(), is((long) JournalFile.HEADER_SIZE));
         jf1.close();
 
-        assertThat(jf1.getRandomAccessWriterFile().getChannel().isOpen(), is(false));
+        assertThat(jf1.isOpen(), is(false));
 
         RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
         assertThat(raFile.readInt(), is(JournalFile.VERSION));
         assertThat(Utils.readUuidFromFile(raFile), is(jf1.getId()));
+        assertThat(raFile.readLong(), is(0L));
         raFile.close();
     }
 
@@ -45,28 +46,31 @@ public class JournalFileTest {
         RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
         raFile.writeInt(1);
         Utils.writeUuidToFile(raFile, id);
+        raFile.writeLong(123);
         raFile.close();
 
         JournalFile jf1 = new JournalFile(theFile);
         jf1.initForReading();
-        assertThat(jf1.getRandomAccessReaderFile().getChannel().isOpen(), is(true));
-        assertThat(jf1.getRandomAccessWriterFile(), is(nullValue()));
-        assertThat(jf1.getReaderFilePosition(), is((long)JournalFile.HEADER_SIZE));
+        assertThat(jf1.getVersion(), is(JournalFile.VERSION));
+        assertThat(jf1.getId(), is(id));
+        assertThat(jf1.getNumberOfEntries(), is(123L));
+
+        assertThat(jf1.isOpen(), is(true));
+        assertThat(jf1.isWriteMode(), is(false));
+        assertThat(jf1.getFilePosition(), is((long)JournalFile.HEADER_SIZE));
         jf1.close();
 
-        assertThat(jf1.getRandomAccessReaderFile().getChannel().isOpen(), is(false));
+        assertThat(jf1.isOpen(), is(false));
     }
 
     @Test
-    public void testCloseAfterOpenForRead() throws IOException {
+    public void testIsOpen() throws IOException {
         JournalFile jf1 = new JournalFile(theFile);
         jf1.initForWriting(new UUID());
+        assertThat(jf1.getRandomAccessFile().getChannel().isOpen(), is(true));
         jf1.close();
 
-        jf1 = new JournalFile(theFile);
-        jf1.initForReading();
-        jf1.close();
-        assertThat(jf1.getRandomAccessReaderFile().getChannel().isOpen(), is(false));
+        assertThat(jf1.getRandomAccessFile().getChannel().isOpen(), is(false));
     }
 
     @Test
@@ -76,17 +80,23 @@ public class JournalFileTest {
         jf1.initForWriting(new UUID());
         FpqEntry entry1 = new FpqEntry(data.getBytes());
         jf1.append(entry1);
-        assertThat(jf1.getWriterFilePosition(), is(JournalFile.HEADER_SIZE+4L+entry1.getData().length));
+        assertThat(jf1.getFilePosition(), is(JournalFile.HEADER_SIZE+4L+entry1.getData().length));
         jf1.close();
 
-        jf1.initForReading();
-        assertThat(jf1.getReaderFilePosition(), is((long) JournalFile.HEADER_SIZE));
+        JournalFile jf2 = new JournalFile(theFile);
+        jf2.initForReading();
+        assertThat(jf2.getVersion(), is(JournalFile.VERSION));
+        assertThat(jf2.getId(), is(jf1.getId()));
+        assertThat(jf2.getNumberOfEntries(), is(1L));
+        assertThat(jf2.getFilePosition(), is((long) JournalFile.HEADER_SIZE));
 
-        FpqEntry entry = jf1.readNextEntry();
-        assertThat(jf1.getReaderFilePosition(), is(jf1.getRandomAccessReaderFile().length()));
+        FpqEntry entry = jf2.readNextEntry();
+        assertThat(jf2.getFilePosition(), is(jf2.getRandomAccessFile().length()));
         assertThat(entry.getData(), is(data.getBytes()));
 
-        assertThat(jf1.readNextEntry(), is(nullValue()));
+        assertThat(jf2.readNextEntry(), is(nullValue()));
+        jf2.close();
+        assertThat(jf2.isOpen(), is(false));
     }
 
     @Test
@@ -95,8 +105,10 @@ public class JournalFileTest {
         jf1.initForWriting(new UUID());
         jf1.close();
 
-        jf1.initForReading();
-        assertThat(jf1.readNextEntry(), is(nullValue()));
+        JournalFile jf2 = new JournalFile(theFile);
+        jf2.initForReading();
+        assertThat(jf2.readNextEntry(), is(nullValue()));
+        jf2.close();
     }
 
     @Test
@@ -123,6 +135,7 @@ public class JournalFileTest {
         RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
         raFile.writeInt(1);
         Utils.writeUuidToFile(raFile, id);
+        raFile.writeLong(1);
         raFile.writeInt(12345);
         raFile.close();
 
@@ -135,6 +148,27 @@ public class JournalFileTest {
         catch (FpqException e) {
             assertThat(e.getMessage(), containsString("entry length (12345) could not be satisfied"));
         }
+    }
+
+    @Test
+    public void testIterator() throws Exception {
+        int numEntries = 5;
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        for (int i=0;i < numEntries;i++) {
+            jf1.append(new FpqEntry(String.valueOf(i).getBytes()));
+        }
+        jf1.close();
+
+        JournalFile jf2 = new JournalFile(theFile);
+        jf2.initForReading();
+        int count = 0;
+        for (FpqEntry entry : jf2) {
+            assertThat(String.valueOf(count), is(new String(entry.getData())));
+            count++;
+        }
+
+        assertThat(count, is(5));
     }
 
     // ---------------

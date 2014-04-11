@@ -16,10 +16,12 @@ public class JournalDescriptor {
     private final ScheduledFuture future;
     private long startTime;
 
-//    private long lastPositionRead = -1;
     private AtomicLong numberOfUnconsumedEntries = new AtomicLong();
     private volatile boolean writingFinished;
-//    private long length;
+
+    public JournalDescriptor(JournalFile file) {
+        this(file.getId(), file, null);
+    }
 
     public JournalDescriptor(UUID id, JournalFile file, ScheduledFuture future) {
         this.id = id;
@@ -39,11 +41,15 @@ public class JournalDescriptor {
         return future;
     }
 
-    public long incrementEntryCount(int size) {
-        return numberOfUnconsumedEntries.addAndGet(size);
-    }
-    public long decrementEntryCount(int size) {
-        return numberOfUnconsumedEntries.addAndGet(-size);
+//    public long incrementEntryCount(long size) {
+//        return numberOfUnconsumedEntries.addAndGet(size);
+//    }
+//    public long decrementEntryCount(long size) {
+//        return numberOfUnconsumedEntries.addAndGet(-size);
+//    }
+
+    public long adjustEntryCount(long delta) {
+        return numberOfUnconsumedEntries.addAndGet(delta);
     }
 
     public boolean isWritingFinished() {

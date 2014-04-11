@@ -27,4 +27,9 @@ public class Utils {
         throw new FpqException(msg);
     }
 
+    public static void logAndThrow(Logger logger, String msg, Exception e) throws FpqException {
+        logger.error(msg, e);
+        throw new FpqException(msg, e);
+    }
+
 }

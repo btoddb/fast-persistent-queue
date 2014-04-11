@@ -2,6 +2,7 @@ package com.btoddb.fastpersitentqueue;
 
 import com.eaio.uuid.UUID;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,7 @@ public class JournalMgr {
     private volatile boolean shutdownInProgress;
     private AtomicLong journalsCreated = new AtomicLong();
     private AtomicLong journalsRemoved = new AtomicLong();
+    private AtomicLong numberOfEntries = new AtomicLong();
 
     private volatile JournalDescriptor currentJournalDescriptor;
 
@@ -68,7 +70,7 @@ public class JournalMgr {
                                                     });
 
         prepareJournaling();
-        reloadJournalFiles();
+
         if (journalIdMap.isEmpty()) {
             currentJournalDescriptor = createAndAddNewJournal();
         }
@@ -79,20 +81,54 @@ public class JournalMgr {
 
     private void prepareJournaling() throws IOException {
         FileUtils.forceMkdir(directory);
+        Collection<File> files = FileUtils.listFiles(directory, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE);
+        if (null == files || 0 == files.size()) {
+            logger.info("no journal files to replay");
+            return;
+        }
+
+        logger.info("loading journal descriptors");
+        numberOfEntries.set(0);
+        for (File f : files) {
+            JournalFile jf = new JournalFile(f);
+            jf.initForReading();
+            jf.close();
+
+            JournalDescriptor jd = new JournalDescriptor(jf);
+            jd.setWritingFinished(true);
+            jd.adjustEntryCount(jf.getNumberOfEntries());
+            journalIdMap.put(jd.getId(), jd);
+            numberOfEntries.addAndGet(jf.getNumberOfEntries());
+            logger.info("loaded descriptor, {}, with {} entries", jd.getId(), jd.getNumberOfUnconsumedEntries());
+        }
+
+        logger.info("completed journal descriptor loading.  found a total of {} entries", numberOfEntries.get());
     }
 
-    private void reloadJournalFiles() {
-        // nothing yet
-        // - load and sorted
+//    private void replayJournal(File f) throws IOException {
+//        JournalFile jf = new JournalFile(f);
+//        jf.initForReading();
+//        try {
+//            for (FpqEntry entry : jf) {
+//                logger.info("journal file, {}, has {} entries to replay", f.getName(), jf.getNumberOfEntries());
+//            }
+//        }
+//        finally {
+//            jf.close();
+//        }
+//    }
+
+    public JournalReplayIterable createReplayIterable() {
+        return new JournalReplayIterable();
     }
 
     private JournalDescriptor createAndAddNewJournal() throws IOException {
         UUID uid = new UUID();
         String fn = createNewJournalName(uid.toString());
-        return addNewJournal(uid, fn);
-        }
+        return addNewJournalToIdMap(uid, fn);
+    }
 
-    private JournalDescriptor addNewJournal(UUID id, String fn) throws IOException {
+    private JournalDescriptor addNewJournalToIdMap(UUID id, String fn) throws IOException {
         JournalFile jf = new JournalFile(new File(directory, fn));
         jf.initForWriting(id);
 
@@ -106,11 +142,11 @@ public class JournalMgr {
         finally {
             journalLock.writeLock().unlock();
         }
-        logger.debug("added journal, {}", jd.getId());
+
         journalsCreated.incrementAndGet();
+        logger.debug("new journal created : {}", jd.getId());
         return jd;
     }
-
 
     public FpqEntry append(byte[] event) throws IOException {
         Collection<FpqEntry> entries = append(Collections.singleton(event));
@@ -141,7 +177,7 @@ public class JournalMgr {
                         if (0 >= desc.getStartTime()) {
                             desc.setStartTime(System.currentTimeMillis());
                         }
-                        desc.incrementEntryCount(1);
+                        desc.adjustEntryCount(1);
 
                         rollJournalIfNeeded();
                         appended = true;
@@ -159,12 +195,12 @@ public class JournalMgr {
             return;
         }
 
-        long fileLength = currentJournalDescriptor.getFile().getWriterFilePosition();
+        long fileLength = currentJournalDescriptor.getFile().getFilePosition();
         if (fileLength >= maxJournalFileSize ||
                 (0 < fileLength && (currentJournalDescriptor.getStartTime()+maxJournalDurationInMs) < System.currentTimeMillis())) {
             currentJournalDescriptor.setWritingFinished(true);
             currentJournalDescriptor.getFuture().cancel(false);
-            currentJournalDescriptor.getFile().forceFlush();
+            currentJournalDescriptor.getFile().close();
             currentJournalDescriptor = createAndAddNewJournal();
         }
 
@@ -208,7 +244,7 @@ public class JournalMgr {
                 continue;
             }
 
-            long remaining = desc.decrementEntryCount(entry.getValue());
+            long remaining = desc.adjustEntryCount(-entry.getValue());
 
             // this is therad-safe, because only one thread can decrement down to zero when isWritingFinished
             if (0 == remaining && desc.isWritingFinished()) {
@@ -228,7 +264,7 @@ public class JournalMgr {
     }
 
     private void removeJournal(JournalDescriptor desc) {
-        desc.getFuture().cancel(false);
+//        desc.getFuture().cancel(false);
         journalLock.writeLock().lock();
         try {
             journalIdMap.remove(desc.getId());
@@ -275,7 +311,7 @@ public class JournalMgr {
             if (0 == desc.getNumberOfUnconsumedEntries()) {
                 removeJournal(desc);
             }
-            else {
+            else if (desc.getFile().isOpen()) {
                 try {
                     desc.getFile().forceFlush();
                 }
@@ -348,5 +384,73 @@ public class JournalMgr {
 
     public TreeMap<UUID, JournalDescriptor> getJournalIdMap() {
         return journalIdMap;
+    }
+
+    public long getNumberOfEntries() {
+        return numberOfEntries.get();
+    }
+
+    // ------------
+
+    public class JournalReplayIterable implements Iterator<FpqEntry>, Iterable<FpqEntry> {
+        private Iterator<JournalDescriptor> jdIter = journalIdMap.values().iterator();
+        private Iterator<FpqEntry> entryIter = null;
+        private JournalDescriptor jd = null;
+
+        public JournalReplayIterable() {
+            advanceToNextJobFile();
+        }
+
+        @Override
+        public Iterator<FpqEntry> iterator() {
+            return this;
+        }
+
+        @Override
+        public boolean hasNext() {
+            // if no descriptor, then we are done
+            if (null == entryIter) {
+                return false;
+            }
+
+            if (!entryIter.hasNext()) {
+                try {
+                    jd.getFile().close();
+                }
+                catch (IOException e) {
+                    logger.error("exception while closing journal file", e);
+                }
+                advanceToNextJobFile();
+            }
+
+            return null != entryIter;
+        }
+
+        @Override
+        public FpqEntry next() {
+            return hasNext() ? entryIter.next() : null;
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException(JournalMgr.class.getName() + " does not support remove");
+        }
+
+        private void advanceToNextJobFile() {
+            if (jdIter.hasNext()) {
+                jd = jdIter.next();
+                entryIter = jd.getFile().iterator();
+            }
+            else {
+                jd = null;
+                entryIter = null;
+            }
+        }
+
+        public void close() throws IOException {
+            if (null != jd) {
+                jd.getFile().close();
+            }
+        }
     }
 }

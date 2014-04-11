@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
@@ -19,16 +21,17 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *   - replenish global memory queue if it was previously full
  *
  */
-public class JournalFile {
+public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
     private static final Logger logger = LoggerFactory.getLogger(JournalFile.class);
     public static final int VERSION = 1;
-    public static final int HEADER_SIZE = 20;
+    public static final int HEADER_SIZE = 28;
 
     private int version = VERSION;
     private File file;
     private UUID id;
-    private RandomAccessFile writerFile;
-    private RandomAccessFile readerFile;
+    private AtomicLong numberOfEntries = new AtomicLong();
+    private RandomAccessFile raFile;
+    private boolean writeMode;
     private ReentrantReadWriteLock writerLock = new ReentrantReadWriteLock();
 
     public JournalFile(File file) throws IOException {
@@ -41,18 +44,15 @@ public class JournalFile {
         }
 
         try {
-            readerFile = new RandomAccessFile(file, "r");
+            raFile = new RandomAccessFile(file, "r");
+            writeMode = false;
         }
         catch (FileNotFoundException e) {
             logger.error("exception while instantiating RandomAccessFile", e);
             throw e;
         }
 
-        int tmp = readerFile.readInt();
-        if (tmp != version) {
-            throw new FpqException(String.format("version, %d, read from file, %s, does not match any expected versions", tmp, file.getCanonicalPath()));
-        }
-        id = Utils.readUuidFromFile(readerFile);
+        readHeader();
     }
 
     public void initForWriting(UUID id) throws IOException {
@@ -62,15 +62,25 @@ public class JournalFile {
 
         this.id = id;
         try {
-            writerFile = new RandomAccessFile(file, "rw");
+            raFile = new RandomAccessFile(file, "rw");
+            writeMode = true;
         }
         catch (FileNotFoundException e) {
             logger.error("exception while instantiating RandomAccessFile", e);
             throw e;
         }
 
-        writerFile.writeInt(version);
-        Utils.writeUuidToFile(writerFile, id);
+        writeHeader();
+    }
+
+    private void readHeader() throws IOException {
+        raFile.seek(0);
+        int tmp = raFile.readInt();
+        if (tmp != version) {
+            throw new FpqException(String.format("version, %d, read from file, %s, does not match any expected versions", tmp, file.getCanonicalPath()));
+        }
+        id = Utils.readUuidFromFile(raFile);
+        numberOfEntries.set(raFile.readLong());
     }
 
     public FpqEntry append(FpqEntry entry) throws IOException {
@@ -84,7 +94,7 @@ public class JournalFile {
             for (FpqEntry entry : entries) {
                 switch (getVersion()) {
                     case 1:
-                        entry.writeToJournal(writerFile);
+                        entry.writeToJournal(raFile);
                         break;
                     default:
                         Utils.logAndThrow(logger, String.format("invalid version (%d) found, cannot continue", getVersion()));
@@ -97,34 +107,44 @@ public class JournalFile {
             writerLock.writeLock().unlock();
         }
 
+        numberOfEntries.incrementAndGet();
         return entries;
     }
     
     public void forceFlush() throws IOException {
-        if (null != writerFile) {
-            writerFile.getChannel().force(true);
+        if (null != raFile) {
+            raFile.getChannel().force(true);
         }
     }
 
+    private void writeHeader() throws IOException {
+        raFile.writeInt(version);
+        Utils.writeUuidToFile(raFile, id);
+        raFile.writeLong(numberOfEntries.get());
+    }
+
     public void close() throws IOException {
-        // do flush otherwise channel.isOpen will report open, even after close
-        forceFlush();
-        if (null != readerFile) {
-            readerFile.getChannel().force(true);
+        if (!isOpen()) {
+            return;
         }
 
-        if (null != writerFile) {
-            writerFile.close();
+        if (writeMode) {
+            raFile.seek(0);
+            // this updates number of entries
+            writeHeader();
         }
-        if (null != readerFile) {
-            readerFile.close();
+
+        // do flush otherwise channel.isOpen will report open, even after close
+        forceFlush();
+        if (null != raFile) {
+            raFile.close();
         }
     }
 
     public FpqEntry readNextEntry() throws IOException {
         FpqEntry entry = new FpqEntry();
         entry.setJournalId(id);
-        entry.readFromJournal(readerFile);
+        entry.readFromJournal(raFile);
         if (null != entry.getData()) {
             return entry;
         }
@@ -133,12 +153,8 @@ public class JournalFile {
         }
     }
 
-    public long getReaderFilePosition() throws IOException {
-        return readerFile.getFilePointer();
-    }
-
-    public long getWriterFilePosition() throws IOException {
-        return writerFile.getFilePointer();
+    public long getFilePosition() throws IOException {
+        return raFile.getFilePointer();
     }
 
     public File getFile() {
@@ -146,13 +162,8 @@ public class JournalFile {
     }
 
     // junit testing only
-    RandomAccessFile getRandomAccessWriterFile() {
-        return writerFile;
-    }
-
-    // junit testing only
-    RandomAccessFile getRandomAccessReaderFile() {
-        return readerFile;
+    RandomAccessFile getRandomAccessFile() {
+        return raFile;
     }
 
     public int getVersion() {
@@ -163,7 +174,53 @@ public class JournalFile {
         return id;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
+    public long getNumberOfEntries() {
+        return numberOfEntries.get();
+    }
+
+    @Override
+    public Iterator<FpqEntry> iterator() {
+        try {
+            initForReading();
+        }
+        catch (IOException e) {
+            logger.error("exception while setup of iterator", e);
+        }
+        return this;
+    }
+
+    @Override
+    public boolean hasNext() {
+        try {
+            return raFile.getFilePointer() < raFile.length();
+        }
+        catch (IOException e) {
+            Utils.logAndThrow(logger, "exception while determining EOF", e);
+            return false;
+        }
+    }
+
+    @Override
+    public FpqEntry next() {
+        try {
+            return readNextEntry();
+        }
+        catch (IOException e) {
+            Utils.logAndThrow(logger, "exception while reading next entry", e);
+            return null;
+        }
+    }
+
+    @Override
+    public void remove() {
+        throw new UnsupportedOperationException(this.getClass().getSimpleName() + " does not implement 'remove'");
+    }
+
+    public boolean isOpen() {
+        return raFile.getChannel().isOpen();
+    }
+
+    public boolean isWriteMode() {
+        return writeMode;
     }
 }
