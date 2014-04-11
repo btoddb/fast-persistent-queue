@@ -8,11 +8,13 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -116,6 +118,9 @@ public class FpqIT {
         final Random popRand = new Random(1000000L);
         final AtomicInteger pusherFinishCount = new AtomicInteger();
         final AtomicInteger numPops = new AtomicInteger();
+        final AtomicLong counter = new AtomicLong();
+        final AtomicLong pushSum = new AtomicLong();
+        final AtomicLong popSum = new AtomicLong();
 
         q.init();
 
@@ -130,8 +135,13 @@ public class FpqIT {
                 public void run() {
                     for (int i = 0; i < numEntries; i++) {
                         try {
+                            long x = counter.getAndIncrement();
+                            pushSum.addAndGet(x);
+                            ByteBuffer bb = ByteBuffer.wrap(new byte[entrySize]);
+                            bb.putLong(x);
+
                             FpqContext context = q.createContext();
-                            q.push(context, new byte[entrySize]);
+                            q.push(context, bb.array());
                             q.commit(context);
                             Thread.sleep(pushRand.nextInt(5));
                         }
@@ -155,6 +165,10 @@ public class FpqIT {
                             FpqContext context = q.createContext();
                             Collection<FpqEntry> entries;
                             while (null != (entries=q.pop(context, popBatchSize))) {
+                                for (FpqEntry entry : entries) {
+                                    ByteBuffer bb = ByteBuffer.wrap(entry.getData());
+                                    popSum.addAndGet(bb.getLong());
+                                }
                                 numPops.addAndGet(entries.size());
                                 q.commit(context);
                                 entries.clear();
@@ -186,6 +200,7 @@ public class FpqIT {
 
         assertThat(numPops.get(), is(numEntries * numPushers));
         assertThat(q.getNumberOfEntries(), is(0L));
+        assertThat(pushSum.get(), is(popSum.get()));
         assertThat(q.getMemoryMgr().getNumberOfActiveSegments(), is(1));
         assertThat(q.getMemoryMgr().getSegments(), hasSize(1));
         assertThat(q.getJournalFileMgr().getJournalFiles().entrySet(), hasSize(1));
