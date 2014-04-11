@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -52,16 +53,20 @@ public class SpeedTest {
             // start workers
             //
 
+            AtomicLong counter = new AtomicLong();
+            AtomicLong pushSum = new AtomicLong();
+            AtomicLong popSum = new AtomicLong();
+
             long startTime = System.currentTimeMillis();
 
             Set<SpeedPushWorker> pushWorkers = new HashSet<SpeedPushWorker>();
             for (int i=0;i < config.getNumberOfPushers();i++) {
-                pushWorkers.add(new SpeedPushWorker(queue, config));
+                pushWorkers.add(new SpeedPushWorker(queue, config, counter, pushSum));
             }
 
             Set<SpeedPopWorker> popWorkers = new HashSet<SpeedPopWorker>();
             for (int i=0;i < config.getNumberOfPoppers();i++) {
-                popWorkers.add(new SpeedPopWorker(queue, config));
+                popWorkers.add(new SpeedPopWorker(queue, config, popSum));
             }
 
             ExecutorService pusherExecSrvc = Executors.newFixedThreadPool(config.getNumberOfPushers()+config.getNumberOfPoppers(), new ThreadFactory() {
@@ -139,6 +144,7 @@ public class SpeedTest {
             long pushDuration = endPushing-startPushing;
             long popDuration = endPopping-startPopping;
 
+            System.out.println("push - pop checksum = " + pushSum.get() + " - " + popSum.get() + " = " + (pushSum.get()-popSum.get()));
             System.out.println("push duration = " + pushDuration);
             System.out.println("pop duration = " + popDuration);
             System.out.println();
