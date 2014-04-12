@@ -3,6 +3,7 @@ package com.btoddb.fastpersitentqueue;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -11,22 +12,24 @@ import java.util.LinkedList;
  */
 public class FpqContext {
     private final int maxTransactionSize;
+    private final AtomicLong idGen;
 
     private Collection<FpqEntry> queue;
     private boolean pushing;
     private boolean popping;
 
-    FpqContext(int maxTransactionSize) {
+    FpqContext(AtomicLong idGen, int maxTransactionSize) {
+        this.idGen = idGen;
         this.maxTransactionSize = maxTransactionSize;
     }
 
     @SuppressWarnings("unused")
-    public void push(FpqEntry event) {
+    public void push(byte[] event) {
         push(Collections.singleton(event));
     }
 
     @SuppressWarnings("unused")
-    public void push(Collection<FpqEntry> events) {
+    public void push(Collection<byte[]> events) {
         if (!popping) {
             pushing = true;
         }
@@ -35,11 +38,13 @@ public class FpqContext {
         }
 
         if (null == queue) {
-            queue = new LinkedList();
+            queue = new LinkedList<FpqEntry>();
         }
 
         if (queue.size()+events.size() <= maxTransactionSize) {
-            queue.addAll(events);
+            for (byte[] event : events) {
+                queue.add(new FpqEntry(idGen.incrementAndGet(), event));
+            }
         }
         else {
             throw new FpqException("pushing " + events.size() + " will exceed maximum transaction size of " + maxTransactionSize + " events");

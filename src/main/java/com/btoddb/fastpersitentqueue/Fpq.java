@@ -67,7 +67,7 @@ public class Fpq {
     }
 
     public FpqContext createContext() {
-        return new FpqContext(maxTransactionSize);
+        return new FpqContext(entryIdGenerator, maxTransactionSize);
     }
 
     public void push(FpqContext context, byte[] event) {
@@ -77,11 +77,7 @@ public class Fpq {
     public void push(FpqContext context, Collection<byte[]> events) {
         // processes events in the order of the collection's iterator
         // - write events to context.queue - done!  understood no persistence yet
-        List<FpqEntry> eventList = new ArrayList<FpqEntry>(events.size());
-        for (byte[] data : events) {
-            eventList.add(new FpqEntry(entryIdGenerator.incrementAndGet(), data));
-        }
-        context.push(eventList);
+        context.push(events);
     }
 
     public Collection<FpqEntry> pop(FpqContext context, int size) {
