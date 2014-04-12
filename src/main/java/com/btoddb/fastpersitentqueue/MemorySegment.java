@@ -6,7 +6,8 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -31,14 +32,17 @@ public class MemorySegment {
     private AtomicBoolean loaderTestAndSet = new AtomicBoolean();
     private AtomicBoolean removerTestAndSet = new AtomicBoolean(true);
 
-    private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
+//    private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
+    private ConcurrentSkipListMap<Long, FpqEntry> queue = new ConcurrentSkipListMap<Long, FpqEntry>();
     private AtomicLong sizeInBytes = new AtomicLong();
     private AtomicLong numberOfAvailableEntries = new AtomicLong();
     private AtomicLong totalEventsPushed = new AtomicLong();
     private AtomicLong totalEventsPopped = new AtomicLong();
 
     public void push(Collection<FpqEntry> events) {
-        queue.addAll(events);
+        for (FpqEntry entry : events) {
+            queue.put(entry.getId(), entry);
+        }
         totalEventsPushed.addAndGet(events.size());
 
         // this must be done last as it signals when events are ready to be popped from this segment
@@ -50,11 +54,11 @@ public class MemorySegment {
         //   - if queue empty, do not wait, return empty list immediately
 
         ArrayList<FpqEntry> entryList = new ArrayList<FpqEntry>(batchSize);
-        FpqEntry entry;
         long size = 0;
-        while (entryList.size() < batchSize && null != (entry=queue.poll())) {
-            entryList.add(entry);
-            size += entry.getMemorySize();
+        Map.Entry<Long, FpqEntry> entry;
+        while (entryList.size() < batchSize && null != (entry=queue.pollLastEntry())) {
+            entryList.add(entry.getValue());
+            size += entry.getValue().getMemorySize();
         }
         sizeInBytes.addAndGet(-size);
         totalEventsPopped.addAndGet(entryList.size());
@@ -91,6 +95,10 @@ public class MemorySegment {
         loaderTestAndSet.set(true);
     }
 
+    public boolean isEntryQueued(FpqEntry entry) {
+        return queue.containsKey(entry.getId());
+    }
+
     public void writeToDisk(RandomAccessFile raFile) throws IOException {
         raFile.writeInt(getVersion());
         Utils.writeUuidToFile(raFile, id);
@@ -99,7 +107,7 @@ public class MemorySegment {
         raFile.writeLong(sizeInBytes.get());
         raFile.writeLong(totalEventsPushed.get());
         raFile.writeLong(totalEventsPopped.get());
-        for (FpqEntry entry : getQueue()) {
+        for (FpqEntry entry : getQueue().values()) {
             entry.writeToPaging(raFile);
         }
     }
@@ -109,7 +117,7 @@ public class MemorySegment {
         for ( int i=0;i < numberOfAvailableEntries.get();i++ ) {
             FpqEntry entry = new FpqEntry();
             entry.readFromPaging(raFile);
-            queue.add(entry);
+            queue.put(entry.getId(), entry);
         }
     }
 
@@ -165,7 +173,7 @@ public class MemorySegment {
         this.pushingFinished = pushingFinished;
     }
 
-    public ConcurrentLinkedQueue<FpqEntry> getQueue() {
+    public ConcurrentSkipListMap<Long, FpqEntry> getQueue() {
         return queue;
     }
 

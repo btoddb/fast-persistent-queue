@@ -27,9 +27,10 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
     public static final int HEADER_SIZE = 28;
 
     private int version = VERSION;
-    private File file;
     private UUID id;
     private AtomicLong numberOfEntries = new AtomicLong();
+
+    private File file;
     private RandomAccessFile raFile;
     private boolean writeMode;
     private ReentrantReadWriteLock writerLock = new ReentrantReadWriteLock();
@@ -84,8 +85,8 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
     }
 
     public FpqEntry append(FpqEntry entry) throws IOException {
-        Collection<FpqEntry> entries = append(Collections.singleton(entry));
-        return entries.iterator().next();
+        append(Collections.singleton(entry));
+        return entry;
     }
 
     public Collection<FpqEntry> append(Collection<FpqEntry> entries) throws IOException {

@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.fail;
@@ -24,13 +25,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 public class MemorySegmentSerializerTest {
     File theDir;
     MemorySegmentSerializer serializer;
+    AtomicLong idGen = new AtomicLong();
 
     @Test
     public void testSaveThenLoad() throws Exception {
         Collection<FpqEntry> entries = new LinkedList<FpqEntry>();
-        entries.add(new FpqEntry(new byte[] {0, 1, 2}));
-        entries.add(new FpqEntry(new byte[] {3, 4, 5}));
-        entries.add(new FpqEntry(new byte[] {6, 7, 8}));
+        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2}));
+        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {3, 4, 5}));
+        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {6, 7, 8}));
 
         MemorySegment seg1 = new MemorySegment();
         seg1.setId(new UUID());
@@ -52,9 +54,9 @@ public class MemorySegmentSerializerTest {
     @Test
     public void testLoadHeader() throws Exception {
         Collection<FpqEntry> entries = new LinkedList<FpqEntry>();
-        entries.add(new FpqEntry(new byte[] {0, 1, 2}));
-        entries.add(new FpqEntry(new byte[] {3, 4, 5}));
-        entries.add(new FpqEntry(new byte[] {6, 7, 8}));
+        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2}));
+        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {3, 4, 5}));
+        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {6, 7, 8}));
         MemorySegment seg1 = new MemorySegment();
         seg1.setId(new UUID());
         seg1.setMaxSizeInBytes(1000);
@@ -63,7 +65,7 @@ public class MemorySegmentSerializerTest {
 
         MemorySegment seg2 = serializer.loadHeaderOnly(seg1.getId().toString());
         assertThat(seg2.getId(), is(seg1.getId()));
-        assertThat(seg2.getQueue(), is(empty()));
+        assertThat(seg2.getQueue().keySet(), is(empty()));
         assertThat(seg2.getMaxSizeInBytes(), is(1000L));
         assertThat(seg2.getNumberOfAvailableEntries(), is(3L));
     }

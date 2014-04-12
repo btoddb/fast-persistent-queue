@@ -9,6 +9,7 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -21,6 +22,7 @@ import static org.junit.Assert.fail;
 public class JournalFileTest {
     File theDir;
     File theFile;
+    AtomicLong idGen = new AtomicLong();
 
     @Test
     public void testInitForWritingThenClose() throws IOException {
@@ -78,9 +80,9 @@ public class JournalFileTest {
         String data = "my test data";
         JournalFile jf1 = new JournalFile(theFile);
         jf1.initForWriting(new UUID());
-        FpqEntry entry1 = new FpqEntry(data.getBytes());
+        FpqEntry entry1 = new FpqEntry(idGen.incrementAndGet(), data.getBytes());
         jf1.append(entry1);
-        assertThat(jf1.getFilePosition(), is(JournalFile.HEADER_SIZE+4L+entry1.getData().length));
+        assertThat(jf1.getFilePosition(), is(JournalFile.HEADER_SIZE+12L+entry1.getData().length));
         jf1.close();
 
         JournalFile jf2 = new JournalFile(theFile);
@@ -136,6 +138,7 @@ public class JournalFileTest {
         raFile.writeInt(1);
         Utils.writeUuidToFile(raFile, id);
         raFile.writeLong(1);
+        raFile.writeLong(123);
         raFile.writeInt(12345);
         raFile.close();
 
@@ -151,12 +154,17 @@ public class JournalFileTest {
     }
 
     @Test
+    public void testInvalidHeader() {
+        fail();
+    }
+
+    @Test
     public void testIterator() throws Exception {
         int numEntries = 5;
         JournalFile jf1 = new JournalFile(theFile);
         jf1.initForWriting(new UUID());
         for (int i=0;i < numEntries;i++) {
-            jf1.append(new FpqEntry(String.valueOf(i).getBytes()));
+            jf1.append(new FpqEntry(idGen.incrementAndGet(), String.valueOf(i).getBytes()));
         }
         jf1.close();
 

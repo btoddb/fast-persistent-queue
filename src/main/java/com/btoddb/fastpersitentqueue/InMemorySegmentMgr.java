@@ -30,6 +30,7 @@ public class InMemorySegmentMgr {
     private volatile boolean shutdownInProgress;
 
     private ReentrantReadWriteLock segmentsLock = new ReentrantReadWriteLock();
+//    convertLinkedListToSkipMap;
     private LinkedList<MemorySegment> segments = new LinkedList<MemorySegment>();
     private AtomicLong numberOfEntries = new AtomicLong();
     private MemorySegmentSerializer segmentSerializer = new MemorySegmentSerializer();
@@ -340,6 +341,15 @@ public class InMemorySegmentMgr {
 
     public boolean isEmpty() {
         return 0 == size();
+    }
+
+    public boolean isEntryQueued(FpqEntry entry) {
+        for (MemorySegment seg : segments) {
+            if (seg.isEntryQueued(entry)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void shutdown() {

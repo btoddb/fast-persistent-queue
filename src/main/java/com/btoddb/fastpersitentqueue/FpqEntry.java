@@ -18,35 +18,39 @@ public class FpqEntry {
 
     public static final UUID EMPTY_JOURNAL_ID = new UUID(0L, 0L);
 
+    private long id;
     private byte[] data;
     private UUID journalId = EMPTY_JOURNAL_ID;
 
     public FpqEntry() {
     }
 
-    public FpqEntry(byte[] data) {
+    public FpqEntry(long id, byte[] data) {
+        this.id = id;
         this.data = data;
     }
 
     public long getMemorySize() {
-        return 4 + // data length integer
+        return 8 + // id length = long
+                4 + // data length = integer
                 24 + // UUID
                 (null != data ? data.length : 0);
     }
 
     public void writeToJournal(RandomAccessFile raFile) throws IOException {
-        raFile.writeInt(getData().length);
-        raFile.write(getData());
+        raFile.writeLong(id);
+        writeData(raFile);
     }
 
     public void writeToPaging(RandomAccessFile raFile) throws IOException {
+        raFile.writeLong(id);
         Utils.writeUuidToFile(raFile, journalId);
-        raFile.writeInt(getData().length);
-        raFile.write(getData());
+        writeData(raFile);
     }
 
     public void readFromJournal(RandomAccessFile raFile) throws IOException {
         try {
+            id = raFile.readLong();
             readData(raFile);
         }
         catch (EOFException e) {
@@ -55,8 +59,14 @@ public class FpqEntry {
     }
 
     public void readFromPaging(RandomAccessFile raFile) throws IOException {
+        id = raFile.readLong();
         journalId = Utils.readUuidFromFile(raFile);
         readData(raFile);
+    }
+
+    private void writeData(RandomAccessFile raFile) throws IOException {
+        raFile.writeInt(getData().length);
+        raFile.write(getData());
     }
 
     private void readData(RandomAccessFile raFile) throws IOException {
@@ -72,10 +82,6 @@ public class FpqEntry {
         return data;
     }
 
-//    public void setData(byte[] data) {
-//        this.data = data;
-//    }
-
     public UUID getJournalId() {
         return journalId;
     }
@@ -84,4 +90,7 @@ public class FpqEntry {
         this.journalId = journalId;
     }
 
+    public long getId() {
+        return id;
+    }
 }

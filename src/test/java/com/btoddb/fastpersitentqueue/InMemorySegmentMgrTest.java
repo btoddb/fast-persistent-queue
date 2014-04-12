@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,6 +27,7 @@ import static org.junit.Assert.fail;
 public class InMemorySegmentMgrTest {
     private static final Logger logger = LoggerFactory.getLogger(InMemorySegmentMgrTest.class);
 
+    AtomicLong idGen = new AtomicLong();
     long numEntries = 30;
     InMemorySegmentMgr mgr;
     File theDir;
@@ -35,7 +37,7 @@ public class InMemorySegmentMgrTest {
         mgr.init();
 
         for (int i=0;i < numEntries;i++) {
-            mgr.push(new FpqEntry(new byte[100]));
+            mgr.push(new FpqEntry(idGen.incrementAndGet(), new byte[100]));
         }
 
         long end = System.currentTimeMillis() + 1000;
@@ -54,7 +56,7 @@ public class InMemorySegmentMgrTest {
         assertThat(seg.isPushingFinished(), is(true));
         assertThat(seg.getStatus(), is(MemorySegment.Status.OFFLINE));
         assertThat(seg.getNumberOfAvailableEntries(), is(7L));
-        assertThat(seg.getQueue(), is(empty()));
+        assertThat(seg.getQueue().keySet(), is(empty()));
 
         // this one is still active
         seg = iter.next();
@@ -66,7 +68,7 @@ public class InMemorySegmentMgrTest {
         mgr.init();
 
         for (int i=0;i < numEntries;i++) {
-            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
+            mgr.push(new FpqEntry(idGen.incrementAndGet(), String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
         }
 
         long end = System.currentTimeMillis() + 1000;
@@ -88,7 +90,7 @@ public class InMemorySegmentMgrTest {
         MemorySegment seg = mgr.getSegments().iterator().next();
         assertThat(seg.getStatus(), is(MemorySegment.Status.READY));
         assertThat(seg.getNumberOfAvailableEntries(), is(0L));
-        assertThat(seg.getQueue(), is(empty()));
+        assertThat(seg.getQueue().keySet(), is(empty()));
 
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
     }
@@ -97,7 +99,7 @@ public class InMemorySegmentMgrTest {
     public void testShutdown() throws Exception {
         mgr.init();
         for (int i=0;i < numEntries;i++) {
-            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
+            mgr.push(new FpqEntry(idGen.incrementAndGet(), String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
         }
         mgr.shutdown();
 
@@ -112,7 +114,7 @@ public class InMemorySegmentMgrTest {
         // load and save some data
         mgr.init();
         for (int i=0;i < numEntries;i++) {
-            mgr.push(new FpqEntry(String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
+            mgr.push(new FpqEntry(idGen.incrementAndGet(), String.format("%02d-3456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",i).getBytes()));
         }
         mgr.shutdown();
 
@@ -153,7 +155,7 @@ public class InMemorySegmentMgrTest {
                 public void run() {
                     for (int i = 0; i < numEntries; i++) {
                         try {
-                            FpqEntry entry = new FpqEntry(new byte[100]);
+                            FpqEntry entry = new FpqEntry(idGen.incrementAndGet(), new byte[100]);
                             mgr.push(entry);
                             Thread.sleep(pushRand.nextInt(5));
                         }

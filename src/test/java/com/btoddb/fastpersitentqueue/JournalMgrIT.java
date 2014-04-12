@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -23,6 +24,7 @@ import static org.junit.Assert.fail;
 public class JournalMgrIT {
     File theDir;
     JournalMgr mgr;
+    AtomicLong idGen = new AtomicLong();
 
     @Test
     public void testInitFreshJournalMgr() throws Exception {
@@ -63,25 +65,25 @@ public class JournalMgrIT {
 
     @Test
     public void testJournalRollingBecauseOfSize() throws IOException {
-        mgr.setMaxJournalFileSize(100);
+        mgr.setMaxJournalFileSize(150);
         mgr.init();
 
         JournalDescriptor jd1 = mgr.getCurrentJournalDescriptor();
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
 
         // not rolled at this point
         assertThat(jd1, sameInstance(mgr.getCurrentJournalDescriptor()));
 
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
 
         // this should roll the journal file
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
         assertThat(jd1, not(sameInstance(mgr.getCurrentJournalDescriptor())));
         assertThat(jd1.isWritingFinished(), is(true));
         assertThat(mgr.getCurrentJournalDescriptor().isWritingFinished(), is(false));
@@ -96,11 +98,11 @@ public class JournalMgrIT {
         mgr.init();
 
         JournalDescriptor jd1 = mgr.getCurrentJournalDescriptor();
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
 
         Thread.sleep(600);
 
-        mgr.append(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[9]));
         assertThat(jd1, not(sameInstance(mgr.getCurrentJournalDescriptor())));
         assertThat(jd1.isWritingFinished(), is(true));
         assertThat(mgr.getCurrentJournalDescriptor().isWritingFinished(), is(false));
@@ -110,18 +112,18 @@ public class JournalMgrIT {
 
     @Test
     public void testAppend() throws IOException {
-        byte[] data = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        byte[] data = new byte[9];
         long now = System.currentTimeMillis();
 
-        mgr.setMaxJournalFileSize(48);
+        mgr.setMaxJournalFileSize(50);
         mgr.init();
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(0L));
 
-        mgr.append(data);
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), data));
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(greaterThanOrEqualTo(now)));
-        mgr.append(data);
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), data));
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(0L));
-        mgr.append(data);
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), data));
 
         assertThat(mgr.getCurrentJournalDescriptor().getStartTime(), is(greaterThanOrEqualTo(now)));
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
@@ -129,12 +131,12 @@ public class JournalMgrIT {
 
     @Test
     public void testReportConsumption() throws IOException {
-        mgr.setMaxJournalFileSize(43);
+        mgr.setMaxJournalFileSize(51);
         mgr.init();
 
-        FpqEntry entry1 = mgr.append(new byte[] {0, 1, 2, 3});
-        FpqEntry entry2 = mgr.append(new byte[] {0, 1, 2, 3});
-        FpqEntry entry3 = mgr.append(new byte[] {0, 1, 2, 3});
+        FpqEntry entry1 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2, 3}));
+        FpqEntry entry2 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2, 3}));
+        FpqEntry entry3 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2, 3}));
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
         assertThat(mgr.getJournalIdMap().get(entry1.getJournalId()).getNumberOfUnconsumedEntries(), is(2L));
         assertThat(mgr.getJournalIdMap().get(entry3.getJournalId()).getNumberOfUnconsumedEntries(), is(1L));
@@ -158,18 +160,18 @@ public class JournalMgrIT {
     public void testAnyWritesHappened() throws IOException {
         mgr.init();
         assertThat(mgr.getCurrentJournalDescriptor().isAnyWritesHappened(), is(false));
-        mgr.append(new byte[] {0, 1});
+        mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1}));
         assertThat(mgr.getCurrentJournalDescriptor().isAnyWritesHappened(), is(true));
     }
 
     @Test
     public void testShutdownNoRemainingData() throws IOException {
-        mgr.setMaxJournalFileSize(35);
+        mgr.setMaxJournalFileSize(43);
         mgr.init();
 
-        FpqEntry entry1 = mgr.append(new byte[] {0, 1});
-        FpqEntry entry2 = mgr.append(new byte[] {0, 1});
-        FpqEntry entry3 = mgr.append(new byte[] {0, 1});
+        FpqEntry entry1 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1}));
+        FpqEntry entry2 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1}));
+        FpqEntry entry3 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1}));
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
 
         mgr.reportTake(entry1);
@@ -185,12 +187,12 @@ public class JournalMgrIT {
 
     @Test
     public void testShutdownHasRemainingData() throws IOException {
-        mgr.setMaxJournalFileSize(43);
+        mgr.setMaxJournalFileSize(51);
         mgr.init();
 
-        FpqEntry entry1 = mgr.append(new byte[] {0, 1, 2, 3});
-        FpqEntry entry2 = mgr.append(new byte[] {0, 1, 2, 3});
-        FpqEntry entry3 = mgr.append(new byte[] {0, 1, 2, 3});
+        FpqEntry entry1 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2, 3}));
+        FpqEntry entry2 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2, 3}));
+        FpqEntry entry3 = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2, 3}));
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(2));
 
         mgr.reportTake(entry1);
@@ -216,7 +218,7 @@ public class JournalMgrIT {
         mgr.setMaxJournalFileSize(100);
         mgr.init();
         for (int i=0;i < numEntries;i++) {
-            mgr.append(new byte[] {(byte)i, 1, 2});
+            mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {(byte)i, 1, 2}));
         }
         mgr.shutdown();
 
@@ -255,7 +257,7 @@ public class JournalMgrIT {
                 public void run() {
                     for (int i = 0; i < numEntries; i++) {
                         try {
-                            FpqEntry entry = mgr.append(new byte[100]);
+                            FpqEntry entry = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[100]));
                             events.offer(entry);
                             Thread.sleep(pushRand.nextInt(5));
                         }

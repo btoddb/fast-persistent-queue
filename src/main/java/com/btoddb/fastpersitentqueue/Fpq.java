@@ -5,9 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -28,6 +27,8 @@ public class Fpq {
     private int flushPeriodInMs = 10000;
     private int maxJournalFileSize = 100000000;
     private int maxJournalDurationInMs = 5 * 60 * 1000;
+
+    private AtomicLong entryIdGenerator = new AtomicLong();
 
     private boolean initializing;
 
@@ -76,8 +77,11 @@ public class Fpq {
     public void push(FpqContext context, Collection<byte[]> events) {
         // processes events in the order of the collection's iterator
         // - write events to context.queue - done!  understood no persistence yet
-
-        context.push(events);
+        List<FpqEntry> eventList = new ArrayList<FpqEntry>(events.size());
+        for (byte[] data : events) {
+            eventList.add(new FpqEntry(entryIdGenerator.incrementAndGet(), data));
+        }
+        context.push(eventList);
     }
 
     public Collection<FpqEntry> pop(FpqContext context, int size) {

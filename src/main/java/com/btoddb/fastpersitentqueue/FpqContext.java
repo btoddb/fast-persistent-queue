@@ -12,7 +12,7 @@ import java.util.LinkedList;
 public class FpqContext {
     private final int maxTransactionSize;
 
-    private Collection queue;
+    private Collection<FpqEntry> queue;
     private boolean pushing;
     private boolean popping;
 
@@ -21,12 +21,12 @@ public class FpqContext {
     }
 
     @SuppressWarnings("unused")
-    public void push(byte[] event) {
+    public void push(FpqEntry event) {
         push(Collections.singleton(event));
     }
 
     @SuppressWarnings("unused")
-    public void push(Collection<byte[]> events) {
+    public void push(Collection<FpqEntry> events) {
         if (!popping) {
             pushing = true;
         }

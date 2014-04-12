@@ -135,19 +135,19 @@ public class JournalMgr {
         return jd;
     }
 
-    public FpqEntry append(byte[] event) throws IOException {
-        Collection<FpqEntry> entries = append(Collections.singleton(event));
-        return entries.iterator().next();
+    public FpqEntry append(FpqEntry entry) throws IOException {
+        append(Collections.singleton(entry));
+        return entry;
     }
 
-    public Collection<FpqEntry> append(Collection<byte[]> events) throws IOException {
+    public Collection<FpqEntry> append(Collection<FpqEntry> events) throws IOException {
         if (shutdownInProgress) {
             throw new FpqException("FPQ has been shutdown or is in progress, cannot append");
         }
 
         // TODO:BTB - optimize this by calling file.append() with collection of data
         List<FpqEntry> entryList = new ArrayList<FpqEntry>(events.size());
-        for (byte[] data : events) {
+        for (FpqEntry entry : events) {
             // TODO:BTB - could use multiple journal files to prevent lock contention - each thread in an "append" pool gets one?
             boolean appended = false;
             while (!appended) {
@@ -157,7 +157,7 @@ public class JournalMgr {
                 }
                 synchronized (desc) {
                     if (!desc.isWritingFinished()) {
-                        FpqEntry entry = desc.getFile().append(new FpqEntry(data));
+                        desc.getFile().append(entry);
                         entry.setJournalId(desc.getId());
                         entryList.add(entry);
 
