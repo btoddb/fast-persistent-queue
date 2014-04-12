@@ -119,9 +119,9 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
     }
 
     private void writeHeader() throws IOException {
-        raFile.writeInt(version);
+        Utils.writeInt(raFile, version);
         Utils.writeUuidToFile(raFile, id);
-        raFile.writeLong(numberOfEntries.get());
+        Utils.writeLong(raFile, numberOfEntries.get());
     }
 
     public void close() throws IOException {

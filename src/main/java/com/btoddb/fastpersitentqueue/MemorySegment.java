@@ -100,13 +100,13 @@ public class MemorySegment {
     }
 
     public void writeToDisk(RandomAccessFile raFile) throws IOException {
-        raFile.writeInt(getVersion());
+        Utils.writeInt(raFile, getVersion());
         Utils.writeUuidToFile(raFile, id);
-        raFile.writeLong(maxSizeInBytes);
-        raFile.writeLong(getNumberOfAvailableEntries());
-        raFile.writeLong(sizeInBytes.get());
-        raFile.writeLong(totalEventsPushed.get());
-        raFile.writeLong(totalEventsPopped.get());
+        Utils.writeLong(raFile, maxSizeInBytes);
+        Utils.writeLong(raFile, getNumberOfAvailableEntries());
+        Utils.writeLong(raFile, sizeInBytes.get());
+        Utils.writeLong(raFile, totalEventsPushed.get());
+        Utils.writeLong(raFile, totalEventsPopped.get());
         for (FpqEntry entry : getQueue().values()) {
             entry.writeToPaging(raFile);
         }

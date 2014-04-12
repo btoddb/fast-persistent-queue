@@ -38,19 +38,13 @@ public class FpqEntry {
     }
 
     public void writeToJournal(RandomAccessFile raFile) throws IOException {
-        raFile.writeLong(id);
-        writeData(raFile);
-    }
-
-    public void writeToPaging(RandomAccessFile raFile) throws IOException {
-        raFile.writeLong(id);
-        Utils.writeUuidToFile(raFile, journalId);
+        Utils.writeLong(raFile, id);
         writeData(raFile);
     }
 
     public void readFromJournal(RandomAccessFile raFile) throws IOException {
         try {
-            id = raFile.readLong();
+            id = Utils.readLong(raFile);
             readData(raFile);
         }
         catch (EOFException e) {
@@ -58,19 +52,25 @@ public class FpqEntry {
         }
     }
 
+    public void writeToPaging(RandomAccessFile raFile) throws IOException {
+        Utils.writeLong(raFile, id);
+        Utils.writeUuidToFile(raFile, journalId);
+        writeData(raFile);
+    }
+
     public void readFromPaging(RandomAccessFile raFile) throws IOException {
-        id = raFile.readLong();
+        id = Utils.readLong(raFile);
         journalId = Utils.readUuidFromFile(raFile);
         readData(raFile);
     }
 
     private void writeData(RandomAccessFile raFile) throws IOException {
-        raFile.writeInt(getData().length);
+        Utils.writeInt(raFile, getData().length);
         raFile.write(getData());
     }
 
     private void readData(RandomAccessFile raFile) throws IOException {
-        int entryLength = raFile.readInt();
+        int entryLength = Utils.readInt(raFile);
         data = new byte[entryLength];
         int readLength = raFile.read(data);
         if (readLength != data.length) {
