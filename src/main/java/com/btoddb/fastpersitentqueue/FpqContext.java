@@ -23,12 +23,10 @@ public class FpqContext {
         this.maxTransactionSize = maxTransactionSize;
     }
 
-    @SuppressWarnings("unused")
     public void push(byte[] event) {
         push(Collections.singleton(event));
     }
 
-    @SuppressWarnings("unused")
     public void push(Collection<byte[]> events) {
         if (!popping) {
             pushing = true;
@@ -64,8 +62,8 @@ public class FpqContext {
 
     public void cleanup() {
         if (null != queue) {
-            // don't do queue.clear because more than likely the customer only copied reference to the list
-            // not the individual items in the list
+            // clearing the queue means that the push method must make a reference-copy of the entries
+            queue.clear();
             queue = null;
         }
         pushing = false;

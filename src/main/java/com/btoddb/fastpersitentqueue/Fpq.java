@@ -24,9 +24,9 @@ public class Fpq {
     private long maxMemorySegmentSizeInBytes = 1000000;
     private int maxTransactionSize = 100;
     private int numberOfFlushWorkers = 4;
-    private int flushPeriodInMs = 10000;
-    private int maxJournalFileSize = 100000000;
-    private int maxJournalDurationInMs = 5 * 60 * 1000;
+    private long flushPeriodInMs = 10000;
+    private long maxJournalFileSize = 100000000;
+    private long maxJournalDurationInMs = 5 * 60 * 1000;
 
     private AtomicLong entryIdGenerator = new AtomicLong();
 
@@ -93,6 +93,13 @@ public class Fpq {
         }
 
         Collection<FpqEntry> entries= memoryMgr.pop(size);
+
+        // at this point, if system crashes, the entries are in the journal files
+
+        // TODO:BTB - however this is not true if system has been previously shutdown and not all of the
+        //   entries have been pop'ed.  on shutdown the journal files are drained into memory segments,
+        //   which are then serialized to disk (this is done to avoid dupes)
+
         context.createPoppedEntries(entries);
         return context.getQueue();
     }
@@ -134,13 +141,26 @@ public class Fpq {
         memoryMgr.push(entries);
     }
 
+    public void rollback(FpqContext context) {
+        if (context.isPushing()) {
+            rollbackForPush(context);
+        }
+        else {
+            rollbackForPop(context);
+        }
+    }
+
     private void rollbackForPush(FpqContext context) {
         // - free context scoped memory queue
+        context.cleanup();
     }
 
     private void rollbackForPop(FpqContext context) {
         // this one causes the problems with sync between memory and commit log files
         // - mv context.queue to front of globalMemoryQueue (can't move to end.  will screw up deleting of log files)
+        // TODO:BTB - if shutdown in progress, can't push back onto queue and pop'ed entries will be lost
+        memoryMgr.push(context.getQueue());
+        context.cleanup();
     }
 
     public boolean isEmpty() {
@@ -196,27 +216,27 @@ public class Fpq {
         return numberOfFlushWorkers;
     }
 
-    public void setFlushPeriodInMs(int flushPeriodInMs) {
+    public void setFlushPeriodInMs(long flushPeriodInMs) {
         this.flushPeriodInMs = flushPeriodInMs;
     }
 
-    public int getFlushPeriodInMs() {
+    public long getFlushPeriodInMs() {
         return flushPeriodInMs;
     }
 
-    public void setMaxJournalFileSize(int maxJournalFileSize) {
+    public void setMaxJournalFileSize(long maxJournalFileSize) {
         this.maxJournalFileSize = maxJournalFileSize;
     }
 
-    public int getMaxJournalFileSize() {
+    public long getMaxJournalFileSize() {
         return maxJournalFileSize;
     }
 
-    public void setMaxJournalDurationInMs(int maxJournalDurationInMs) {
+    public void setMaxJournalDurationInMs(long maxJournalDurationInMs) {
         this.maxJournalDurationInMs = maxJournalDurationInMs;
     }
 
-    public int getMaxJournalDurationInMs() {
+    public long getMaxJournalDurationInMs() {
         return maxJournalDurationInMs;
     }
 
