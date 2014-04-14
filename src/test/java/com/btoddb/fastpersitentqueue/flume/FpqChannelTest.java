@@ -11,11 +11,18 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.UUID;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.fail;
 
 
 /**
@@ -106,6 +113,7 @@ public class FpqChannelTest {
         tx.commit();
         tx.close();
 
+        fail();
 //        assertThat(event2.getHeaders(), is(event1.getHeaders()));
 //        assertThat(event2.getBody(), is(event1.getBody()));
     }
@@ -121,6 +129,117 @@ public class FpqChannelTest {
         tx.close();
 
         assertThat(event, is(nullValue()));
+    }
+
+    @Test
+    public void testThreading() throws Exception {
+        final int numEntries = 10000;
+        final int numPushers = 4;
+        final int numPoppers = 4;
+        final int entrySize = 1000;
+        channel.setMaxTransactionSize(2000);
+        final int popBatchSize = 100;
+        channel.setMaxMemorySegmentSizeInBytes(10000000);
+        channel.setMaxJournalFileSize(10000000);
+        channel.setMaxJournalDurationInMs(30000);
+        channel.setFlushPeriodInMs(1000);
+        channel.setNumberOfFlushWorkers(4);
+
+        final Random pushRand = new Random(1000L);
+        final Random popRand = new Random(1000000L);
+        final AtomicInteger pusherFinishCount = new AtomicInteger();
+        final AtomicInteger numPops = new AtomicInteger();
+        final AtomicLong counter = new AtomicLong();
+        final AtomicLong pushSum = new AtomicLong();
+        final AtomicLong popSum = new AtomicLong();
+
+        channel.start();
+
+        ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers + numPoppers);
+
+        Set<Future> futures = new HashSet<Future>();
+
+        // start pushing
+        for (int i = 0; i < numPushers; i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < numEntries; i++) {
+                        try {
+                            long x = counter.getAndIncrement();
+                            pushSum.addAndGet(x);
+                            ByteBuffer bb = ByteBuffer.wrap(new byte[entrySize]);
+                            bb.putLong(x);
+
+                            Transaction tx = channel.getTransaction();
+                            tx.begin();
+                            MyEvent event1 = new MyEvent();
+                            event1.addHeader("x", String.valueOf(x))
+                                    .setBody(new byte[numEntries - 8]); // take out size of long
+                            channel.put(event1);
+                            tx.commit();
+                            tx.close();
+
+                            Thread.sleep(pushRand.nextInt(5));
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    pusherFinishCount.incrementAndGet();
+                }
+            });
+            futures.add(future);
+        }
+
+        // start popping
+        for (int i = 0; i < numPoppers; i++) {
+            Future future = execSrvc.submit(new Runnable() {
+                @Override
+                public void run() {
+                    while (pusherFinishCount.get() < numPushers || !channel.isEmpty()) {
+                        try {
+                            Transaction tx = channel.getTransaction();
+                            tx.begin();
+
+                            Event event;
+                            int count = popBatchSize;
+                            while (null != (event=channel.take()) && count-- > 0) {
+                                popSum.addAndGet(Long.valueOf(event.getHeaders().get("x")));
+                                numPops.incrementAndGet();
+                            }
+
+                            tx.commit();
+                            tx.close();
+
+                            Thread.sleep(popRand.nextInt(10));
+                        }
+                        catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+            futures.add(future);
+        }
+
+        boolean finished = false;
+        while (!finished) {
+            try {
+                for (Future f : futures) {
+                    f.get();
+                }
+                finished = true;
+            }
+            catch (InterruptedException e) {
+                // ignore
+                Thread.interrupted();
+            }
+        }
+
+        assertThat(numPops.get(), is(numEntries * numPushers));
+        assertThat(channel.isEmpty(), is(true));
+        assertThat(pushSum.get(), is(popSum.get()));
     }
 
     // ------------------

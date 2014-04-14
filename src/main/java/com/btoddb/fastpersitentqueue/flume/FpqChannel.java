@@ -79,6 +79,10 @@ public class FpqChannel extends BasicChannelSemantics {
         }
     }
 
+    public boolean isEmpty() {
+        return fpq.isEmpty();
+    }
+
     public long getMaxJournalFileSize() {
         return maxJournalFileSize;
     }
@@ -142,4 +146,5 @@ public class FpqChannel extends BasicChannelSemantics {
     public void setMaxTransactionSize(int maxTransactionSize) {
         this.maxTransactionSize = maxTransactionSize;
     }
+
 }
