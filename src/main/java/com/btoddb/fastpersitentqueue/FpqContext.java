@@ -14,7 +14,7 @@ public class FpqContext {
     private final int maxTransactionSize;
     private final AtomicLong idGen;
 
-    private Collection<FpqEntry> queue;
+    private Collection<FpqEntry> queue = new LinkedList<FpqEntry>();
     private boolean pushing;
     private boolean popping;
 
@@ -35,10 +35,6 @@ public class FpqContext {
             throw new FpqException("This context has already been used for 'popping'.  can't switch to pushing - create a new context");
         }
 
-        if (null == queue) {
-            queue = new LinkedList<FpqEntry>();
-        }
-
         if (queue.size()+events.size() <= maxTransactionSize) {
             for (byte[] event : events) {
                 queue.add(new FpqEntry(idGen.incrementAndGet(), event));
@@ -57,14 +53,18 @@ public class FpqContext {
             throw new FpqException("This context has already been used for 'pushing'.  can't switch to popping - create a new context");
         }
 
-        this.queue = entries;
+        if (null == entries || entries.isEmpty()) {
+            return;
+        }
+
+        // TODO:BTB - could use commons-collections to create a collection of collections
+        this.queue.addAll(entries);
     }
 
     public void cleanup() {
         if (null != queue) {
-            // clearing the queue means that the push method must make a reference-copy of the entries
+            // clearing the queue means that the push/pop methods must make a reference-copy of the entries
             queue.clear();
-            queue = null;
         }
         pushing = false;
         popping = false;
@@ -87,6 +87,11 @@ public class FpqContext {
     }
 
     public Collection getQueue() {
-        return queue;
+        if (!queue.isEmpty()) {
+            return queue;
+        }
+        else{
+            return null;
+        }
     }
 }

@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.btoddb</groupId>
-    <artifactId>fast-persitent-queue</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <artifactId>fast-persistent-queue</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
 
     <dependencies>
         <dependency>

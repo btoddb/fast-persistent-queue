@@ -1,14 +1,11 @@
 package com.btoddb.fastpersitentqueue.flume;
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.FpqContext;
 import com.btoddb.fastpersitentqueue.Utils;
 import org.apache.flume.*;
 import org.apache.flume.channel.BasicChannelSemantics;
 import org.apache.flume.channel.BasicTransactionSemantics;
-import org.apache.flume.conf.Configurable;
-import org.apache.flume.lifecycle.LifecycleAware;
-import org.apache.flume.lifecycle.LifecycleState;
+import org.apache.flume.instrumentation.ChannelCounter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,13 +31,17 @@ public class FpqChannel extends BasicChannelSemantics {
     private File pagingDirectory;
     private int maxTransactionSize;
 
+    private ChannelCounter channelCounter;
+
     @Override
     protected BasicTransactionSemantics createTransaction() {
-        return new FpqTransaction(fpq, fpq.createContext(), eventSerializer, fpq.getMaxTransactionSize());
+        return new FpqTransaction(fpq, fpq.createContext(), eventSerializer, fpq.getMaxTransactionSize(), channelCounter);
     }
 
     @Override
     public void configure(Context context) {
+        super.configure(context);
+
         setMaxJournalFileSize(context.getLong("maxJournalFileSize", 10000000L));
         setNumberOfFlushWorkers(context.getInteger("numberOfFlushWorkers", 4));
         setFlushPeriodInMs(context.getLong("flushPeriodInMs", 10000L));
@@ -49,6 +50,10 @@ public class FpqChannel extends BasicChannelSemantics {
         setMaxMemorySegmentSizeInBytes(context.getLong("maxMemorySegmentSizeInBytes", 10000000L));
         setPagingDirectory(new File(context.getString("pagingDirectory")));
         setMaxTransactionSize(context.getInteger("transactionCapacity", 2000));
+
+        if (channelCounter == null) {
+            channelCounter = new ChannelCounter(getName());
+        }
     }
 
     @Override
@@ -70,6 +75,11 @@ public class FpqChannel extends BasicChannelSemantics {
             Utils.logAndThrow(logger, "exception while starting FPQ", e);
         }
 
+        channelCounter.start();
+        channelCounter.setChannelSize(fpq.getNumberOfEntries());
+        channelCounter.setChannelCapacity(0);
+
+        super.start();
     }
 
     @Override
@@ -77,6 +87,10 @@ public class FpqChannel extends BasicChannelSemantics {
         if (null != fpq) {
             fpq.shutdown();
         }
+        channelCounter.setChannelSize(fpq.getNumberOfEntries());
+        channelCounter.stop();
+
+        super.stop();
     }
 
     public boolean isEmpty() {

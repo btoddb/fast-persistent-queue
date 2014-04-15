@@ -101,6 +101,18 @@ public class FpqIT {
     }
 
     @Test
+    public void testPushMultipleTimesOneContext() throws Exception {
+        fpq.init();
+        fail();
+    }
+
+    @Test
+    public void testPopMultipleTimesOneContext() throws Exception {
+        fpq.init();
+        fail();
+    }
+
+    @Test
     public void testReplay() throws Exception {
         fpq.setMaxTransactionSize(100);
         fpq.setMaxMemorySegmentSizeInBytes(1000);

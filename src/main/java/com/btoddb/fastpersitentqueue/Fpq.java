@@ -172,10 +172,6 @@ public class Fpq {
         journalMgr.shutdown();
     }
 
-    public long size() {
-        return memoryMgr.size();
-    }
-
     public int getMaxTransactionSize() {
         return maxTransactionSize;
     }
