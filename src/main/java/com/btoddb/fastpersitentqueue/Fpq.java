@@ -20,6 +20,7 @@ public class Fpq {
 
     private InMemorySegmentMgr memoryMgr;
 
+    private String queueName = "queue-name-not-set";
     private File pagingDirectory;
     private long maxMemorySegmentSizeInBytes = 1000000;
     private int maxTransactionSize = 100;
@@ -29,13 +30,15 @@ public class Fpq {
     private long maxJournalDurationInMs = 5 * 60 * 1000;
 
     private AtomicLong entryIdGenerator = new AtomicLong();
-
+    private JmxMetrics jmxMetrics = new JmxMetrics(this);
     private boolean initializing;
 
     public void init() throws IOException {
         initializing = true;
 
         logger.info("initializing FPQ");
+
+        jmxMetrics.init();
 
         journalMgr = new JournalMgr();
         journalMgr.setDirectory(journalDirectory);
@@ -67,7 +70,7 @@ public class Fpq {
     }
 
     public FpqContext createContext() {
-        return new FpqContext(entryIdGenerator, maxTransactionSize);
+        return new FpqContext(entryIdGenerator, maxTransactionSize, jmxMetrics);
     }
 
     public void push(FpqContext context, byte[] event) {
@@ -254,5 +257,13 @@ public class Fpq {
 
     public long getNumberOfEntries() {
         return memoryMgr.getNumberOfEntries();
+    }
+
+    public String getQueueName() {
+        return queueName;
+    }
+
+    public void setQueueName(String queueName) {
+        this.queueName = queueName;
     }
 }

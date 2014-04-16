@@ -59,6 +59,7 @@ public class FpqChannel extends BasicChannelSemantics {
     @Override
     public void start() {
         fpq = new Fpq();
+        fpq.setQueueName("fpq-flume-"+getName());
         fpq.setMaxJournalFileSize(maxJournalFileSize);
         fpq.setNumberOfFlushWorkers(numberOfFlushWorkers);
         fpq.setFlushPeriodInMs(flushPeriodInMs);
