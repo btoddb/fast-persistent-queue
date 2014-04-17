@@ -26,42 +26,42 @@ import static org.junit.Assert.fail;
  */
 public class FpqIT {
     File theDir;
-    Fpq fpq;
+    Fpq fpq1;
 
     @Test
     public void testPushNoCommit() throws Exception {
-        fpq.init();
+        fpq1.init();
 
-        FpqContext ctxt = fpq.createContext();
-        fpq.push(ctxt, new byte[10]);
-        fpq.push(ctxt, new byte[10]);
-        fpq.push(ctxt, new byte[10]);
+        FpqContext ctxt = fpq1.createContext();
+        fpq1.push(ctxt, new byte[10]);
+        fpq1.push(ctxt, new byte[10]);
+        fpq1.push(ctxt, new byte[10]);
 
         assertThat(ctxt.isPushing(), is(true));
         assertThat(ctxt.isPopping(), is(false));
         assertThat(ctxt.getQueue(), hasSize(3));
-        assertThat(fpq.getMemoryMgr().size(), is(0L));
+        assertThat(fpq1.getMemoryMgr().size(), is(0L));
 
-        fpq.commit(ctxt);
+        fpq1.commit(ctxt);
 
         assertThat(ctxt.isPushing(), is(false));
         assertThat(ctxt.isPopping(), is(false));
         assertThat(ctxt.getQueue(), is(nullValue()));
-        assertThat(fpq.getMemoryMgr().size(), is(3L));
-        assertThat(fpq.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
+        assertThat(fpq1.getMemoryMgr().size(), is(3L));
+        assertThat(fpq1.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
     }
 
     @Test
     public void testPushExceedTxMax() throws Exception {
-        fpq.setMaxTransactionSize(2);
-        fpq.init();
+        fpq1.setMaxTransactionSize(2);
+        fpq1.init();
 
-        FpqContext ctxt = fpq.createContext();
-        fpq.push(ctxt, new byte[10]);
-        fpq.push(ctxt, new byte[10]);
+        FpqContext ctxt = fpq1.createContext();
+        fpq1.push(ctxt, new byte[10]);
+        fpq1.push(ctxt, new byte[10]);
 
         try {
-            fpq.push(ctxt, new byte[10]);
+            fpq1.push(ctxt, new byte[10]);
             fail("should have thrown exception because of exceeding transaction size");
         }
         catch (FpqException e) {
@@ -72,68 +72,139 @@ public class FpqIT {
 
     @Test
     public void testPop() throws Exception {
-        fpq.init();
+        fpq1.init();
 
-        FpqContext ctxt = fpq.createContext();
-        fpq.push(ctxt, new byte[10]);
-        fpq.push(ctxt, new byte[10]);
-        fpq.push(ctxt, new byte[10]);
-        fpq.commit(ctxt);
+        FpqContext ctxt = fpq1.createContext();
+        fpq1.push(ctxt, new byte[10]);
+        fpq1.push(ctxt, new byte[10]);
+        fpq1.push(ctxt, new byte[10]);
+        fpq1.commit(ctxt);
 
-        assertThat(fpq.getMemoryMgr().size(), is(3L));
+        assertThat(fpq1.getMemoryMgr().size(), is(3L));
 
-        Collection<FpqEntry> entries = fpq.pop(ctxt, fpq.getMaxTransactionSize());
+        Collection<FpqEntry> entries = fpq1.pop(ctxt, fpq1.getMaxTransactionSize());
 
         assertThat(entries, hasSize(3));
         assertThat(ctxt.isPushing(), is(false));
         assertThat(ctxt.isPopping(), is(true));
         assertThat(ctxt.getQueue(), hasSize(3));
-        assertThat(fpq.getMemoryMgr().size(), is(0L));
-        assertThat(fpq.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
+        assertThat(fpq1.getMemoryMgr().size(), is(0L));
+        assertThat(fpq1.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
 
-        fpq.commit(ctxt);
+        fpq1.commit(ctxt);
 
         assertThat(ctxt.isPushing(), is(false));
         assertThat(ctxt.isPopping(), is(false));
         assertThat(ctxt.getQueue(), is(nullValue()));
-        assertThat(fpq.getMemoryMgr().size(), is(0L));
-        assertThat(fpq.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0L));
+        assertThat(fpq1.getMemoryMgr().size(), is(0L));
+        assertThat(fpq1.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0L));
     }
 
     @Test
-    public void testPushMultipleTimesOneContext() throws Exception {
-        fpq.init();
-        fail();
-    }
+    public void testPushAndPopMultipleTimesOneContext() throws Exception {
+        fpq1.init();
 
-    @Test
-    public void testPopMultipleTimesOneContext() throws Exception {
-        fpq.init();
-        fail();
+        FpqContext context = fpq1.createContext();
+        fpq1.push(context, "one".getBytes());
+        fpq1.push(context, "two".getBytes());
+        fpq1.push(context, "three".getBytes());
+        fpq1.commit(context);
+
+        assertThat(fpq1.getNumberOfEntries(), is(3L));
+
+        context = fpq1.createContext();
+        assertThat(new String(fpq1.pop(context, 1).iterator().next().getData()), is("one"));
+        assertThat(new String(fpq1.pop(context, 1).iterator().next().getData()), is("two"));
+        assertThat(new String(fpq1.pop(context, 1).iterator().next().getData()), is("three"));
+        fpq1.commit(context);
+
+        assertThat(fpq1.getNumberOfEntries(), is(0L));
+        assertThat(fpq1.getNumberOfPushes(), is(3L));
+        assertThat(fpq1.getNumberOfPops(), is(3L));
     }
 
     @Test
     public void testReplay() throws Exception {
-        fpq.setMaxTransactionSize(100);
-        fpq.setMaxMemorySegmentSizeInBytes(1000);
-        fpq.setMaxJournalFileSize(1000);
+        fpq1.setMaxTransactionSize(100);
+        fpq1.setMaxMemorySegmentSizeInBytes(1000);
+        fpq1.setMaxJournalFileSize(1000);
 
         int numEntries = 250;
-        fpq.init();
+        fpq1.init();
 
         for (int i=0;i < numEntries;i++) {
             byte[] data = new byte[100];
             ByteBuffer.wrap(data).putInt(i);
 
-            FpqContext ctxt = fpq.createContext();
-            fpq.push(ctxt, data);
-            fpq.commit(ctxt);
+            FpqContext ctxt = fpq1.createContext();
+            fpq1.push(ctxt, data);
+            fpq1.commit(ctxt);
         }
 
-        // simulate improper shutdown
-        fpq.init();
+        // simulate improper shutdown by starting another
+        Fpq fpq2 = new Fpq();
+        fpq2.setQueueName("fpq2");
+        fpq2.setMaxTransactionSize(fpq1.getMaxTransactionSize());
+        fpq2.setMaxMemorySegmentSizeInBytes(fpq1.getMaxMemorySegmentSizeInBytes());
+        fpq2.setMaxJournalFileSize(fpq1.getMaxJournalFileSize());
+        fpq2.setMaxJournalDurationInMs(fpq1.getMaxJournalDurationInMs());
+        fpq2.setFlushPeriodInMs(fpq1.getFlushPeriodInMs());
+        fpq2.setNumberOfFlushWorkers(fpq1.getNumberOfFlushWorkers());
+        fpq2.setJournalDirectory(fpq1.getJournalDirectory());
+        fpq2.setPagingDirectory(fpq1.getPagingDirectory());
+        fpq2.init();
 
-        fail();
+        assertThat(fpq2.getNumberOfEntries(), is(fpq1.getNumberOfEntries()));
+    }
+
+    @Test
+    public void testMultipleQueues() throws Exception {
+        fpq1.init();
+
+        Fpq fpq2 = new Fpq();
+        fpq2.setQueueName("fpq2");
+        fpq2.setMaxTransactionSize(100);
+        fpq2.setMaxMemorySegmentSizeInBytes(10000);
+        fpq2.setMaxJournalFileSize(10000);
+        fpq2.setMaxJournalDurationInMs(30000);
+        fpq2.setFlushPeriodInMs(1000);
+        fpq2.setNumberOfFlushWorkers(4);
+        fpq2.setJournalDirectory(new File(new File(theDir, "fp2"), "journal"));
+        fpq2.setPagingDirectory(new File(new File(theDir, "fp2"), "paging"));
+        fpq2.init();
+
+        for (int i=0;i < 1000;i++) {
+            FpqContext context1 = fpq1.createContext();
+            FpqContext context2 = fpq1.createContext();
+            fpq1.push(context1, new byte[100]);
+            fpq2.push(context2, new byte[100]);
+            fpq1.push(context1, new byte[100]);
+            fpq2.push(context2, new byte[100]);
+            fpq1.push(context1, new byte[100]);
+            fpq2.push(context2, new byte[100]);
+            fpq1.commit(context1);
+            fpq2.commit(context2);
+        }
+
+        for (int i=0;i < 1000;i++) {
+            FpqContext context1 = fpq1.createContext();
+            FpqContext context2 = fpq1.createContext();
+            fpq1.pop(context1, 1);
+            fpq2.pop(context2, 1);
+            fpq1.pop(context1, 1);
+            fpq2.pop(context2, 1);
+            fpq1.pop(context1, 1);
+            fpq2.pop(context2, 1);
+            fpq1.commit(context1);
+            fpq2.commit(context2);
+        }
+
+        assertThat(fpq1.getNumberOfEntries(), is(0L));
+        assertThat(fpq1.getNumberOfPushes(), is(3000L));
+        assertThat(fpq1.getNumberOfPops(), is(3000L));
+        assertThat(fpq2.getNumberOfEntries(), is(0L));
+        assertThat(fpq2.getNumberOfPushes(), is(3000L));
+        assertThat(fpq2.getNumberOfPops(), is(3000L));
     }
 
     @Test
@@ -142,13 +213,13 @@ public class FpqIT {
         final int numPushers = 4;
         final int numPoppers = 4;
         final int entrySize = 1000;
-        fpq.setMaxTransactionSize(2000);
+        fpq1.setMaxTransactionSize(2000);
         final int popBatchSize = 100;
-        fpq.setMaxMemorySegmentSizeInBytes(10000000);
-        fpq.setMaxJournalFileSize(10000000);
-        fpq.setMaxJournalDurationInMs(30000);
-        fpq.setFlushPeriodInMs(1000);
-        fpq.setNumberOfFlushWorkers(4);
+        fpq1.setMaxMemorySegmentSizeInBytes(10000000);
+        fpq1.setMaxJournalFileSize(10000000);
+        fpq1.setMaxJournalDurationInMs(30000);
+        fpq1.setFlushPeriodInMs(1000);
+        fpq1.setNumberOfFlushWorkers(4);
 
         final Random pushRand = new Random(1000L);
         final Random popRand = new Random(1000000L);
@@ -158,7 +229,7 @@ public class FpqIT {
         final AtomicLong pushSum = new AtomicLong();
         final AtomicLong popSum = new AtomicLong();
 
-        fpq.init();
+        fpq1.init();
 
         ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers + numPoppers);
 
@@ -176,9 +247,9 @@ public class FpqIT {
                             ByteBuffer bb = ByteBuffer.wrap(new byte[entrySize]);
                             bb.putLong(x);
 
-                            FpqContext context = fpq.createContext();
-                            fpq.push(context, bb.array());
-                            fpq.commit(context);
+                            FpqContext context = fpq1.createContext();
+                            fpq1.push(context, bb.array());
+                            fpq1.commit(context);
                             Thread.sleep(pushRand.nextInt(5));
                         }
                         catch (Exception e) {
@@ -196,17 +267,17 @@ public class FpqIT {
             Future future = execSrvc.submit(new Runnable() {
                 @Override
                 public void run() {
-                    while (pusherFinishCount.get() < numPushers || !fpq.isEmpty()) {
+                    while (pusherFinishCount.get() < numPushers || !fpq1.isEmpty()) {
                         try {
-                            FpqContext context = fpq.createContext();
+                            FpqContext context = fpq1.createContext();
                             Collection<FpqEntry> entries;
-                            while (null != (entries= fpq.pop(context, popBatchSize))) {
+                            while (null != (entries= fpq1.pop(context, popBatchSize))) {
                                 for (FpqEntry entry : entries) {
                                     ByteBuffer bb = ByteBuffer.wrap(entry.getData());
                                     popSum.addAndGet(bb.getLong());
                                 }
                                 numPops.addAndGet(entries.size());
-                                fpq.commit(context);
+                                fpq1.commit(context);
                                 entries.clear();
                                 Thread.sleep(popRand.nextInt(10));
                             }
@@ -235,13 +306,13 @@ public class FpqIT {
         }
 
         assertThat(numPops.get(), is(numEntries * numPushers));
-        assertThat(fpq.getNumberOfEntries(), is(0L));
+        assertThat(fpq1.getNumberOfEntries(), is(0L));
         assertThat(pushSum.get(), is(popSum.get()));
-        assertThat(fpq.getMemoryMgr().getNumberOfActiveSegments(), is(1));
-        assertThat(fpq.getMemoryMgr().getSegments(), hasSize(1));
-        assertThat(fpq.getJournalMgr().getJournalFiles().entrySet(), hasSize(1));
-        assertThat(FileUtils.listFiles(fpq.getPagingDirectory(), TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
-        assertThat(FileUtils.listFiles(fpq.getJournalDirectory(), TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(1));
+        assertThat(fpq1.getMemoryMgr().getNumberOfActiveSegments(), is(1));
+        assertThat(fpq1.getMemoryMgr().getSegments(), hasSize(1));
+        assertThat(fpq1.getJournalMgr().getJournalFiles().entrySet(), hasSize(1));
+        assertThat(FileUtils.listFiles(fpq1.getPagingDirectory(), TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
+        assertThat(FileUtils.listFiles(fpq1.getJournalDirectory(), TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(1));
     }
 
     // --------------
@@ -251,23 +322,21 @@ public class FpqIT {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        fpq = new Fpq();
-        fpq.setMaxTransactionSize(100);
-        fpq.setMaxMemorySegmentSizeInBytes(10000);
-        fpq.setMaxJournalFileSize(10000);
-        fpq.setMaxJournalDurationInMs(30000);
-        fpq.setFlushPeriodInMs(1000);
-        fpq.setNumberOfFlushWorkers(4);
-        fpq.setJournalDirectory(new File(theDir, "journal"));
-        fpq.setPagingDirectory(new File(theDir, "paging"));
-
-        FileUtils.forceMkdir(fpq.getJournalDirectory());
-        FileUtils.forceMkdir(fpq.getPagingDirectory());
+        fpq1 = new Fpq();
+        fpq1.setQueueName("fpq1");
+        fpq1.setMaxTransactionSize(100);
+        fpq1.setMaxMemorySegmentSizeInBytes(10000);
+        fpq1.setMaxJournalFileSize(10000);
+        fpq1.setMaxJournalDurationInMs(30000);
+        fpq1.setFlushPeriodInMs(1000);
+        fpq1.setNumberOfFlushWorkers(4);
+        fpq1.setJournalDirectory(new File(new File(theDir, "fp1"), "journal"));
+        fpq1.setPagingDirectory(new File(new File(theDir, "fp1"), "paging"));
     }
 
     @After
     public void cleanup() throws IOException {
-        fpq.shutdown();
+        fpq1.shutdown();
         FileUtils.deleteDirectory(theDir);
     }
 

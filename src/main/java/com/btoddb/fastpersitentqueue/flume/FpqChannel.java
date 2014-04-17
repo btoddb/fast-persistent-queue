@@ -76,6 +76,10 @@ public class FpqChannel extends BasicChannelSemantics {
             Utils.logAndThrow(logger, "exception while starting FPQ", e);
         }
 
+        if (channelCounter == null) {
+            channelCounter = new ChannelCounter(getName());
+        }
+
         channelCounter.start();
         channelCounter.setChannelSize(fpq.getNumberOfEntries());
         channelCounter.setChannelCapacity(0);
@@ -88,8 +92,10 @@ public class FpqChannel extends BasicChannelSemantics {
         if (null != fpq) {
             fpq.shutdown();
         }
-        channelCounter.setChannelSize(fpq.getNumberOfEntries());
-        channelCounter.stop();
+        if (null != channelCounter) {
+            channelCounter.setChannelSize(fpq.getNumberOfEntries());
+            channelCounter.stop();
+        }
 
         super.stop();
     }

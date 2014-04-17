@@ -56,7 +56,7 @@ public class MemorySegment {
         ArrayList<FpqEntry> entryList = new ArrayList<FpqEntry>(batchSize);
         long size = 0;
         Map.Entry<Long, FpqEntry> entry;
-        while (entryList.size() < batchSize && null != (entry=queue.pollLastEntry())) {
+        while (entryList.size() < batchSize && null != (entry=queue.pollFirstEntry())) {
             entryList.add(entry.getValue());
             size += entry.getValue().getMemorySize();
         }
@@ -67,8 +67,6 @@ public class MemorySegment {
 
     public void clearQueue() {
         queue.clear();
-//        sizeInBytes.set(0);
-//        numberOfAvailableEntries.set(0);
     }
 
     public long adjustSizeInBytes(long additionalSize) {

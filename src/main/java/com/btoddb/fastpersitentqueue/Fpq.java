@@ -29,6 +29,8 @@ public class Fpq {
     private long maxJournalFileSize = 100000000;
     private long maxJournalDurationInMs = 5 * 60 * 1000;
 
+    private AtomicLong numberOfPushes = new AtomicLong();
+    private AtomicLong numberOfPops = new AtomicLong();
     private AtomicLong entryIdGenerator = new AtomicLong();
     private JmxMetrics jmxMetrics = new JmxMetrics(this);
     private boolean initializing;
@@ -104,7 +106,7 @@ public class Fpq {
         //   which are then serialized to disk (this is done to avoid dupes)
 
         context.createPoppedEntries(entries);
-        return context.getQueue();
+        return entries;
     }
 
     public void commit(FpqContext context) throws IOException {
@@ -128,6 +130,7 @@ public class Fpq {
 
         if (!context.isQueueEmpty()) {
             journalMgr.reportTake(context.getQueue());
+            numberOfPops.addAndGet(context.size());
         }
     }
 
@@ -142,6 +145,7 @@ public class Fpq {
 
         Collection<FpqEntry> entries = journalMgr.append(context.getQueue());
         memoryMgr.push(entries);
+        numberOfPushes.addAndGet(context.size());
     }
 
     public void rollback(FpqContext context) {
@@ -265,5 +269,13 @@ public class Fpq {
 
     public void setQueueName(String queueName) {
         this.queueName = queueName;
+    }
+
+    public long getNumberOfPushes() {
+        return numberOfPushes.get();
+    }
+
+    public long getNumberOfPops() {
+        return numberOfPops.get();
     }
 }
