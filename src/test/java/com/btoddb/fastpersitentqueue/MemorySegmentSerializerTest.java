@@ -14,7 +14,6 @@ import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.fail;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -37,7 +36,8 @@ public class MemorySegmentSerializerTest {
         MemorySegment seg1 = new MemorySegment();
         seg1.setId(new UUID());
         seg1.setMaxSizeInBytes(1000);
-        seg1.push(entries);
+        seg1.setStatus(MemorySegment.Status.READY);
+        seg1.push(entries, 10);
 
         serializer.saveToDisk(seg1);
 
@@ -48,26 +48,8 @@ public class MemorySegmentSerializerTest {
         assertThat(seg2.getId(), is(seg1.getId()));
         assertThat(seg2.getQueue().size(), is(seg1.getQueue().size()));
         assertThat(seg2.getMaxSizeInBytes(), is(1000L));
-        assertThat(seg2.getNumberOfAvailableEntries(), is(3L));
-    }
-
-    @Test
-    public void testLoadHeader() throws Exception {
-        Collection<FpqEntry> entries = new LinkedList<FpqEntry>();
-        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {0, 1, 2}));
-        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {3, 4, 5}));
-        entries.add(new FpqEntry(idGen.incrementAndGet(), new byte[] {6, 7, 8}));
-        MemorySegment seg1 = new MemorySegment();
-        seg1.setId(new UUID());
-        seg1.setMaxSizeInBytes(1000);
-        seg1.push(entries);
-        serializer.saveToDisk(seg1);
-
-        MemorySegment seg2 = serializer.loadHeaderOnly(seg1.getId().toString());
-        assertThat(seg2.getId(), is(seg1.getId()));
-        assertThat(seg2.getQueue().keySet(), is(empty()));
-        assertThat(seg2.getMaxSizeInBytes(), is(1000L));
-        assertThat(seg2.getNumberOfAvailableEntries(), is(3L));
+        assertThat(seg2.getNumberOfOnlineEntries(), is(3L));
+        assertThat(seg2.getNumberOfEntries(), is(3L));
     }
 
     @Test

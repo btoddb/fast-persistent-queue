@@ -2,10 +2,12 @@ required
 
 - on pop, instead of removing from memory segments, mark them as popped.  then on commit, remove them and report
   to journal.  this should be reasonable because the segments use a Map for fast lookup of entries
-- if the size of the batch pushed is greater than the max size of a memory segment, infinite loop
+- infinite loop!!! if the size of the batch pushed is greater than the max size of a memory segment - overcome by
+  insuring max size of memory segment is greater than size of batch
 
 desired
 
 - work on a serialization and queue paradigm such that byte[] are not copied until out to disk or popped.
   maintain an ordered collection of byte[] throughout pushing and popping until written to disk or popped to customer
+- add assertions to operations that should have known state - like paging in/out
 

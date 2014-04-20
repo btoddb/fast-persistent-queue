@@ -22,7 +22,6 @@ public class MemorySegmentSerializer {
 
     // any synchronizing should have been done above call
     public void saveToDisk(MemorySegment segment) throws IOException {
-        FileUtils.forceMkdir(directory);
         File theFile = new File(directory, segment.getId().toString());
         RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
         try {

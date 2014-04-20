@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.File;
@@ -175,7 +176,7 @@ public class FpqIT {
 
         for (int i=0;i < 1000;i++) {
             FpqContext context1 = fpq1.createContext();
-            FpqContext context2 = fpq1.createContext();
+            FpqContext context2 = fpq2.createContext();
             fpq1.push(context1, new byte[100]);
             fpq2.push(context2, new byte[100]);
             fpq1.push(context1, new byte[100]);
@@ -186,9 +187,11 @@ public class FpqIT {
             fpq2.commit(context2);
         }
 
-        for (int i=0;i < 1000;i++) {
+        long end = System.currentTimeMillis()+10000;
+        while ((0 < fpq1.getNumberOfEntries() || 0 < fpq2.getNumberOfEntries())
+                && System.currentTimeMillis() < end) {
             FpqContext context1 = fpq1.createContext();
-            FpqContext context2 = fpq1.createContext();
+            FpqContext context2 = fpq2.createContext();
             fpq1.pop(context1, 1);
             fpq2.pop(context2, 1);
             fpq1.pop(context1, 1);
@@ -209,7 +212,7 @@ public class FpqIT {
 
     @Test
     public void testThreading() throws Exception {
-        final int numEntries = 10000;
+        final int numEntries = 1000;
         final int numPushers = 4;
         final int numPoppers = 4;
         final int entrySize = 1000;
@@ -250,6 +253,9 @@ public class FpqIT {
                             FpqContext context = fpq1.createContext();
                             fpq1.push(context, bb.array());
                             fpq1.commit(context);
+                            if ((x+1) % 500 == 0) {
+                                System.out.println("pushed ID = " + x);
+                            }
                             Thread.sleep(pushRand.nextInt(5));
                         }
                         catch (Exception e) {
@@ -275,9 +281,12 @@ public class FpqIT {
                                 for (FpqEntry entry : entries) {
                                     ByteBuffer bb = ByteBuffer.wrap(entry.getData());
                                     popSum.addAndGet(bb.getLong());
+                                    if (entry.getId() % 500 == 0) {
+                                        System.out.println("popped ID = " + entry.getId());
+                                    }
                                 }
-                                numPops.addAndGet(entries.size());
                                 fpq1.commit(context);
+                                numPops.addAndGet(entries.size());
                                 entries.clear();
                                 Thread.sleep(popRand.nextInt(10));
                             }

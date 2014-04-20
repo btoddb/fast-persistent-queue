@@ -1,5 +1,7 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqPushFinished;
+import com.btoddb.fastpersitentqueue.exceptions.FpqSegmentNotInReadyState;
 import com.eaio.uuid.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
@@ -9,13 +11,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 /**
@@ -26,44 +24,47 @@ public class InMemorySegmentMgr {
 
     private long maxSegmentSizeInBytes;
     private int maxNumberOfActiveSegments = 4;
-    private AtomicInteger numberOfActiveSegments = new AtomicInteger();
     private volatile boolean shutdownInProgress;
 
-    private ReentrantReadWriteLock segmentsLock = new ReentrantReadWriteLock();
-//    convertLinkedListToSkipMap;
-    private LinkedList<MemorySegment> segments = new LinkedList<MemorySegment>();
-    private AtomicLong numberOfEntries = new AtomicLong();
+    private Object selectWhichSegmentLoadMonitor = new Object();
+
+    private ConcurrentSkipListSet<MemorySegment> segments = new ConcurrentSkipListSet<MemorySegment>();
     private MemorySegmentSerializer segmentSerializer = new MemorySegmentSerializer();
     private File pagingDirectory;
     private int numberOfSerializerThreads = 2;
     private int numberOfCleanupThreads = 1;
 
+    private AtomicInteger numberOfActiveSegments = new AtomicInteger();
+    private AtomicLong numberOfEntries = new AtomicLong();
+    private AtomicLong numberOfSwapOut = new AtomicLong();
+    private AtomicLong numberOfSwapIn = new AtomicLong();
+
+
     private ExecutorService serializerExecSrvc = Executors.newFixedThreadPool(numberOfSerializerThreads,
-                                                                              new ThreadFactory() {
-                                                                                  @Override
-                                                                                  public Thread newThread(Runnable r) {
-                                                                                      Thread t = new Thread(r);
-                                                                                      t.setName("FPQ-"+MemorySegmentSerializer.class.getSimpleName());
-                                                                                      return t;
-                                                                                  }
-                                                                              });
+                                                      new ThreadFactory() {
+                                                          @Override
+                                                          public Thread newThread(Runnable r) {
+                                                              Thread t = new Thread(r);
+                                                              t.setName("FPQ-"+MemorySegmentSerializer.class.getSimpleName());
+                                                              return t;
+                                                          }
+                                                      });
 
     private ExecutorService cleanupExecSrvc = Executors.newFixedThreadPool(numberOfCleanupThreads,
-                                                                              new ThreadFactory() {
-                                                                                  @Override
-                                                                                  public Thread newThread(Runnable r) {
-                                                                                      Thread t = new Thread(r);
-                                                                                      t.setName("FPQ-Memory-Cleanup");
-                                                                                      return t;
-                                                                                  }
-                                                                              });
+                                                      new ThreadFactory() {
+                                                          @Override
+                                                          public Thread newThread(Runnable r) {
+                                                              Thread t = new Thread(r);
+                                                              t.setName("FPQ-Memory-Cleanup");
+                                                              return t;
+                                                          }
+                                                      });
 
     public void init() throws IOException {
         segmentSerializer.setDirectory(pagingDirectory);
         segmentSerializer.init();
 
         loadPagedSegments();
-
         createNewSegment();
     }
 
@@ -88,20 +89,21 @@ public class InMemorySegmentMgr {
         segments.clear();
 
         for (File f : sortedFiles) {
+            // only load the segment's data if room in memory, otherwise just load its header
             if (numberOfActiveSegments.get() < maxNumberOfActiveSegments-1) {
                 MemorySegment seg = segmentSerializer.loadFromDisk(f.getName());
                 seg.setStatus(MemorySegment.Status.READY);
                 seg.setPushingFinished(true);
                 segments.add(seg);
                 numberOfActiveSegments.incrementAndGet();
-                numberOfEntries.addAndGet(seg.getNumberOfAvailableEntries());
+                numberOfEntries.addAndGet(seg.getNumberOfEntries());
             }
             else {
                 MemorySegment seg = segmentSerializer.loadHeaderOnly(f.getName());
                 seg.setStatus(MemorySegment.Status.OFFLINE);
                 seg.setPushingFinished(true);
                 segments.add(seg);
-                numberOfEntries.addAndGet(seg.getNumberOfAvailableEntries());
+                numberOfEntries.addAndGet(seg.getNumberOfEntries());
             }
         }
 
@@ -116,45 +118,125 @@ public class InMemorySegmentMgr {
         push(Collections.singleton(fpqEntry));
     }
 
+    /**
+     * pick segment and push events.
+     *
+     * @param events
+     */
     public void push(Collection<FpqEntry> events) {
-        // - if enough free size to handle batch, then push events onto current segments
-        // - if not, then create new segments and push there
-        //   - if too many queues already, then flush newewst one we are not pushing to and load it later
-        //
-
         if (shutdownInProgress) {
             throw new FpqException("FPQ has been shutdown or is in progress, cannot push events");
         }
 
-        long additionalSize = 0;
+        // calculate memory used by the list of entries
+        long spaceRequired = 0;
         for (FpqEntry entry : events) {
-            additionalSize += entry.getMemorySize();
+            spaceRequired += entry.getMemorySize();
         }
 
-        MemorySegment segment = segments.peekLast();
+        if (spaceRequired > maxSegmentSizeInBytes) {
+            throw new FpqException(String.format("the space required to push entries (%d) is greater than maximum segment size (%d) - increase segment size or reduce entry size", spaceRequired, maxSegmentSizeInBytes));
+        }
 
-        // this must be done first as it signals if events can be pushed to this segment
-        while (segment.adjustSizeInBytes(additionalSize) > maxSegmentSizeInBytes) {
-            segment.adjustSizeInBytes(-additionalSize);
-            segmentsLock.writeLock().lock();
+        logger.debug("pushing {} event(s) totalling {} bytes", events.size(), spaceRequired);
+        MemorySegment segment;
+        while (true) {
+            // grab the newest segment (last) and try to push to it.  we always push to the newest segment.
+            // this is thread-safe because ConcurrentSkipListSet says so
             try {
-                if (!segment.isPushingFinished()) {
-                    segment.setPushingFinished(true);
-                    createNewSegment();
-                    if (numberOfActiveSegments.get() > maxNumberOfActiveSegments) {
-                        pageSegmentToReduceActive();
-                    }
+                segment = segments.last();
+            }
+            catch (NoSuchElementException e) {
+                logger.warn("no segments ready for pushing - not really a good thing");
+                try {
+                    Thread.sleep(100);
+                }
+                catch (InterruptedException e1) {
+                    // ignore
+                    Thread.interrupted();
+                }
+                continue;
+            }
+
+            // claim some room in this segment - if enough, then append entries and return
+            // if not enough room in this segment, no attempt is made to push the partial batch and
+            // this segment will be "push finished" regardless of how much room is available
+            try {
+                if (segment.push(events, spaceRequired)) {
+                    logger.debug("pushed {} events to segment {}", events.size(), segment.getId());
+                    numberOfEntries.addAndGet(events.size());
+                    return;
+                }
+                else {
+                    logger.debug("not enough room to push {} events to segment {} - skip to next segment (if there is one)", events.size(), segment.getId());
                 }
             }
-            finally {
-                segmentsLock.writeLock().unlock();
+            // only one time per segment will this exception be thrown.  if caught, signals
+            // this thread should check if needed to be paged out to disk
+            catch (FpqPushFinished e) {
+                createNewSegment();
+                if (numberOfActiveSegments.get() > maxNumberOfActiveSegments) {
+                    pageSegmentToDisk(segment);
+                }
+                logger.debug("creating new segment - now {} active segments", numberOfActiveSegments.get());
             }
-            segment = segments.peekLast();
+        }
+    }
+
+    /**
+     * pick segment and pop up to 'batchSize' events from it.
+     *
+     * @param batchSize
+     * @return
+     */
+    public Collection<FpqEntry> pop(int batchSize) {
+        if (shutdownInProgress) {
+            throw new FpqException("FPQ has been shutdown or is in progress, cannot pop events");
         }
 
-        segment.push(events);
+        logger.debug("popping up to {} events", batchSize);
 
-        numberOfEntries.addAndGet(events.size());
+        // find the memory segment we need and reserve our entries
+        // will not use multiple segments to achieve 'batchSize'
+
+        // we'll make only one pass through the segments.  if no entries available, or no segments ready
+        // for popping (because could be OFFLINE, SAVING, etc), then null is returned (not empty collection)
+        for (final MemorySegment seg : segments) {
+            // guarantee no manipulation of segment while deciding from which segment to pop.
+            // if segment is not READY then we can't pop from it.  however, if it is the first OFFLINE
+            // segment in FIFO, then we *should* be popping from it.  but until it's loaded we skip it
+
+            Collection<FpqEntry> entries;
+            try {
+                entries = seg.pop(batchSize);
+            }
+            catch (FpqSegmentNotInReadyState e) {
+//                logger.info("segment {} is not in READY state ({})", seg.getId(), seg.getStatus());
+                continue;
+            }
+
+            if (null != entries) {
+                numberOfEntries.addAndGet(-entries.size());
+                if (seg.getStatus() != MemorySegment.Status.READY) {
+                    logger.error( "VERY BAD - threading issue!! segment {} now has status {}", seg.getId(), seg.getStatus());
+                }
+                return entries;
+            }
+
+            // at this point no entries available for any thread to pop, so check if we can remove it
+            // this call only returns true if segment is ready to be removed and this thread is the first to ask
+            if (seg.shouldBeRemoved()) {
+                cleanupExecSrvc.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        removeSegment(seg);
+                    }
+                });
+            }
+        }
+
+        // if didn't find anything, return null
+        return null;
     }
 
     private void createNewSegment() {
@@ -165,7 +247,7 @@ public class InMemorySegmentMgr {
         seg.setMaxSizeInBytes(maxSegmentSizeInBytes);
         seg.setStatus(MemorySegment.Status.READY);
 
-        segments.offer(seg);
+        segments.add(seg);
         numberOfActiveSegments.incrementAndGet();
     }
 
@@ -179,99 +261,10 @@ public class InMemorySegmentMgr {
         }
     }
 
-    public Collection<FpqEntry> pop(int batchSize) {
-        // - pop at most batchSize events from queue - do not wait to reach batchSize
-        //   - if queue empty, do not wait, return empty list immediately
+    private void pageSegmentToDisk(final MemorySegment segment) {
+        // thread-safe in the respect that only one thread should schedule this
 
-        if (shutdownInProgress) {
-            throw new FpqException("FPQ has been shutdown or is in progress, cannot pop events");
-        }
-
-        // find the memory segment we need and reserve our entries
-        // will not use multiple segments to achieve 'batchSize'
-        MemorySegment chosenSegment = null;
-        int available = -1;
-        segmentsLock.readLock().lock();
-        try {
-            for (final MemorySegment seg : segments) {
-                // if segment is not READY then we can't pop from it.  however, if it is OFFLINE
-                // we need to load it because it is next in FIFO order and *should* be popping from it
-                synchronized (seg) {
-                    if (MemorySegment.Status.READY != seg.getStatus()) {
-                        if (MemorySegment.Status.OFFLINE == seg.getStatus() && seg.loaderTestAndSet()) {
-                            kickOffLoad(seg);
-                        }
-                        continue;
-                    }
-                }
-
-                // find out if enough data remains in the segment - uses Atomic so we can safely do this without
-                // worrying about synchronization.
-                long remaining = seg.decrementAvailable(batchSize);
-
-                if (remaining+batchSize > 0) {
-                    chosenSegment = seg;
-
-                    // adjust for partial batch
-                    if (remaining < 0) {
-                        // don't just set to zero, could give improper indicator
-                        seg.incrementAvailable(-remaining);
-                        available = batchSize + (int)remaining;
-                    }
-                    else {
-                        available = batchSize;
-                    }
-                    break;
-                }
-                // means not even a single event ready
-                else {
-                    // put back what we took as the segment may receive more events soon
-                    seg.incrementAvailable(batchSize);
-
-                    // if pushing finished, then schedule segment to be removed
-                    // make sure the 'isPushingFinished' is always before the test-and-set
-                    synchronized (seg) {
-                        if (seg.isPushingFinished() && seg.getNumberOfAvailableEntries() == 0 && seg.removerTestAndSet()) {
-                            logger.debug("removing segment {} because its empty and pushing has finished" +
-                                                 "", seg.getId().toString());
-                            seg.setStatus(MemorySegment.Status.REMOVING);
-                            cleanupExecSrvc.submit(new Runnable() {
-                                @Override
-                                public void run() {
-                                    removeSegment(seg);
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        }
-        finally {
-            segmentsLock.readLock().unlock();
-        }
-
-        // if didn't find anything, return null
-        if (null == chosenSegment) {
-            return null;
-        }
-
-        Collection<FpqEntry> entries = chosenSegment.pop(available);
-        numberOfEntries.addAndGet(-entries.size());
-
-        return entries;
-    }
-
-    private void pageSegmentToReduceActive() {
-        // synchronization should already be done
-
-        // don't serialize the newest because we are "pushing" to it
-        Iterator<MemorySegment> iter = segments.descendingIterator();
-        iter.next(); // get past the newest
-        serializeToDisk(iter.next());
-    }
-
-    private void serializeToDisk(final MemorySegment segment) {
-        // synchronization should already be done
+        logger.debug("set status to SAVING for segment {}", segment.getId());
 
         segment.setStatus(MemorySegment.Status.SAVING);
 
@@ -279,40 +272,54 @@ public class InMemorySegmentMgr {
             @Override
             public void run() {
                 try {
+                    logger.debug("serializing segment {} to page file", segment.getId());
                     segmentSerializer.saveToDisk(segment);
                     segment.clearQueue();
                     segment.setStatus(MemorySegment.Status.OFFLINE);
-                    segment.resetNeedLoadingTest();
                     numberOfActiveSegments.decrementAndGet();
+                    numberOfSwapOut.incrementAndGet();
                 }
                 catch (IOException e) {
-                    logger.error("exception while saving memory segment, {}, to disk - discarding", segment.getId().toString(), e);
+                    logger.error("exception while saving memory segment, {}, to disk - discarding segment (still have journals)", segment.getId().toString(), e);
                     removeSegment(segment);
                 }
             }
         });
     }
 
-    private void kickOffLoad(final MemorySegment segment) {
-        synchronized (segment) {
-            segment.setStatus(MemorySegment.Status.LOADING);
+    // this should be done in a thread and not in line with a customer call
+    private void kickOffLoadIfNeeded() {
+        MemorySegment tmp = null;
+
+        synchronized (selectWhichSegmentLoadMonitor) {
+            for (MemorySegment seg : segments) {
+                if (seg.getStatus() == MemorySegment.Status.OFFLINE) {
+                    seg.setStatus(MemorySegment.Status.LOADING);
+                    tmp = seg;
+                    break;
+                }
+            }
         }
 
+        if (null == tmp) {
+            return;
+        }
+
+        final MemorySegment segment = tmp;
         serializerExecSrvc.submit(new Runnable() {
             @Override
             public void run() {
                 try {
-                    synchronized (segment) {
-                        segmentSerializer.loadFromDisk(segment);
+                    // segment is OFFLINE so no need for synchronization  during load
+                    segmentSerializer.loadFromDisk(segment);
 
-                        // remove paging file before setting to READY in case something happens during remove
-                        segmentSerializer.removePagingFile(segment);
+                    // remove paging file before setting to READY in case something happens during remove
+                    segmentSerializer.removePagingFile(segment);
 
-                        segment.setPushingFinished(true);
-                        segment.setStatus(MemorySegment.Status.READY);
-                        numberOfActiveSegments.incrementAndGet();
-                        segment.resetNeedLoadingTest();
-                    }
+                    segment.setPushingFinished(true);
+                    numberOfActiveSegments.incrementAndGet();
+                    numberOfSwapIn.incrementAndGet();
+                    segment.setStatus(MemorySegment.Status.READY);
                 }
                 catch (IOException e) {
                     logger.error("exception while loading memory segment, {}, from disk - discarding", segment.getId().toString(), e);
@@ -322,16 +329,16 @@ public class InMemorySegmentMgr {
         });
     }
 
+    // this should be done in a thread and not inline with a customer call
     private void removeSegment(MemorySegment segment) {
         logger.debug("removing segment {}", segment.getId().toString());
         numberOfActiveSegments.decrementAndGet();
-        segmentsLock.writeLock().lock();
-        try {
-            segments.remove(segment);
-        }
-        finally {
-            segmentsLock.writeLock().unlock();
-        }
+
+        kickOffLoadIfNeeded();
+
+        // this is thread-safe because ConcurrentSkipListSet says so
+        segments.remove(segment);
+
         segmentSerializer.removePagingFile(segment);
     }
 
@@ -370,7 +377,7 @@ public class InMemorySegmentMgr {
             }
 
             if (segment.getStatus() == MemorySegment.Status.READY) {
-                serializeToDisk(segment);
+                pageSegmentToDisk(segment);
             }
         }
 
@@ -435,5 +442,13 @@ public class InMemorySegmentMgr {
 
     public File getPagingDirectory() {
         return pagingDirectory;
+    }
+
+    public long getNumberOfSwapOut() {
+        return numberOfSwapOut.get();
+    }
+
+    public long getNumberOfSwapIn() {
+        return numberOfSwapIn.get();
     }
 }

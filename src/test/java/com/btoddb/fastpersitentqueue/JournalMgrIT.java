@@ -209,7 +209,7 @@ public class JournalMgrIT {
 
     @Test
     public void testLoadingJournalsAtStartup() {
-        fail();
+        fail("not implemented yet");
     }
 
     @Test

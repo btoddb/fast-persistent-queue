@@ -38,22 +38,22 @@ public class JmxMetrics {
                              }
                          }
         );
-//        metricsRegistry.register(MetricRegistry.name("numberOfPushes"),
-//                                 new Gauge<Long>() {
-//                                     @Override
-//                                     public Long getValue() {
-//                                         return fpq.getNumberOfPushes();
-//                                     }
-//                                 }
-//        );
-//        metricsRegistry.register(MetricRegistry.name("numberOfPops"),
-//                                 new Gauge<Long>() {
-//                                     @Override
-//                                     public Long getValue() {
-//                                         return fpq.getNumberOfPops();
-//                                     }
-//                                 }
-//        );
+        metricsRegistry.register(MetricRegistry.name("numberOfPushes"),
+                                 new Gauge<Long>() {
+                                     @Override
+                                     public Long getValue() {
+                                         return fpq.getNumberOfPushes();
+                                     }
+                                 }
+        );
+        metricsRegistry.register(MetricRegistry.name("numberOfPops"),
+                                 new Gauge<Long>() {
+                                     @Override
+                                     public Long getValue() {
+                                         return fpq.getNumberOfPops();
+                                     }
+                                 }
+        );
 
 //        metricsRegistry.register(MetricRegistry.name(JMX_ROOT_NAME, fpq, "rollbacks"),
 //                         new Gauge<Long>() {

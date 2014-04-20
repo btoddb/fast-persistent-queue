@@ -1,6 +1,10 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqPushFinished;
+import com.btoddb.fastpersitentqueue.exceptions.FpqSegmentNotInReadyState;
 import com.eaio.uuid.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -10,12 +14,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 /**
  *
  */
-public class MemorySegment {
+public class MemorySegment implements Comparable<MemorySegment> {
+    private static final Logger logger = LoggerFactory.getLogger(MemorySegment.class);
+
     enum Status {
         READY, SAVING, LOADING, OFFLINE, REMOVING
     }
@@ -29,79 +36,144 @@ public class MemorySegment {
     private volatile Status status;
     private volatile boolean pushingFinished;
 
-    private AtomicBoolean loaderTestAndSet = new AtomicBoolean();
+    // these are so only one thread kicks of a load, remove, or page-to-disk
     private AtomicBoolean removerTestAndSet = new AtomicBoolean(true);
+    private ReentrantReadWriteLock metaDataLock = new ReentrantReadWriteLock();
 
-//    private ConcurrentLinkedQueue<FpqEntry> queue = new ConcurrentLinkedQueue<FpqEntry>();
     private ConcurrentSkipListMap<Long, FpqEntry> queue = new ConcurrentSkipListMap<Long, FpqEntry>();
     private AtomicLong sizeInBytes = new AtomicLong();
-    private AtomicLong numberOfAvailableEntries = new AtomicLong();
+    private AtomicLong numberOfEntries = new AtomicLong();
+    private AtomicLong numberOfOnlineEntries = new AtomicLong();
     private AtomicLong totalEventsPushed = new AtomicLong();
     private AtomicLong totalEventsPopped = new AtomicLong();
 
-    public void push(Collection<FpqEntry> events) {
-        for (FpqEntry entry : events) {
-            queue.put(entry.getId(), entry);
-        }
-        totalEventsPushed.addAndGet(events.size());
+    // push is thread safe because ConcurrentSkipListMap says so
+    // true = push success
+    // false = not enough room and marked as finished
+    public boolean push(Collection<FpqEntry> events, long spaceRequired) throws FpqPushFinished {
+        // claim some room in this segment - if enough, then append entries and return
+        // if not enough room in this segment, no attempt is made to push the partial batch and
+        // this segment will be "push finished" regardless of how much room is available
+        metaDataLock.readLock().lock();
+        try {
+            if (!isPushingFinished() && Status.READY == status && sizeInBytes.addAndGet(spaceRequired) <= maxSizeInBytes) {
+                for (FpqEntry entry : events) {
+                    queue.put(entry.getId(), entry);
+                }
+                totalEventsPushed.addAndGet(events.size());
 
-        // this must be done last as it signals when events are ready to be popped from this segment
-        numberOfAvailableEntries.addAndGet(events.size());
+                // this must be done last as it signals when events are ready to be popped from this segment
+                numberOfEntries.addAndGet(events.size());
+                numberOfOnlineEntries.addAndGet(events.size());
+                return true;
+            }
+        }
+        finally {
+            metaDataLock.readLock().unlock();
+        }
+
+        // if got here, then not enough room to push *all* entries, so mark as finished
+        // TODO:BTB - maybe should use sync section to reduce waiting on meta data write lock?
+        metaDataLock.writeLock().lock();
+        try {
+
+            if (!isPushingFinished() && Status.READY == status) {
+                // only one thread will set to true and throw exception.  the intent is that the segment
+                // manager thread that catches exception should check for things like (should i page to disk, etc)
+                setPushingFinished(true);
+                throw new FpqPushFinished();
+            }
+        }
+        finally {
+            metaDataLock.writeLock().unlock();
+        }
+
+        return false;
     }
 
-    public Collection<FpqEntry> pop(int batchSize) {
-        // - pop at most batchSize events from queue - do not wait to reach batchSize
-        //   - if queue empty, do not wait, return empty list immediately
+    public Collection<FpqEntry> pop(int batchSize) throws FpqSegmentNotInReadyState {
+        metaDataLock.readLock().lock();
+        try {
+            // segment must be in READY state
+            if (Status.READY != status) {
+                throw new FpqSegmentNotInReadyState();
+            }
+            // find out if enough data remains in the segment.  if this segment has been removed, paged
+            // to disk, etc, the adjustment will detect that too
+            long remaining = numberOfOnlineEntries.addAndGet(-batchSize);
+            int available = batchSize + (int) remaining;
 
-        ArrayList<FpqEntry> entryList = new ArrayList<FpqEntry>(batchSize);
-        long size = 0;
-        Map.Entry<Long, FpqEntry> entry;
-        while (entryList.size() < batchSize && null != (entry=queue.pollFirstEntry())) {
-            entryList.add(entry.getValue());
-            size += entry.getValue().getMemorySize();
+            // if > 0 then we have a good segment, so pop from it!
+            if (available > 0) {
+                // adjust for partial batch
+                if (remaining < 0) {
+                    // don't just set to zero, many other threads are doing the same thing
+                    numberOfOnlineEntries.addAndGet(-remaining);
+                }
+                else {
+                    available = batchSize;
+                }
+
+                // we don't adjust number of available entries here.  it should have been adjusted
+                // prior to popping to prevent unnecessary locking and still be thread-safe.  by the time
+                // a thread gets here it should already know it had enough entries to pop 'batchSize' amount
+                ArrayList<FpqEntry> entryList = new ArrayList<FpqEntry>(batchSize);
+                long size = 0;
+                Map.Entry<Long, FpqEntry> entry;
+                while (entryList.size() < available && null != (entry=queue.pollFirstEntry())) {
+                    entryList.add(entry.getValue());
+                    size += entry.getValue().getMemorySize();
+                }
+                sizeInBytes.addAndGet(-size);
+                numberOfEntries.addAndGet(-entryList.size());
+                totalEventsPopped.addAndGet(entryList.size());
+                return !entryList.isEmpty() ? entryList : null;
+            }
+            else {
+                // means not even a single event can be popped (for whatever reason), so put back the way we found it
+                numberOfOnlineEntries.addAndGet(batchSize);
+                return null;
+            }
         }
-        sizeInBytes.addAndGet(-size);
-        totalEventsPopped.addAndGet(entryList.size());
-        return entryList;
+        finally {
+            metaDataLock.readLock().unlock();
+        }
     }
 
     public void clearQueue() {
         queue.clear();
     }
 
-    public long adjustSizeInBytes(long additionalSize) {
-        return sizeInBytes.addAndGet(additionalSize);
-    }
-
-    public long decrementAvailable(long count) {
-        return numberOfAvailableEntries.addAndGet(-count);
-    }
-
-    public long incrementAvailable(long count) {
-        return numberOfAvailableEntries.addAndGet(count);
-    }
-
-    public boolean loaderTestAndSet() {
-        return loaderTestAndSet.compareAndSet(true, false);
-    }
-
     public boolean removerTestAndSet() {
         return removerTestAndSet.compareAndSet(true, false);
-    }
-
-    public void resetNeedLoadingTest() {
-        loaderTestAndSet.set(true);
     }
 
     public boolean isEntryQueued(FpqEntry entry) {
         return queue.containsKey(entry.getId());
     }
 
+    public boolean shouldBeRemoved() {
+        metaDataLock.writeLock().lock();
+        try {
+            // if pushing finished, then schedule segment to be removed.  seg.removerTestAndSet insures
+            // that only one thread will schedule the remove - so make sure it is last in the conditionals
+            if (isPushingFinished() && getNumberOfEntries() == 0 && removerTestAndSet()) {
+                logger.debug("removing segment {} because its empty and pushing has finished", getId().toString());
+                setStatus(MemorySegment.Status.REMOVING);
+                return true;
+            }
+            return false;
+        }
+        finally {
+            metaDataLock.writeLock().unlock();
+        }
+    }
+
     public void writeToDisk(RandomAccessFile raFile) throws IOException {
         Utils.writeInt(raFile, getVersion());
         Utils.writeUuidToFile(raFile, id);
         Utils.writeLong(raFile, maxSizeInBytes);
-        Utils.writeLong(raFile, getNumberOfAvailableEntries());
+        Utils.writeLong(raFile, getNumberOfEntries());
         Utils.writeLong(raFile, sizeInBytes.get());
         Utils.writeLong(raFile, totalEventsPushed.get());
         Utils.writeLong(raFile, totalEventsPopped.get());
@@ -112,7 +184,8 @@ public class MemorySegment {
 
     public void readFromPagingFile(RandomAccessFile raFile) throws IOException {
         readHeaderFromDisk(raFile);
-        for ( int i=0;i < numberOfAvailableEntries.get();i++ ) {
+        numberOfOnlineEntries.set(numberOfEntries.get());
+        for ( int i=0;i < numberOfEntries.get();i++ ) {
             FpqEntry entry = new FpqEntry();
             entry.readFromPaging(raFile);
             queue.put(entry.getId(), entry);
@@ -122,11 +195,11 @@ public class MemorySegment {
     public void readHeaderFromDisk(RandomAccessFile raFile) throws IOException {
         version = raFile.readInt();
         id = Utils.readUuidFromFile(raFile);
-        maxSizeInBytes = raFile.readLong();
-        numberOfAvailableEntries.set(raFile.readLong());
-        sizeInBytes.set(raFile.readLong());
-        totalEventsPushed.set(raFile.readLong());
-        totalEventsPopped.set(raFile.readLong());
+        maxSizeInBytes = Utils.readLong(raFile);
+        numberOfEntries.set(Utils.readLong(raFile));
+        sizeInBytes.set(Utils.readLong(raFile));
+        totalEventsPushed.set(Utils.readLong(raFile));
+        totalEventsPopped.set(Utils.readLong(raFile));
     }
 
     public Status getStatus() {
@@ -134,7 +207,13 @@ public class MemorySegment {
     }
 
     public void setStatus(Status status) {
-        this.status = status;
+        metaDataLock.writeLock().lock();
+        try {
+            this.status = status;
+        }
+        finally {
+            metaDataLock.writeLock().unlock();
+        }
     }
 
     public static int getVersion() {
@@ -157,18 +236,26 @@ public class MemorySegment {
         this.maxSizeInBytes = maxSizeInBytes;
     }
 
-    public long getNumberOfAvailableEntries() {
-        return numberOfAvailableEntries.get();
+    public long getNumberOfEntries() {
+        return numberOfEntries.get();
     }
 
-    public void setNumberOfAvailableEntries(long numberOfAvailableEntries) { this.numberOfAvailableEntries.set(numberOfAvailableEntries);}
+    public long getNumberOfOnlineEntries() {
+        return numberOfOnlineEntries.get();
+    }
 
     public boolean isPushingFinished() {
         return pushingFinished;
     }
 
     public void setPushingFinished(boolean pushingFinished) {
-        this.pushingFinished = pushingFinished;
+        metaDataLock.writeLock().lock();
+        try {
+            this.pushingFinished = pushingFinished;
+        }
+        finally {
+            metaDataLock.writeLock().unlock();
+        }
     }
 
     public ConcurrentSkipListMap<Long, FpqEntry> getQueue() {
@@ -196,5 +283,11 @@ public class MemorySegment {
     @Override
     public int hashCode() {
         return id != null ? id.hashCode() : 0;
+    }
+
+    @Override
+    public int compareTo(MemorySegment o2) {
+        // time based UUIDs
+        return id.compareTo(o2.getId());
     }
 }

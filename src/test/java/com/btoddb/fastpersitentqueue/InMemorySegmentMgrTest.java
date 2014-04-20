@@ -54,7 +54,8 @@ public class InMemorySegmentMgrTest {
         MemorySegment seg = iter.next();
         assertThat(seg.isPushingFinished(), is(true));
         assertThat(seg.getStatus(), is(MemorySegment.Status.OFFLINE));
-        assertThat(seg.getNumberOfAvailableEntries(), is(7L));
+        assertThat(seg.getNumberOfOnlineEntries(), is(7L));
+        assertThat(seg.getNumberOfEntries(), is(7L));
         assertThat(seg.getQueue().keySet(), is(empty()));
 
         // this one is still active
@@ -88,7 +89,8 @@ public class InMemorySegmentMgrTest {
 
         MemorySegment seg = mgr.getSegments().iterator().next();
         assertThat(seg.getStatus(), is(MemorySegment.Status.READY));
-        assertThat(seg.getNumberOfAvailableEntries(), is(0L));
+        assertThat(seg.getNumberOfOnlineEntries(), is(0L));
+        assertThat(seg.getNumberOfEntries(), is(0L));
         assertThat(seg.getQueue().keySet(), is(empty()));
 
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
@@ -131,7 +133,8 @@ public class InMemorySegmentMgrTest {
 
     @Test
     public void testThreading() throws IOException, ExecutionException {
-        final int numEntries = 10000;
+        final int entrySize = 1000;
+        final int numEntries = 3000;
         final int numPushers = 3;
         int numPoppers = 3;
 
@@ -139,8 +142,12 @@ public class InMemorySegmentMgrTest {
         final Random popRand = new Random(1000000L);
         final AtomicInteger pusherFinishCount = new AtomicInteger();
         final AtomicInteger numPops = new AtomicInteger();
+        final AtomicLong pushSum = new AtomicLong();
+        final AtomicLong popSum = new AtomicLong();
 
-        mgr.setMaxSegmentSizeInBytes(1000);
+//        need-to-do-checksums-like-other-threading tests;
+
+        mgr.setMaxSegmentSizeInBytes(10000);
         mgr.init();
 
         ExecutorService execSrvc = Executors.newFixedThreadPool(numPushers + numPoppers);
@@ -154,8 +161,13 @@ public class InMemorySegmentMgrTest {
                 public void run() {
                     for (int i = 0; i < numEntries; i++) {
                         try {
-                            FpqEntry entry = new FpqEntry(idGen.incrementAndGet(), new byte[100]);
+                            long x = idGen.incrementAndGet();
+                            pushSum.addAndGet(x);
+                            FpqEntry entry = new FpqEntry(x, new byte[entrySize]);
                             mgr.push(entry);
+                            if (x % 100 == 0) {
+                                System.out.println("pushed ID = " + x);
+                            }
                             Thread.sleep(pushRand.nextInt(5));
                         }
                         catch (Exception e) {
@@ -177,6 +189,11 @@ public class InMemorySegmentMgrTest {
                         try {
                             FpqEntry entry;
                             while (null != (entry=mgr.pop())) {
+                                if (entry.getId() % 200 == 0) {
+                                    System.out.println("popped ID = " + entry.getId());
+                                }
+
+                                popSum.addAndGet(entry.getId());
                                 numPops.incrementAndGet();
                                 Thread.sleep(popRand.nextInt(5));
                             }
@@ -205,10 +222,15 @@ public class InMemorySegmentMgrTest {
         }
 
         assertThat(numPops.get(), is(numEntries * numPushers));
+        assertThat(popSum.get(), is(pushSum.get()));
         assertThat(mgr.getNumberOfEntries(), is(0L));
         assertThat(mgr.getNumberOfActiveSegments(), is(1));
         assertThat(mgr.getSegments(), hasSize(1));
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), is(empty()));
+
+        // make sure we tested paging in/out
+        assertThat(mgr.getNumberOfSwapOut(), is(greaterThan(0L)));
+        assertThat(mgr.getNumberOfSwapIn(), is(mgr.getNumberOfSwapOut()));
     }
 
     // ---------
