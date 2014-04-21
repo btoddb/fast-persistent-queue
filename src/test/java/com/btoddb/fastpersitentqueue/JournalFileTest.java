@@ -6,9 +6,11 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.CoreMatchers.*;
@@ -102,7 +104,7 @@ public class JournalFileTest {
     }
 
     @Test
-    public void testReadNoData() throws Exception {
+    public void testValidHeaderAndZeroEntries() throws Exception {
         JournalFile jf1 = new JournalFile(theFile);
         jf1.initForWriting(new UUID());
         jf1.close();
@@ -110,52 +112,83 @@ public class JournalFileTest {
         JournalFile jf2 = new JournalFile(theFile);
         jf2.initForReading();
         assertThat(jf2.readNextEntry(), is(nullValue()));
+        assertThat(jf2.getNumberOfEntries(), is(0L));
         jf2.close();
     }
 
     @Test
-    public void testReadBadVersion() throws Exception {
-        UUID id = new UUID();
-        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
-        raFile.writeInt(123);
-        Utils.writeUuidToFile(raFile, id);
-        raFile.close();
+    public void testInvalidHeaderVersion() throws Exception {
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        jf1.close();
 
+        // mess up the UUID
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
+        Utils.writeInt(raFile, 2);
+        raFile.close();
+//        Utils.writeUuidToFile(raFile, id);
+//        Utils.writeLong(raFile, numberOfEntries.get());
+
+        JournalFile jf2 = new JournalFile(theFile);
         try {
-            JournalFile jf2 = new JournalFile(theFile);
             jf2.initForReading();
-            fail("should have thrown " + FpqException.class.getSimpleName());
+            fail("should have found invalid journal version");
         }
         catch (FpqException e) {
-            assertThat(e.getMessage(), containsString("does not match any expected version"));
+            assertThat(e.getMessage(), containsString("invalid journal file version"));
         }
     }
 
     @Test
-    public void testReadLengthOfEntryTooLarge() throws Exception {
-        UUID id = new UUID();
+    public void testInvalidUUID() throws Exception {
+        // can't actuall write an invalid UUID because it's made of two variable length longs
+        // only way to get an invalid UUID is to have a truncated file
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        jf1.close();
+
+        // mess up the UUID
         RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
-        raFile.writeInt(1);
-        Utils.writeUuidToFile(raFile, id);
-        raFile.writeLong(1);
-        raFile.writeLong(123);
-        raFile.writeInt(12345);
+        Utils.writeInt(raFile, 1);
+        Utils.writeInt(raFile, -1);
+        raFile.setLength(raFile.getFilePointer());
+        raFile.close();
+//        Utils.writeLong(raFile, numberOfEntries.get());
+
+        JournalFile jf2 = new JournalFile(theFile);
+        try {
+            jf2.initForReading();
+            fail("should have found invalid UUID in the form of truncated file");
+        }
+        catch (EOFException e) {
+            // good!
+        }
+    }
+
+    @Test
+    public void testNumberOfEntriesIsIncorrect() throws Exception {
+        JournalFile jf1 = new JournalFile(theFile);
+        jf1.initForWriting(new UUID());
+        jf1.append(new FpqEntry(1, new byte[10]));
+        jf1.close();
+
+        // mess up the UUID
+        RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
+        Utils.writeInt(raFile, 1);
+        Utils.writeUuidToFile(raFile, jf1.getId());
+        Utils.writeLong(raFile, 123L);
         raFile.close();
 
-        try {
-            JournalFile jf1 = new JournalFile(theFile);
-            jf1.initForReading();
-            jf1.readNextEntry();
-            fail("should have thrown " + FpqException.class.getSimpleName());
+        JournalFile jf2 = new JournalFile(theFile);
+        jf2.initForReading();
+        Iterator<FpqEntry> iter = jf2.iterator();
+        long count = 0;
+        while (iter.hasNext()) {
+            count++;
+            iter.next();
         }
-        catch (FpqException e) {
-            assertThat(e.getMessage(), containsString("entry length (12345) could not be satisfied"));
-        }
-    }
-
-    @Test
-    public void testInvalidHeader() {
-        fail();
+        assertThat(jf2.getNumberOfEntries(), is(not(count)));
+        assertThat(count, is(jf1.getNumberOfEntries()));
     }
 
     @Test

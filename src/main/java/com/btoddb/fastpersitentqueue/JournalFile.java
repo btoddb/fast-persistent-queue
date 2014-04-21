@@ -78,7 +78,7 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
         raFile.seek(0);
         int tmp = raFile.readInt();
         if (tmp != version) {
-            throw new FpqException(String.format("version, %d, read from file, %s, does not match any expected versions", tmp, file.getCanonicalPath()));
+            throw new FpqException(String.format("invalid journal file version, %d.  file = %s", tmp, file.getCanonicalPath()));
         }
         id = Utils.readUuidFromFile(raFile);
         numberOfEntries.set(raFile.readLong());
