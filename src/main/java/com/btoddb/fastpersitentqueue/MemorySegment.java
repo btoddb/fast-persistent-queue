@@ -149,7 +149,7 @@ public class MemorySegment implements Comparable<MemorySegment> {
     }
 
     public boolean isEntryQueued(FpqEntry entry) {
-        return queue.containsKey(entry.getId());
+        return null != queue && queue.containsKey(entry.getId());
     }
 
     public boolean shouldBeRemoved() {
@@ -216,8 +216,8 @@ public class MemorySegment implements Comparable<MemorySegment> {
         }
     }
 
-    public static int getVersion() {
-        return VERSION;
+    public int getVersion() {
+        return version;
     }
 
     public UUID getId() {
