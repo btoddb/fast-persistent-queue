@@ -28,6 +28,7 @@ public class JournalMgr {
     private long maxJournalDurationInMs = (10 * 60 * 1000); // 10 minutes
 
     private volatile boolean shutdownInProgress;
+    private long journalsLoadedAtStartup;
     private AtomicLong journalsCreated = new AtomicLong();
     private AtomicLong journalsRemoved = new AtomicLong();
     private AtomicLong numberOfEntries = new AtomicLong();
@@ -100,12 +101,13 @@ public class JournalMgr {
             journalIdMap.put(jd.getId(), jd);
             numberOfEntries.addAndGet(jf.getNumberOfEntries());
             logger.info("loaded descriptor, {}, with {} entries", jd.getId(), jd.getNumberOfUnconsumedEntries());
+            journalsLoadedAtStartup ++;
         }
 
         logger.info("completed journal descriptor loading.  found a total of {} entries", numberOfEntries.get());
     }
 
-    public JournalReplayIterable createReplayIterable() {
+    public JournalReplayIterable createReplayIterable() throws IOException {
         return new JournalReplayIterable();
     }
 
@@ -172,6 +174,8 @@ public class JournalMgr {
                 }
             }
         }
+
+        numberOfEntries.addAndGet(entryList.size());
 
         return entryList;
     }
@@ -251,7 +255,6 @@ public class JournalMgr {
     }
 
     private void removeJournal(JournalDescriptor desc) {
-//        desc.getFuture().cancel(false);
         journalLock.writeLock().lock();
         try {
             journalIdMap.remove(desc.getId());
@@ -266,6 +269,7 @@ public class JournalMgr {
             journalLock.writeLock().unlock();
         }
 
+        numberOfEntries.addAndGet(-desc.getFile().getNumberOfEntries());
         journalsRemoved.incrementAndGet();
         logger.debug("journal, {}, removed", desc.getId());
     }
@@ -377,6 +381,10 @@ public class JournalMgr {
         return numberOfEntries.get();
     }
 
+    public long getJournalsLoadedAtStartup() {
+        return journalsLoadedAtStartup;
+    }
+
     // ------------
 
     public class JournalReplayIterable implements Iterator<FpqEntry>, Iterable<FpqEntry> {
@@ -384,8 +392,8 @@ public class JournalMgr {
         private Iterator<FpqEntry> entryIter = null;
         private JournalDescriptor jd = null;
 
-        public JournalReplayIterable() {
-            advanceToNextJobFile();
+        public JournalReplayIterable() throws IOException {
+            advanceToNextJournalFile();
         }
 
         @Override
@@ -403,19 +411,24 @@ public class JournalMgr {
             if (!entryIter.hasNext()) {
                 try {
                     jd.getFile().close();
+                    advanceToNextJournalFile();
                 }
                 catch (IOException e) {
                     logger.error("exception while closing journal file", e);
                 }
-                advanceToNextJobFile();
             }
 
-            return null != entryIter;
+            return null != entryIter && entryIter.hasNext();
         }
 
         @Override
         public FpqEntry next() {
-            return hasNext() ? entryIter.next() : null;
+            if (hasNext()) {
+                return entryIter.next();
+            }
+            else {
+                throw new NoSuchElementException();
+            }
         }
 
         @Override
@@ -423,12 +436,15 @@ public class JournalMgr {
             throw new UnsupportedOperationException(JournalMgr.class.getName() + " does not support remove");
         }
 
-        private void advanceToNextJobFile() {
+        private void advanceToNextJournalFile() throws IOException {
             while (jdIter.hasNext()) {
                 jd = jdIter.next();
                 if (jd.isWritingFinished()) {
                     entryIter = jd.getFile().iterator();
                     return;
+                }
+                else {
+                    logger.debug("trying to replay a journal that is not 'write finished' : " + jd.getId());
                 }
             }
             jd = null;

@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,7 +16,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.fail;
 
 
 /**
@@ -208,27 +208,99 @@ public class JournalMgrIT {
     }
 
     @Test
-    public void testLoadingJournalsAtStartup() {
-        fail("not implemented yet");
+    public void testLoadEntriesOnStartupUsingIterator() throws Exception {
+        mgr.setMaxJournalFileSize(60);
+        mgr.init();
+
+        for (int i=0;i < 100;i++) {
+            mgr.append(new FpqEntry(idGen.incrementAndGet(), ByteBuffer.allocate(10).putInt(i).array()));
+        }
+
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(51));
+        mgr.shutdown();
+
+        JournalMgr mgr2 = new JournalMgr();
+        mgr2.setMaxJournalDurationInMs(mgr.getMaxJournalDurationInMs());
+        mgr2.setFlushPeriodInMs(mgr.getFlushPeriodInMs());
+        mgr2.setDirectory(mgr.getDirectory());
+        mgr2.setMaxJournalFileSize(mgr.getMaxJournalFileSize());
+        mgr2.setNumberOfFlushWorkers(mgr.getNumberOfFlushWorkers());
+        mgr2.init();
+
+        assertThat(mgr2.getNumberOfEntries(), is(100L));
+
+        int count = 0;
+        JournalMgr.JournalReplayIterable iter = mgr2.createReplayIterable();
+        try {
+            while (iter.hasNext()) {
+                assertThat(ByteBuffer.wrap(iter.next().getData()).getInt(), is(count));
+                count++;
+            }
+            assertThat(count, is(100));
+        }
+        finally {
+            iter.close();
+            mgr.shutdown();
+        }
     }
 
     @Test
-    public void testJournalEntryIterator() throws IOException {
-        int numEntries = 250;
-        mgr.setMaxJournalFileSize(100);
+    public void testAnotherIteratorTest() throws Exception {
+        mgr.setMaxJournalFileSize(1000);
         mgr.init();
-        for (int i=0;i < numEntries;i++) {
-            mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[] {(byte)i, 1, 2}));
-        }
-        mgr.shutdown();
 
-        mgr.init();
-        byte count = 0;
-        JournalMgr.JournalReplayIterable replay = mgr.createReplayIterable();
-        for (FpqEntry entry : replay) {
-            assertThat(entry.getData()[0], is(count++));
+        int numEntries = 250;
+
+        for (int i=0;i < numEntries;i++) {
+            byte[] data = new byte[100];
+            ByteBuffer.wrap(data).putInt(i);
+            mgr.append(new FpqEntry(i, data));
         }
-        replay.close();
+//        mgr.shutdown();
+
+        JournalMgr mgr2 = new JournalMgr();
+        mgr2.setNumberOfFlushWorkers(mgr.getNumberOfFlushWorkers());
+        mgr2.setMaxJournalFileSize(mgr.getMaxJournalFileSize());
+        mgr2.setDirectory(mgr.getDirectory());
+        mgr2.setFlushPeriodInMs(mgr.getFlushPeriodInMs());
+        mgr2.setMaxJournalDurationInMs(mgr.getMaxJournalDurationInMs());
+        mgr2.init();
+
+        JournalMgr.JournalReplayIterable replayer = mgr2.createReplayIterable();
+        int count = 0;
+        for (FpqEntry entry : replayer) {
+            System.out.println("count = " + count);
+            assertThat(ByteBuffer.wrap(entry.getData()).getInt(), is(count));
+            count++;
+        }
+
+        assertThat((long)count, is(mgr.getNumberOfEntries()));
+        assertThat(mgr2.getNumberOfEntries(), is(mgr.getNumberOfEntries()));
+
+    }
+    @Test
+    public void testLoadEntriesOnExistingManagerUsingIterator() throws Exception {
+        mgr.setMaxJournalFileSize(60);
+        mgr.init();
+
+        for (int i=0;i < 100;i++) {
+            mgr.append(new FpqEntry(idGen.incrementAndGet(), ByteBuffer.allocate(10).putInt(i).array()));
+        }
+
+        assertThat(mgr.getJournalIdMap().entrySet(), hasSize(51));
+
+        int count = 0;
+        JournalMgr.JournalReplayIterable iter = mgr.createReplayIterable();
+        try {
+            while (iter.hasNext()) {
+                assertThat(ByteBuffer.wrap(iter.next().getData()).getInt(), is(count));
+                count++;
+            }
+            assertThat(count, is(100));
+        }
+        finally {
+            iter.close();
+        }
     }
 
     @Test
