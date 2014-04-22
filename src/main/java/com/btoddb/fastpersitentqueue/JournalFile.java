@@ -54,6 +54,11 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
         }
 
         readHeader();
+        if (0 == getNumberOfEntries()) {
+            long filePos = raFile.getFilePointer();
+            countEntriesInFile();
+            raFile.seek(filePos);
+        }
     }
 
     public void initForWriting(UUID id) throws IOException {
@@ -82,6 +87,14 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
         }
         id = Utils.readUuidFromFile(raFile);
         numberOfEntries.set(raFile.readLong());
+    }
+
+    private void countEntriesInFile() {
+        Iterator<FpqEntry> iter = this;
+        while (iter.hasNext()) {
+            iter.next();
+            numberOfEntries.incrementAndGet();
+        }
     }
 
     public FpqEntry append(FpqEntry entry) throws IOException {
@@ -137,9 +150,7 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
 
         // do flush otherwise channel.isOpen will report open, even after close
         forceFlush();
-        if (null != raFile) {
-            raFile.close();
-        }
+        raFile.close();
     }
 
     public FpqEntry readNextEntry() throws IOException {
@@ -218,7 +229,7 @@ public class JournalFile implements Iterable<FpqEntry>, Iterator<FpqEntry> {
     }
 
     public boolean isOpen() {
-        return raFile.getChannel().isOpen();
+        return null != raFile && raFile.getChannel().isOpen();
     }
 
     public boolean isWriteMode() {
