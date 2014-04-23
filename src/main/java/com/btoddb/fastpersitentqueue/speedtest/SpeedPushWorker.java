@@ -1,7 +1,6 @@
 package com.btoddb.fastpersitentqueue.speedtest;
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.FpqContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,14 +15,14 @@ public class SpeedPushWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPushWorker.class);
 
     private final Config config;
-    private final Fpq queue;
+    private final Fpq fpq;
     private final AtomicLong counter;
     private final AtomicLong pushSum;
 
     int numberOfEntries = 0;
 
-    public SpeedPushWorker(Fpq queue, Config config, AtomicLong counter, AtomicLong pushSum) {
-        this.queue = queue;
+    public SpeedPushWorker(Fpq fpq, Config config, AtomicLong counter, AtomicLong pushSum) {
+        this.fpq = fpq;
         this.config = config;
         this.counter = counter;
         this.pushSum = pushSum;
@@ -34,19 +33,21 @@ public class SpeedPushWorker implements Runnable {
         try {
             long start = System.currentTimeMillis();
             long end = start + config.getDurationOfTest() * 1000;
-            FpqContext context = queue.createContext();
             while (System.currentTimeMillis() < end) {
+                if (!fpq.isTransactionActive()) {
+                    fpq.beginTransaction();
+                }
                 long x = counter.getAndIncrement();
                 pushSum.addAndGet(x);
-                queue.push(context, createBody(x));
+                fpq.push(createBody(x));
                 numberOfEntries++;
 
-                if (context.size() >= config.getPushBatchSize()) {
-                    queue.commit(context);
+                if (fpq.getCurrentTxSize() >= config.getPushBatchSize()) {
+                    fpq.commit();
                 }
             }
-            if (0 < context.size()) {
-                queue.commit(context);
+            if (0 < fpq.getCurrentTxSize()) {
+                fpq.commit();
             }
         }
         catch (Throwable e) {

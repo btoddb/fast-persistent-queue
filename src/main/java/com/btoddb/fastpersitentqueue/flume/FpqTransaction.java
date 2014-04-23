@@ -1,7 +1,6 @@
 package com.btoddb.fastpersitentqueue.flume;
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.FpqContext;
 import com.btoddb.fastpersitentqueue.FpqEntry;
 import com.btoddb.fastpersitentqueue.Utils;
 import org.apache.flume.Event;
@@ -11,9 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.List;
 
 
 /**
@@ -23,28 +20,33 @@ public class FpqTransaction extends BasicTransactionSemantics {
     private static final Logger logger = LoggerFactory.getLogger(FpqTransaction.class);
 
     private final Fpq fpq;
-    private final FpqContext context;
     private final EventSerializer serializer;
     private final ChannelCounter channelCounter;
+    private int eventCount;
+    private boolean pushing;
 
-    public FpqTransaction(Fpq fpq, FpqContext context, EventSerializer serializer, int capacity, ChannelCounter channelCounter) {
+    public FpqTransaction(Fpq fpq, EventSerializer serializer, int capacity, ChannelCounter channelCounter) {
         this.fpq = fpq;
-        this.context = context;
         this.serializer = serializer;
         this.channelCounter = channelCounter;
+        fpq.beginTransaction();
     }
 
     @Override
     protected void doPut(Event event) throws InterruptedException {
+        pushing = true;
+        eventCount ++;
         channelCounter.incrementEventPutAttemptCount();
         byte[] data = serializer.toBytes(event);
-        fpq.push(context, data);
+        fpq.push(data);
     }
 
     @Override
     protected Event doTake() throws InterruptedException {
+        pushing = false;
         channelCounter.incrementEventTakeAttemptCount();
-        Collection<FpqEntry> entries = fpq.pop(context, 1);
+        eventCount ++;
+        Collection<FpqEntry> entries = fpq.pop(1);
         if (null == entries || entries.isEmpty()) {
             return null;
         }
@@ -55,14 +57,12 @@ public class FpqTransaction extends BasicTransactionSemantics {
     @Override
     protected void doCommit() throws InterruptedException {
         try {
-            boolean isPushing = context.isPushing();
-            int size = null != context.getQueue() ? context.getQueue().size() : 0;
-            fpq.commit(context);
-            if (isPushing) {
-                channelCounter.addToEventPutSuccessCount(size);
+            fpq.commit();
+            if (pushing) {
+                channelCounter.addToEventPutSuccessCount(eventCount);
             }
             else {
-                channelCounter.addToEventTakeSuccessCount(size);
+                channelCounter.addToEventTakeSuccessCount(eventCount);
             }
             channelCounter.setChannelSize(fpq.getNumberOfEntries());
         }
@@ -73,7 +73,7 @@ public class FpqTransaction extends BasicTransactionSemantics {
 
     @Override
     protected void doRollback() throws InterruptedException {
-        fpq.rollback(context);
+        fpq.rollback();
         channelCounter.setChannelSize(fpq.getNumberOfEntries());
     }
 }

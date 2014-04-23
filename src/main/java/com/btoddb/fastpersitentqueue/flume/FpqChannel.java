@@ -35,7 +35,7 @@ public class FpqChannel extends BasicChannelSemantics {
 
     @Override
     protected BasicTransactionSemantics createTransaction() {
-        return new FpqTransaction(fpq, fpq.createContext(), eventSerializer, fpq.getMaxTransactionSize(), channelCounter);
+        return new FpqTransaction(fpq, eventSerializer, fpq.getMaxTransactionSize(), channelCounter);
     }
 
     @Override

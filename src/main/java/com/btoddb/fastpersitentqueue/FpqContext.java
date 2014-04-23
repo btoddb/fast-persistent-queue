@@ -1,7 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -23,10 +22,6 @@ public class FpqContext {
         this.idGen = idGen;
         this.maxTransactionSize = maxTransactionSize;
         this.jmxMetrics = jmxMetrics;
-    }
-
-    public void push(byte[] event) {
-        push(Collections.singleton(event));
     }
 
     public void push(Collection<byte[]> entries) {

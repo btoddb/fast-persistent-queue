@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class Fpq {
     private static final Logger logger = LoggerFactory.getLogger(Fpq.class);
+    private static final Object MAP_OBJECT = new Object();
 
     private File journalDirectory;
     private JournalMgr journalMgr;
@@ -35,6 +37,9 @@ public class Fpq {
     private long journalEntriesReplayed;
     private JmxMetrics jmxMetrics = new JmxMetrics(this);
     private boolean initializing;
+    private ConcurrentHashMap<FpqContext, Object> activeContexts = new ConcurrentHashMap<FpqContext, Object>();
+
+    ThreadLocal<FpqContext> threadLocalFpqContext = new ThreadLocal<FpqContext>();
 
     public void init() throws IOException {
         initializing = true;
@@ -74,27 +79,61 @@ public class Fpq {
         }
     }
 
-    public FpqContext createContext() {
+    private FpqContext createContext() {
         return new FpqContext(entryIdGenerator, maxTransactionSize, jmxMetrics);
     }
 
-    public void push(FpqContext context, byte[] event) {
-        push(context, Collections.singleton(event));
+    private FpqContext contextThrowException() {
+        FpqContext context = threadLocalFpqContext.get();
+        if (null == context) {
+            throw new FpqException("transaction not started - call beginTransaction first");
+        }
+        return context;
     }
 
-    public void push(FpqContext context, Collection<byte[]> events) {
+    public void beginTransaction() {
+        if (null != threadLocalFpqContext.get()) {
+            throw new FpqException("transaction already started on this thread - must commit/rollback before starting another");
+        }
+        FpqContext context = createContext();
+        threadLocalFpqContext.set(context);
+        activeContexts.put(context, MAP_OBJECT);
+    }
+
+    FpqContext getContext() {
+        return contextThrowException();
+    }
+
+    private void cleanupTransaction(FpqContext context) {
+        // - free context.queue
+        context.cleanup();
+        activeContexts.remove(context);
+        threadLocalFpqContext.remove();
+    }
+
+    public int getCurrentTxSize() {
+        return contextThrowException().size();
+    }
+
+    public void push(byte[] event) {
+        push(Collections.singleton(event));
+    }
+
+    public void push(Collection<byte[]> events) {
         // processes events in the order of the collection's iterator
         // - write events to context.queue - done!  understood no persistence yet
-        context.push(events);
+        contextThrowException().push(events);
     }
 
-    public Collection<FpqEntry> pop(FpqContext context, int size) {
+    public Collection<FpqEntry> pop(int size) {
         // - move (up to) context.maxBatchSize events from globalMemoryQueue to context.queue
         // - do not wait for events
         // - return context.queue
 
         // assumptions
         // - can call 'pop' with same context over and over until context.queue has size context.maxBatchSize
+
+        FpqContext context = contextThrowException();
 
         if (size > maxTransactionSize) {
             throw new FpqException("size of " + size + " exceeds maximum transaction size of " + maxTransactionSize);
@@ -112,9 +151,10 @@ public class Fpq {
         return entries;
     }
 
-    public void commit(FpqContext context) throws IOException {
+    public void commit() throws IOException {
         // assumptions
         // - fsync thread will persist
+        FpqContext context = contextThrowException();
 
         if (context.isPushing()) {
             commitForPush(context);
@@ -123,8 +163,7 @@ public class Fpq {
             commitForPop(context);
         }
 
-        // - free context.queue
-        context.cleanup();
+        cleanupTransaction(context);
     }
 
     private void commitForPop(FpqContext context) throws IOException {
@@ -151,13 +190,17 @@ public class Fpq {
         numberOfPushes.addAndGet(context.size());
     }
 
-    public void rollback(FpqContext context) {
+    public void rollback() {
+        FpqContext context = contextThrowException();
+
         if (context.isPushing()) {
             rollbackForPush(context);
         }
         else {
             rollbackForPop(context);
         }
+
+        cleanupTransaction(context);
     }
 
     private void rollbackForPush(FpqContext context) {
@@ -288,5 +331,9 @@ public class Fpq {
 
     public long getJournalEntriesReplayed() {
         return journalEntriesReplayed;
+    }
+
+    public boolean isTransactionActive() {
+        return null != threadLocalFpqContext.get();
     }
 }

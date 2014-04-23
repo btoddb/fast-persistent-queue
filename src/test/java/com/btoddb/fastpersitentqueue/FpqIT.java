@@ -29,24 +29,50 @@ public class FpqIT {
     Fpq fpq1;
 
     @Test
+    public void testPushNoTx() throws Exception {
+        fpq1.init();
+
+        try {
+            fpq1.push(new byte[10]);
+            fail("should have thrown FpqException because no transaction");
+        }
+        catch (FpqException e) {
+            assertThat(e.getMessage(), containsString("transaction not started"));
+        }
+    }
+
+    @Test
+    public void testPopNoTx() throws Exception {
+        fpq1.init();
+        fpq1.beginTransaction();
+        fpq1.push(new byte[10]);
+        fpq1.commit();
+
+        try {
+            fpq1.pop(1);
+            fail("should have thrown FpqException because no transaction");
+        }
+        catch (FpqException e) {
+            assertThat(e.getMessage(), containsString("transaction not started"));
+        }
+    }
+
+    @Test
     public void testPushNoCommit() throws Exception {
         fpq1.init();
 
-        FpqContext ctxt = fpq1.createContext();
-        fpq1.push(ctxt, new byte[10]);
-        fpq1.push(ctxt, new byte[10]);
-        fpq1.push(ctxt, new byte[10]);
+        fpq1.beginTransaction();
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
 
-        assertThat(ctxt.isPushing(), is(true));
-        assertThat(ctxt.isPopping(), is(false));
-        assertThat(ctxt.getQueue(), hasSize(3));
+        assertThat(fpq1.getContext().isPushing(), is(true));
+        assertThat(fpq1.getContext().isPopping(), is(false));
+        assertThat(fpq1.getContext().getQueue(), hasSize(3));
         assertThat(fpq1.getMemoryMgr().size(), is(0L));
 
-        fpq1.commit(ctxt);
+        fpq1.commit();
 
-        assertThat(ctxt.isPushing(), is(false));
-        assertThat(ctxt.isPopping(), is(false));
-        assertThat(ctxt.getQueue(), is(nullValue()));
         assertThat(fpq1.getMemoryMgr().size(), is(3L));
         assertThat(fpq1.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
     }
@@ -56,46 +82,46 @@ public class FpqIT {
         fpq1.setMaxTransactionSize(2);
         fpq1.init();
 
-        FpqContext ctxt = fpq1.createContext();
-        fpq1.push(ctxt, new byte[10]);
-        fpq1.push(ctxt, new byte[10]);
+        fpq1.beginTransaction();
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
 
         try {
-            fpq1.push(ctxt, new byte[10]);
+            fpq1.push(new byte[10]);
             fail("should have thrown exception because of exceeding transaction size");
         }
         catch (FpqException e) {
             // yay!!
         }
-
+        finally {
+            fpq1.rollback();
+        }
     }
 
     @Test
     public void testPop() throws Exception {
         fpq1.init();
 
-        FpqContext ctxt = fpq1.createContext();
-        fpq1.push(ctxt, new byte[10]);
-        fpq1.push(ctxt, new byte[10]);
-        fpq1.push(ctxt, new byte[10]);
-        fpq1.commit(ctxt);
+        fpq1.beginTransaction();
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+        fpq1.commit();
 
         assertThat(fpq1.getMemoryMgr().size(), is(3L));
 
-        Collection<FpqEntry> entries = fpq1.pop(ctxt, fpq1.getMaxTransactionSize());
+        fpq1.beginTransaction();
+        Collection<FpqEntry> entries = fpq1.pop(fpq1.getMaxTransactionSize());
 
         assertThat(entries, hasSize(3));
-        assertThat(ctxt.isPushing(), is(false));
-        assertThat(ctxt.isPopping(), is(true));
-        assertThat(ctxt.getQueue(), hasSize(3));
+        assertThat(fpq1.getContext().isPushing(), is(false));
+        assertThat(fpq1.getContext().isPopping(), is(true));
+        assertThat(fpq1.getContext().getQueue(), hasSize(3));
         assertThat(fpq1.getMemoryMgr().size(), is(0L));
         assertThat(fpq1.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(3L));
 
-        fpq1.commit(ctxt);
+        fpq1.commit();
 
-        assertThat(ctxt.isPushing(), is(false));
-        assertThat(ctxt.isPopping(), is(false));
-        assertThat(ctxt.getQueue(), is(nullValue()));
         assertThat(fpq1.getMemoryMgr().size(), is(0L));
         assertThat(fpq1.getJournalMgr().getCurrentJournalDescriptor().getNumberOfUnconsumedEntries(), is(0L));
     }
@@ -104,23 +130,55 @@ public class FpqIT {
     public void testPushAndPopMultipleTimesOneContext() throws Exception {
         fpq1.init();
 
-        FpqContext context = fpq1.createContext();
-        fpq1.push(context, "one".getBytes());
-        fpq1.push(context, "two".getBytes());
-        fpq1.push(context, "three".getBytes());
-        fpq1.commit(context);
+        fpq1.beginTransaction();
+        fpq1.push("one".getBytes());
+        fpq1.push("two".getBytes());
+        fpq1.push("three".getBytes());
+        fpq1.commit();
 
         assertThat(fpq1.getNumberOfEntries(), is(3L));
 
-        context = fpq1.createContext();
-        assertThat(new String(fpq1.pop(context, 1).iterator().next().getData()), is("one"));
-        assertThat(new String(fpq1.pop(context, 1).iterator().next().getData()), is("two"));
-        assertThat(new String(fpq1.pop(context, 1).iterator().next().getData()), is("three"));
-        fpq1.commit(context);
+        fpq1.beginTransaction();
+        assertThat(new String(fpq1.pop(1).iterator().next().getData()), is("one"));
+        assertThat(new String(fpq1.pop(1).iterator().next().getData()), is("two"));
+        assertThat(new String(fpq1.pop(1).iterator().next().getData()), is("three"));
+        fpq1.commit();
 
         assertThat(fpq1.getNumberOfEntries(), is(0L));
         assertThat(fpq1.getNumberOfPushes(), is(3L));
         assertThat(fpq1.getNumberOfPops(), is(3L));
+    }
+
+    @Test
+    public void testRollbackPushes() throws Exception {
+        fpq1.init();
+
+        int numEntries = 250;
+        int sum = pushEntries(numEntries, fpq1, 100);
+
+        fpq1.beginTransaction();
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+        fpq1.rollback();
+
+        checkSumByPopping(fpq1, numEntries, sum);
+    }
+
+    @Test
+    public void testRollbackPops() throws Exception {
+        fpq1.init();
+
+        int numEntries = 250;
+        int sum = pushEntries(numEntries, fpq1, 100);
+
+        fpq1.beginTransaction();
+        fpq1.pop(10);
+        fpq1.pop(1);
+        fpq1.pop(5);
+        fpq1.rollback();
+
+        checkSumByPopping(fpq1, numEntries, sum);
     }
 
     @Test
@@ -131,117 +189,68 @@ public class FpqIT {
         fpq1.init();
 
         int numEntries = 250;
-        int sum = 0;
+        int sum = pushEntries(numEntries, fpq1, 100);
 
-        for (int i=0;i < numEntries;i++) {
-            byte[] data = new byte[100];
-            ByteBuffer.wrap(data).putInt(i);
-
-            FpqContext ctxt = fpq1.createContext();
-            fpq1.push(ctxt, data);
-            fpq1.commit(ctxt);
-            sum += i;
-        }
-
-        assertThat(fpq1.getMemoryMgr().getNumberOfEntries(), is((long)numEntries));
-        assertThat(fpq1.getJournalMgr().getNumberOfEntries(), is((long)numEntries));
+        assertThat(fpq1.getMemoryMgr().getNumberOfEntries(), is((long) numEntries));
+        assertThat(fpq1.getJournalMgr().getNumberOfEntries(), is((long) numEntries));
         fpq1.shutdown();
 
-        Fpq fpq2 = new Fpq();
-        fpq2.setQueueName("fpq2");
-        fpq2.setMaxTransactionSize(fpq1.getMaxTransactionSize());
-        fpq2.setMaxMemorySegmentSizeInBytes(fpq1.getMaxMemorySegmentSizeInBytes());
-        fpq2.setMaxJournalFileSize(fpq1.getMaxJournalFileSize());
-        fpq2.setMaxJournalDurationInMs(fpq1.getMaxJournalDurationInMs());
-        fpq2.setFlushPeriodInMs(fpq1.getFlushPeriodInMs());
-        fpq2.setNumberOfFlushWorkers(fpq1.getNumberOfFlushWorkers());
-        fpq2.setJournalDirectory(fpq1.getJournalDirectory());
-        fpq2.setPagingDirectory(fpq1.getPagingDirectory());
-        fpq2.init();
-
-        try {
-            assertThat(fpq2.getNumberOfEntries(), is((long)numEntries));
-            long end = System.currentTimeMillis() + 10000;
-            int numPops = 0;
-            while (numPops < numEntries && System.currentTimeMillis() < end) {
-                FpqContext context = fpq2.createContext();
-                Collection<FpqEntry> entries = fpq2.pop(context, 1);
-                fpq2.commit(context);
-                if (null != entries && !entries.isEmpty()) {
-                    numPops += entries.size();
-                    sum -= ByteBuffer.wrap(entries.iterator().next().getData()).getInt();
-                }
-                else {
-                    Thread.sleep(100);
-                }
-            }
-            assertThat(numPops, is(numEntries));
-            assertThat(sum, is(0));
-        }
-        finally {
-            fpq2.shutdown();
-        }
+        checkSumByPopping(numEntries, sum);
     }
 
     @Test
-    public void testReplayWithShutdown() throws Exception {
+    public void testReplayWithoutShutdown() throws Exception {
         fpq1.setMaxTransactionSize(100);
         fpq1.setMaxMemorySegmentSizeInBytes(1000);
         fpq1.setMaxJournalFileSize(1000);
         fpq1.init();
 
         int numEntries = 250;
-        int sum = 0;
-
-        for (int i=0;i < numEntries;i++) {
-            byte[] data = new byte[100];
-            ByteBuffer.wrap(data).putInt(i);
-
-            FpqContext ctxt = fpq1.createContext();
-            fpq1.push(ctxt, data);
-            fpq1.commit(ctxt);
-            sum += i;
-        }
-
-        assertThat(fpq1.getMemoryMgr().getNumberOfEntries(), is((long)numEntries));
-        assertThat(fpq1.getJournalMgr().getNumberOfEntries(), is((long)numEntries));
+        int sum = pushEntries(numEntries, fpq1, 100);
 
         // no shutdown, just fire-up another FPQ
 
-        Fpq fpq2 = new Fpq();
-        fpq2.setQueueName("fpq2");
-        fpq2.setMaxTransactionSize(fpq1.getMaxTransactionSize());
-        fpq2.setMaxMemorySegmentSizeInBytes(fpq1.getMaxMemorySegmentSizeInBytes());
-        fpq2.setMaxJournalFileSize(fpq1.getMaxJournalFileSize());
-        fpq2.setMaxJournalDurationInMs(fpq1.getMaxJournalDurationInMs());
-        fpq2.setFlushPeriodInMs(fpq1.getFlushPeriodInMs());
-        fpq2.setNumberOfFlushWorkers(fpq1.getNumberOfFlushWorkers());
-        fpq2.setJournalDirectory(fpq1.getJournalDirectory());
-        fpq2.setPagingDirectory(fpq1.getPagingDirectory());
-        fpq2.init();
+        checkSumByPopping(numEntries, sum);
+    }
 
-        try {
-            assertThat(fpq2.getNumberOfEntries(), is((long)numEntries));
-            long end = System.currentTimeMillis() + 10000;
-            int numPops = 0;
-            while (numPops < numEntries && System.currentTimeMillis() < end) {
-                FpqContext context = fpq2.createContext();
-                Collection<FpqEntry> entries = fpq2.pop(context, 1);
-                fpq2.commit(context);
-                if (null != entries && !entries.isEmpty()) {
-                    numPops += entries.size();
-                    sum -= ByteBuffer.wrap(entries.iterator().next().getData()).getInt();
-                }
-                else {
-                    Thread.sleep(100);
-                }
-            }
-            assertThat(numPops, is(numEntries));
-            assertThat(sum, is(0));
-        }
-        finally {
-            fpq2.shutdown();
-        }
+    @Test
+    public void testReplayAfterPopTxWithoutShutdown() throws Exception {
+        fpq1.setMaxTransactionSize(100);
+        fpq1.setMaxMemorySegmentSizeInBytes(1000);
+        fpq1.setMaxJournalFileSize(1000);
+        fpq1.init();
+
+        int numEntries = 250;
+        int sum = pushEntries(numEntries, fpq1, 100);
+
+        fpq1.beginTransaction();
+        fpq1.pop(1);
+        fpq1.pop(5);
+        fpq1.pop(4);
+
+        // no shutdown, just fire-up another FPQ
+
+        checkSumByPopping(numEntries, sum);
+    }
+
+    @Test
+    public void testReplayAfterPushTxWithoutShutdown() throws Exception {
+        fpq1.setMaxTransactionSize(100);
+        fpq1.setMaxMemorySegmentSizeInBytes(1000);
+        fpq1.setMaxJournalFileSize(1000);
+        fpq1.init();
+
+        int numEntries = 250;
+        int sum = pushEntries(numEntries, fpq1, 100);
+
+        fpq1.beginTransaction();
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+        fpq1.push(new byte[10]);
+
+        // no shutdown, just fire-up another FPQ
+
+        checkSumByPopping(numEntries, sum);
     }
 
     @Test
@@ -261,31 +270,31 @@ public class FpqIT {
         fpq2.init();
 
         for (int i=0;i < 1000;i++) {
-            FpqContext context1 = fpq1.createContext();
-            FpqContext context2 = fpq2.createContext();
-            fpq1.push(context1, new byte[100]);
-            fpq2.push(context2, new byte[100]);
-            fpq1.push(context1, new byte[100]);
-            fpq2.push(context2, new byte[100]);
-            fpq1.push(context1, new byte[100]);
-            fpq2.push(context2, new byte[100]);
-            fpq1.commit(context1);
-            fpq2.commit(context2);
+            fpq1.beginTransaction();
+            fpq2.beginTransaction();
+            fpq1.push(new byte[100]);
+            fpq2.push(new byte[100]);
+            fpq1.push(new byte[100]);
+            fpq2.push(new byte[100]);
+            fpq1.push(new byte[100]);
+            fpq2.push(new byte[100]);
+            fpq1.commit();
+            fpq2.commit();
         }
 
         long end = System.currentTimeMillis()+10000;
         while ((0 < fpq1.getNumberOfEntries() || 0 < fpq2.getNumberOfEntries())
                 && System.currentTimeMillis() < end) {
-            FpqContext context1 = fpq1.createContext();
-            FpqContext context2 = fpq2.createContext();
-            fpq1.pop(context1, 1);
-            fpq2.pop(context2, 1);
-            fpq1.pop(context1, 1);
-            fpq2.pop(context2, 1);
-            fpq1.pop(context1, 1);
-            fpq2.pop(context2, 1);
-            fpq1.commit(context1);
-            fpq2.commit(context2);
+            fpq1.beginTransaction();
+            fpq2.beginTransaction();
+            fpq1.pop(1);
+            fpq2.pop(1);
+            fpq1.pop(1);
+            fpq2.pop(1);
+            fpq1.pop(1);
+            fpq2.pop(1);
+            fpq1.commit();
+            fpq2.commit();
         }
 
         assertThat(fpq1.getNumberOfEntries(), is(0L));
@@ -336,9 +345,9 @@ public class FpqIT {
                             ByteBuffer bb = ByteBuffer.wrap(new byte[entrySize]);
                             bb.putLong(x);
 
-                            FpqContext context = fpq1.createContext();
-                            fpq1.push(context, bb.array());
-                            fpq1.commit(context);
+                            fpq1.beginTransaction();
+                            fpq1.push(bb.array());
+                            fpq1.commit();
                             if ((x+1) % 500 == 0) {
                                 System.out.println("pushed ID = " + x);
                             }
@@ -361,9 +370,9 @@ public class FpqIT {
                 public void run() {
                     while (pusherFinishCount.get() < numPushers || !fpq1.isEmpty()) {
                         try {
-                            FpqContext context = fpq1.createContext();
+                            fpq1.beginTransaction();
                             Collection<FpqEntry> entries;
-                            while (null != (entries= fpq1.pop(context, popBatchSize))) {
+                            while (null != (entries= fpq1.pop(popBatchSize))) {
                                 for (FpqEntry entry : entries) {
                                     ByteBuffer bb = ByteBuffer.wrap(entry.getData());
                                     popSum.addAndGet(bb.getLong());
@@ -371,7 +380,7 @@ public class FpqIT {
                                         System.out.println("popped ID = " + entry.getId());
                                     }
                                 }
-                                fpq1.commit(context);
+                                fpq1.commit();
                                 numPops.addAndGet(entries.size());
                                 entries.clear();
                                 Thread.sleep(popRand.nextInt(10));
@@ -411,6 +420,74 @@ public class FpqIT {
     }
 
     // --------------
+
+    private int pushEntries(int numEntries, Fpq fpq, int size) throws IOException {
+        int sum = 0;
+        for (int i=1;i <= numEntries;i++) {
+            fpq.beginTransaction();
+            fpq.push(createDataWithId(size, i));
+            fpq.commit();
+            sum += i;
+        }
+        assertThat(fpq.getNumberOfEntries(), is((long)numEntries));
+        return sum;
+    }
+
+    private void checkSumByPopping(int expectedPops, int expectedSum) throws IOException {
+        Fpq fpq = new Fpq();
+        try {
+            fpq.setQueueName("fpq2");
+            fpq.setMaxTransactionSize(fpq1.getMaxTransactionSize());
+            fpq.setMaxMemorySegmentSizeInBytes(fpq1.getMaxMemorySegmentSizeInBytes());
+            fpq.setMaxJournalFileSize(fpq1.getMaxJournalFileSize());
+            fpq.setMaxJournalDurationInMs(fpq1.getMaxJournalDurationInMs());
+            fpq.setFlushPeriodInMs(fpq1.getFlushPeriodInMs());
+            fpq.setNumberOfFlushWorkers(fpq1.getNumberOfFlushWorkers());
+            fpq.setJournalDirectory(fpq1.getJournalDirectory());
+            fpq.setPagingDirectory(fpq1.getPagingDirectory());
+            fpq.init();
+            checkSumByPopping(fpq, expectedPops, expectedSum);
+        }
+        finally {
+            fpq.shutdown();
+        }
+    }
+
+    private void checkSumByPopping(Fpq fpq, int expectedPops, int expectedSum) throws IOException {
+        assertThat(fpq.getNumberOfEntries(), is((long)expectedPops));
+
+        long end = System.currentTimeMillis() + 10000;
+        int numPops = 0;
+        int sum = 0;
+        while (numPops < expectedPops && System.currentTimeMillis() < end) {
+            fpq.beginTransaction();
+            Collection<FpqEntry> entries = fpq.pop(1);
+            fpq.commit();
+            if (null != entries && !entries.isEmpty()) {
+                numPops += entries.size();
+                sum += extractId(entries.iterator().next().getData());
+            }
+            else {
+                try {
+                    Thread.sleep(100);
+                }
+                catch (InterruptedException e) {
+                    // ignore
+                    Thread.interrupted();
+                }
+            }
+        }
+        assertThat(numPops, is(expectedPops));
+        assertThat(sum, is(expectedSum));
+    }
+
+    private byte[] createDataWithId(int size, int id) {
+        return ByteBuffer.allocate(size).putInt(id).array();
+    }
+
+    private int extractId(byte[] data) {
+        return ByteBuffer.wrap(data).getInt();
+    }
 
     @Before
     public void setup() throws IOException {
