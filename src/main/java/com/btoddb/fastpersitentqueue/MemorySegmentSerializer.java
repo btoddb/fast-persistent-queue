@@ -22,7 +22,7 @@ public class MemorySegmentSerializer {
 
     // any synchronizing should have been done above call
     public void saveToDisk(MemorySegment segment) throws IOException {
-        File theFile = new File(directory, segment.getId().toString());
+        File theFile = createPagingFile(segment);
         RandomAccessFile raFile = new RandomAccessFile(theFile, "rw");
         try {
             segment.writeToDisk(raFile);
@@ -30,6 +30,10 @@ public class MemorySegmentSerializer {
         finally {
             raFile.close();
         }
+    }
+
+    private File createPagingFile(MemorySegment segment) {
+        return new File(directory, segment.getId().toString());
     }
 
     public MemorySegment loadFromDisk(String fn) throws IOException {
@@ -89,6 +93,25 @@ public class MemorySegmentSerializer {
                 // ignore
                 logger.error("another exception while removing memory paging file", e);
             }
+        }
+    }
+
+    public boolean searchOffline(MemorySegment seg, FpqEntry target) throws IOException {
+        RandomAccessFile raFile = new RandomAccessFile(createPagingFile(seg), "r");
+        try {
+            // jump over header info - we already have it
+            raFile.seek(seg.getEntryListOffsetOnDisk());
+            for (int i=0;i < seg.getNumberOfEntries();i++) {
+                FpqEntry entry = new FpqEntry();
+                entry.readFromPaging(raFile);
+                if (target.equals(entry)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        finally {
+            raFile.close();
         }
     }
 

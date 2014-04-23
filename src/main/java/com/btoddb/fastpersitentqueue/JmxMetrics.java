@@ -55,6 +55,23 @@ public class JmxMetrics {
                                  }
         );
 
+        metricsRegistry.register(MetricRegistry.name("journalFilesReplayed"),
+                                 new Gauge<Long>() {
+                                     @Override
+                                     public Long getValue() {
+                                         return fpq.getJournalFilesReplayed();
+                                     }
+                                 }
+        );
+        metricsRegistry.register(MetricRegistry.name("entriesReplayed"),
+                                 new Gauge<Long>() {
+                                     @Override
+                                     public Long getValue() {
+                                         return fpq.getJournalEntriesReplayed();
+                                     }
+                                 }
+        );
+
 //        metricsRegistry.register(MetricRegistry.name(JMX_ROOT_NAME, fpq, "rollbacks"),
 //                         new Gauge<Long>() {
 //                             @Override

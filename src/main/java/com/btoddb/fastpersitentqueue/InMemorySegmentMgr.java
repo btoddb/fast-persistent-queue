@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqMemorySegmentOffline;
 import com.btoddb.fastpersitentqueue.exceptions.FpqPushFinished;
 import com.btoddb.fastpersitentqueue.exceptions.FpqSegmentNotInReadyState;
 import com.eaio.uuid.UUID;
@@ -81,7 +82,6 @@ public class InMemorySegmentMgr {
 
         // cleanup memory
         files.clear();
-        files = null;
 
         // reset
         numberOfActiveSegments.set(0);
@@ -350,14 +350,22 @@ public class InMemorySegmentMgr {
         return 0 == size();
     }
 
-    public boolean isEntryQueued(FpqEntry entry) {
+    public boolean isEntryQueued(FpqEntry entry) throws IOException {
         for (MemorySegment seg : segments) {
-            if (seg.isEntryQueued(entry)) {
-                return true;
+            try {
+                if (seg.isEntryQueued(entry)) {
+                    return true;
+                }
+            }
+            catch (FpqMemorySegmentOffline e) {
+                if(this.segmentSerializer.searchOffline(seg, entry)) {
+                    return true;
+                }
             }
         }
         return false;
     }
+
 
     public void shutdown() {
         shutdownInProgress = true;
@@ -419,10 +427,6 @@ public class InMemorySegmentMgr {
         return segments;
     }
 
-    public long getMaxSegmentSizeInBytes() {
-        return maxSegmentSizeInBytes;
-    }
-
     public void setMaxSegmentSizeInBytes(long maxSegmentSizeInBytes) {
         this.maxSegmentSizeInBytes = maxSegmentSizeInBytes;
     }
@@ -431,17 +435,8 @@ public class InMemorySegmentMgr {
         return numberOfEntries.get();
     }
 
-    // can't set this, relies on being at least 4
-    public int getMaxNumberOfActiveSegments() {
-        return maxNumberOfActiveSegments;
-    }
-
     public void setPagingDirectory(File pagingDirectory) {
         this.pagingDirectory = pagingDirectory;
-    }
-
-    public File getPagingDirectory() {
-        return pagingDirectory;
     }
 
     public long getNumberOfSwapOut() {

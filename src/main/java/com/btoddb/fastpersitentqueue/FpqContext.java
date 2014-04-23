@@ -90,7 +90,7 @@ public class FpqContext {
         return null == queue || queue.isEmpty();
     }
 
-    public Collection getQueue() {
+    public Collection<FpqEntry> getQueue() {
         if (!queue.isEmpty()) {
             return queue;
         }

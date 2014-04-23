@@ -32,6 +32,7 @@ public class Fpq {
     private AtomicLong numberOfPushes = new AtomicLong();
     private AtomicLong numberOfPops = new AtomicLong();
     private AtomicLong entryIdGenerator = new AtomicLong();
+    private long journalEntriesReplayed;
     private JmxMetrics jmxMetrics = new JmxMetrics(this);
     private boolean initializing;
 
@@ -60,15 +61,17 @@ public class Fpq {
         initializing = false;
     }
 
-    private void replayJournals() {
-//        if (0 < journalMgr.getNumberOfEntries()) {
-//            logger.info("replaying {} journal entries", journalMgr.getNumberOfEntries());
-//            memoryMgr.clear();
-//            JournalMgr.JournalReplayIterable replay = journalMgr.createReplayIterable();
-//            for (FpqEntry entry : replay) {
-//                memoryMgr.push(entry);
-//            }
-//        }
+    private void replayJournals() throws IOException {
+        JournalMgr.JournalReplayIterable journalReplayer = journalMgr.createReplayIterable();
+        for (FpqEntry entry : journalReplayer) {
+            if (!memoryMgr.isEntryQueued(entry)) {
+                memoryMgr.push(entry);
+                journalEntriesReplayed++;
+            }
+            else {
+                logger.trace("entry already in memory segment : " + entry.getId());
+            }
+        }
     }
 
     public FpqContext createContext() {
@@ -277,5 +280,13 @@ public class Fpq {
 
     public long getNumberOfPops() {
         return numberOfPops.get();
+    }
+
+    public long getJournalFilesReplayed() {
+        return journalMgr.getJournalsLoadedAtStartup();
+    }
+
+    public long getJournalEntriesReplayed() {
+        return journalEntriesReplayed;
     }
 }

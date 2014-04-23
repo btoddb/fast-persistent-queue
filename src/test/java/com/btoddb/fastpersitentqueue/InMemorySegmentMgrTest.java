@@ -130,6 +130,37 @@ public class InMemorySegmentMgrTest {
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(2));
     }
 
+    @Test
+    public void testIsEntryQueuedWithPagedSegments() throws Exception {
+        mgr.init();
+
+        for (int i=1;i <= numEntries;i++) {
+            mgr.push(new FpqEntry(idGen.incrementAndGet(), new byte[100]));
+        }
+
+        long end = System.currentTimeMillis() + 1000;
+        while (System.currentTimeMillis() < end && mgr.getNumberOfActiveSegments() > 4) {
+            Thread.sleep(100);
+        }
+        assertThat(mgr.getSegments(), hasSize(5));
+
+        for (int i=1;i <= numEntries;i++) {
+            assertThat("i = "+i+" (out of " + numEntries + ") should have been found", mgr.isEntryQueued(new FpqEntry(i, new byte[100])), is(true));
+        }
+
+        assertThat(mgr.isEntryQueued(new FpqEntry(numEntries+1, new byte[10])), is(false));
+    }
+
+    @Test
+    public void testIsEntryQueuedNoPagedSegments() throws Exception {
+        mgr.init();
+
+        mgr.push(new FpqEntry(123, new byte[100]));
+        assertThat(mgr.getSegments(), hasSize(1));
+
+        assertThat(mgr.isEntryQueued(new FpqEntry(123, new byte[100])), is(true));
+        assertThat(mgr.isEntryQueued(new FpqEntry(222, new byte[10])), is(false));
+    }
 
     @Test
     public void testThreading() throws IOException, ExecutionException {

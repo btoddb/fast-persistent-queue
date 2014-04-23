@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqMemorySegmentOffline;
 import com.btoddb.fastpersitentqueue.exceptions.FpqPushFinished;
 import com.btoddb.fastpersitentqueue.exceptions.FpqSegmentNotInReadyState;
 import com.eaio.uuid.UUID;
@@ -46,6 +47,7 @@ public class MemorySegment implements Comparable<MemorySegment> {
     private AtomicLong numberOfOnlineEntries = new AtomicLong();
     private AtomicLong totalEventsPushed = new AtomicLong();
     private AtomicLong totalEventsPopped = new AtomicLong();
+    private long entryListOffsetOnDisk;
 
     // push is thread safe because ConcurrentSkipListMap says so
     // true = push success
@@ -148,8 +150,13 @@ public class MemorySegment implements Comparable<MemorySegment> {
         return removerTestAndSet.compareAndSet(true, false);
     }
 
-    public boolean isEntryQueued(FpqEntry entry) {
-        return null != queue && queue.containsKey(entry.getId());
+    public boolean isEntryQueued(FpqEntry entry) throws FpqMemorySegmentOffline {
+        if (Status.OFFLINE != status) {
+            return null != queue && queue.containsKey(entry.getId());
+        }
+        else {
+            throw new FpqMemorySegmentOffline();
+        }
     }
 
     public boolean shouldBeRemoved() {
@@ -170,6 +177,13 @@ public class MemorySegment implements Comparable<MemorySegment> {
     }
 
     public void writeToDisk(RandomAccessFile raFile) throws IOException {
+        writeHeaderToDisk(raFile);
+        for (FpqEntry entry : getQueue().values()) {
+            entry.writeToPaging(raFile);
+        }
+    }
+
+    private void writeHeaderToDisk(RandomAccessFile raFile) throws IOException {
         Utils.writeInt(raFile, getVersion());
         Utils.writeUuidToFile(raFile, id);
         Utils.writeLong(raFile, maxSizeInBytes);
@@ -177,9 +191,7 @@ public class MemorySegment implements Comparable<MemorySegment> {
         Utils.writeLong(raFile, sizeInBytes.get());
         Utils.writeLong(raFile, totalEventsPushed.get());
         Utils.writeLong(raFile, totalEventsPopped.get());
-        for (FpqEntry entry : getQueue().values()) {
-            entry.writeToPaging(raFile);
-        }
+        entryListOffsetOnDisk = raFile.getFilePointer();
     }
 
     public void readFromPagingFile(RandomAccessFile raFile) throws IOException {
@@ -200,6 +212,7 @@ public class MemorySegment implements Comparable<MemorySegment> {
         sizeInBytes.set(Utils.readLong(raFile));
         totalEventsPushed.set(Utils.readLong(raFile));
         totalEventsPopped.set(Utils.readLong(raFile));
+        entryListOffsetOnDisk = raFile.getFilePointer();
     }
 
     public Status getStatus() {
@@ -242,6 +255,10 @@ public class MemorySegment implements Comparable<MemorySegment> {
 
     public long getNumberOfOnlineEntries() {
         return numberOfOnlineEntries.get();
+    }
+
+    public long getEntryListOffsetOnDisk() {
+        return entryListOffsetOnDisk;
     }
 
     public boolean isPushingFinished() {

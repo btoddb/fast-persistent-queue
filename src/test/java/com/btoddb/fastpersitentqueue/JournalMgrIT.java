@@ -208,7 +208,7 @@ public class JournalMgrIT {
     }
 
     @Test
-    public void testLoadEntriesOnStartupUsingIterator() throws Exception {
+    public void testLoadEntriesOnStartupAfterCleanShutdown() throws Exception {
         mgr.setMaxJournalFileSize(60);
         mgr.init();
 
@@ -245,7 +245,7 @@ public class JournalMgrIT {
     }
 
     @Test
-    public void testAnotherIteratorTest() throws Exception {
+    public void testLoadEntriesOnStartupWithoutShutdown() throws Exception {
         mgr.setMaxJournalFileSize(1000);
         mgr.init();
 
@@ -256,7 +256,6 @@ public class JournalMgrIT {
             ByteBuffer.wrap(data).putInt(i);
             mgr.append(new FpqEntry(i, data));
         }
-//        mgr.shutdown();
 
         JournalMgr mgr2 = new JournalMgr();
         mgr2.setNumberOfFlushWorkers(mgr.getNumberOfFlushWorkers());
