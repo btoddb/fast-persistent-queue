@@ -313,6 +313,8 @@ public class JournalMgrIT {
         final ConcurrentLinkedQueue<FpqEntry> events = new ConcurrentLinkedQueue<FpqEntry>();
         final AtomicInteger pusherFinishCount = new AtomicInteger();
         final AtomicInteger numPops = new AtomicInteger();
+        final AtomicLong pushSum = new AtomicLong();
+        final AtomicLong popSum = new AtomicLong();
 
         mgr.setMaxJournalFileSize(1000);
         mgr.init();
@@ -328,8 +330,13 @@ public class JournalMgrIT {
                 public void run() {
                     for (int i = 0; i < numEntries; i++) {
                         try {
-                            FpqEntry entry = mgr.append(new FpqEntry(idGen.incrementAndGet(), new byte[100]));
+                            long x = idGen.incrementAndGet();
+                            FpqEntry entry = mgr.append(new FpqEntry(x, new byte[100]));
                             events.offer(entry);
+                            pushSum.addAndGet(x);
+                            if (x % 500 == 0) {
+                                System.out.println("pushed ID = " + x);
+                            }
                             Thread.sleep(pushRand.nextInt(5));
                         }
                         catch (Exception e) {
@@ -351,6 +358,10 @@ public class JournalMgrIT {
                         try {
                             FpqEntry entry;
                             while (null != (entry = events.poll())) {
+                                if (entry.getId() % 500 == 0) {
+                                    System.out.println("popped ID = " + entry.getId());
+                                }
+                                popSum.addAndGet(entry.getId());
                                 numPops.incrementAndGet();
                                 mgr.reportTake(entry);
                                 Thread.sleep(popRand.nextInt(5));
@@ -380,6 +391,7 @@ public class JournalMgrIT {
         }
 
         assertThat(numPops.get(), is(numEntries*numPushers));
+        assertThat(popSum.get(), is(pushSum.get()));
         assertThat(mgr.getJournalIdMap().entrySet(), hasSize(1));
         assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(1));
     }

@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue;
+package com.btoddb.fastpersitentqueue.exceptions;
 
 /**
  *

@@ -1,5 +1,7 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
+
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicLong;

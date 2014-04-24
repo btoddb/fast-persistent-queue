@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import com.eaio.uuid.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;

@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.junit.After;
@@ -228,9 +229,13 @@ public class FpqIT {
         fpq1.pop(5);
         fpq1.pop(4);
 
-        // no shutdown, just fire-up another FPQ
+        // no shutdown, just fire-up another FPQ to see if replay works
+        // even tho some have been popped and not committed
 
         checkSumByPopping(numEntries, sum);
+
+        // cleanup - makes shutdown faster
+        fpq1.rollback();
     }
 
     @Test
@@ -251,6 +256,9 @@ public class FpqIT {
         // no shutdown, just fire-up another FPQ
 
         checkSumByPopping(numEntries, sum);
+
+        // cleanup - makes shutdown faster
+        fpq1.rollback();
     }
 
     @Test
@@ -371,8 +379,13 @@ public class FpqIT {
                     while (pusherFinishCount.get() < numPushers || !fpq1.isEmpty()) {
                         try {
                             fpq1.beginTransaction();
-                            Collection<FpqEntry> entries;
-                            while (null != (entries= fpq1.pop(popBatchSize))) {
+                            try {
+                                Collection<FpqEntry> entries = fpq1.pop(popBatchSize);
+                                if (null == entries) {
+                                    Thread.sleep(100);
+                                    continue;
+                                }
+
                                 for (FpqEntry entry : entries) {
                                     ByteBuffer bb = ByteBuffer.wrap(entry.getData());
                                     popSum.addAndGet(bb.getLong());
@@ -383,8 +396,13 @@ public class FpqIT {
                                 fpq1.commit();
                                 numPops.addAndGet(entries.size());
                                 entries.clear();
-                                Thread.sleep(popRand.nextInt(10));
                             }
+                            finally {
+                                if (fpq1.isTransactionActive()) {
+                                    fpq1.rollback();
+                                }
+                            }
+                            Thread.sleep(popRand.nextInt(10));
                         }
                         catch (Exception e) {
                             e.printStackTrace();

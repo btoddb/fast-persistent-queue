@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import com.btoddb.fastpersitentqueue.exceptions.FpqMemorySegmentOffline;
 import com.btoddb.fastpersitentqueue.exceptions.FpqPushFinished;
 import com.btoddb.fastpersitentqueue.exceptions.FpqSegmentNotInReadyState;
@@ -27,7 +28,7 @@ public class InMemorySegmentMgr {
     private int maxNumberOfActiveSegments = 4;
     private volatile boolean shutdownInProgress;
 
-    private Object selectWhichSegmentLoadMonitor = new Object();
+    private final Object selectWhichSegmentLoadMonitor = new Object();
 
     private ConcurrentSkipListSet<MemorySegment> segments = new ConcurrentSkipListSet<MemorySegment>();
     private MemorySegmentSerializer segmentSerializer = new MemorySegmentSerializer();

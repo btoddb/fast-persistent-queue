@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 /**
@@ -36,10 +38,13 @@ public class Fpq {
     private AtomicLong entryIdGenerator = new AtomicLong();
     private long journalEntriesReplayed;
     private JmxMetrics jmxMetrics = new JmxMetrics(this);
-    private boolean initializing;
     private ConcurrentHashMap<FpqContext, Object> activeContexts = new ConcurrentHashMap<FpqContext, Object>();
-
     ThreadLocal<FpqContext> threadLocalFpqContext = new ThreadLocal<FpqContext>();
+
+    private ReentrantReadWriteLock shutdownLock = new ReentrantReadWriteLock();
+    private volatile boolean initializing;
+    private volatile boolean shuttingDown;
+    private long waitBeforeKillOnShutdown = 10000;
 
     public void init() throws IOException {
         initializing = true;
@@ -91,7 +96,13 @@ public class Fpq {
         return context;
     }
 
+    /**
+     *
+     */
     public void beginTransaction() {
+        checkInitializing();
+        checkShutdown();
+
         if (null != threadLocalFpqContext.get()) {
             throw new FpqException("transaction already started on this thread - must commit/rollback before starting another");
         }
@@ -100,6 +111,7 @@ public class Fpq {
         activeContexts.put(context, MAP_OBJECT);
     }
 
+    // for junits
     FpqContext getContext() {
         return contextThrowException();
     }
@@ -111,21 +123,52 @@ public class Fpq {
         threadLocalFpqContext.remove();
     }
 
+    /**
+     *
+     * @return
+     */
     public int getCurrentTxSize() {
         return contextThrowException().size();
     }
 
+    /**
+     *
+     * @return
+     */
+    public boolean isTransactionActive() {
+        return null != threadLocalFpqContext.get();
+    }
+
+    /**
+     *
+     * @param event
+     */
     public void push(byte[] event) {
         push(Collections.singleton(event));
     }
 
+    /**
+     *
+     * @param events
+     */
     public void push(Collection<byte[]> events) {
+        checkInitializing();
+        checkShutdown();
+
         // processes events in the order of the collection's iterator
         // - write events to context.queue - done!  understood no persistence yet
         contextThrowException().push(events);
     }
 
+    /**
+     *
+     * @param size
+     * @return
+     */
     public Collection<FpqEntry> pop(int size) {
+        checkInitializing();
+        checkShutdown();
+
         // - move (up to) context.maxBatchSize events from globalMemoryQueue to context.queue
         // - do not wait for events
         // - return context.queue
@@ -151,19 +194,29 @@ public class Fpq {
         return entries;
     }
 
+    /**
+     *
+     * @throws IOException
+     */
     public void commit() throws IOException {
         // assumptions
         // - fsync thread will persist
-        FpqContext context = contextThrowException();
+        shutdownLock.readLock().lock();
+        try {
+            FpqContext context = contextThrowException();
 
-        if (context.isPushing()) {
-            commitForPush(context);
-        }
-        else {
-            commitForPop(context);
-        }
+            if (context.isPushing()) {
+                commitForPush(context);
+            }
+            else {
+                commitForPop(context);
+            }
 
-        cleanupTransaction(context);
+            cleanupTransaction(context);
+        }
+        finally {
+            shutdownLock.readLock().unlock();
+        }
     }
 
     private void commitForPop(FpqContext context) throws IOException {
@@ -190,9 +243,21 @@ public class Fpq {
         numberOfPushes.addAndGet(context.size());
     }
 
+    /**
+     *
+     */
     public void rollback() {
-        FpqContext context = contextThrowException();
+        shutdownLock.readLock().lock();
+        try {
+            FpqContext context = contextThrowException();
+            rollbackInternal(context);
+        }
+        finally {
+            shutdownLock.readLock().unlock();
+        }
+    }
 
+    private void rollbackInternal(FpqContext context) {
         if (context.isPushing()) {
             rollbackForPush(context);
         }
@@ -211,18 +276,61 @@ public class Fpq {
     private void rollbackForPop(FpqContext context) {
         // this one causes the problems with sync between memory and commit log files
         // - mv context.queue to front of globalMemoryQueue (can't move to end.  will screw up deleting of log files)
-        // TODO:BTB - if shutdown in progress, can't push back onto queue and pop'ed entries will be lost
-        memoryMgr.push(context.getQueue());
+        if (!context.isQueueEmpty()) {
+            memoryMgr.push(context.getQueue());
+        }
         context.cleanup();
     }
 
+    /**
+     *
+     * @return
+     */
     public boolean isEmpty() {
         return 0 == memoryMgr.size();
     }
 
     public void shutdown() {
-        memoryMgr.shutdown();
-        journalMgr.shutdown();
+        // stop new transactions, and opertions on FPQ
+        shuttingDown = true;
+
+        // give customer clients to to react by committing or rolling back
+        long endTime = System.currentTimeMillis() + waitBeforeKillOnShutdown;
+        while (!activeContexts.isEmpty() && System.currentTimeMillis() < endTime) {
+            try {
+                Thread.sleep(500);
+            }
+            catch (InterruptedException e) {
+                // ignore
+                Thread.interrupted();
+            }
+        }
+
+        shutdownLock.writeLock().lock();
+        try {
+            // any pop'ed entries in progress will be preserved by jounrals
+            for (FpqContext context : activeContexts.keySet()) {
+                cleanupTransaction(context);
+            }
+
+            memoryMgr.shutdown();
+            journalMgr.shutdown();
+        }
+        finally {
+            shutdownLock.writeLock().unlock();
+        }
+    }
+
+    private void checkInitializing() {
+        if (initializing) {
+            throw new FpqException("FPQ still initializing - can't perform operation");
+        }
+    }
+
+    private void checkShutdown() {
+        if (shuttingDown) {
+            throw new FpqException("FPQ shutting down - can't perform operation");
+        }
     }
 
     public int getMaxTransactionSize() {
@@ -331,9 +439,5 @@ public class Fpq {
 
     public long getJournalEntriesReplayed() {
         return journalEntriesReplayed;
-    }
-
-    public boolean isTransactionActive() {
-        return null != threadLocalFpqContext.get();
     }
 }

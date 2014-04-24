@@ -176,8 +176,6 @@ public class InMemorySegmentMgrTest {
         final AtomicLong pushSum = new AtomicLong();
         final AtomicLong popSum = new AtomicLong();
 
-//        need-to-do-checksums-like-other-threading tests;
-
         mgr.setMaxSegmentSizeInBytes(10000);
         mgr.init();
 
@@ -196,7 +194,7 @@ public class InMemorySegmentMgrTest {
                             pushSum.addAndGet(x);
                             FpqEntry entry = new FpqEntry(x, new byte[entrySize]);
                             mgr.push(entry);
-                            if (x % 100 == 0) {
+                            if (x % 500 == 0) {
                                 System.out.println("pushed ID = " + x);
                             }
                             Thread.sleep(pushRand.nextInt(5));
@@ -220,7 +218,7 @@ public class InMemorySegmentMgrTest {
                         try {
                             FpqEntry entry;
                             while (null != (entry=mgr.pop())) {
-                                if (entry.getId() % 200 == 0) {
+                                if (entry.getId() % 500 == 0) {
                                     System.out.println("popped ID = " + entry.getId());
                                 }
 

@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import com.eaio.uuid.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,6 +1,6 @@
 package com.btoddb.fastpersitentqueue.flume;
 
-import com.btoddb.fastpersitentqueue.FpqException;
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.apache.flume.Event;
 import org.apache.flume.event.SimpleEvent;
 
