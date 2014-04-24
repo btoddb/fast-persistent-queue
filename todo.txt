@@ -1,9 +1,7 @@
 required
 
 - on pop, instead of removing from memory segments, mark them as popped.  then on commit, remove them and report
-  to journal.  this should be reasonable because the segments use a Map for fast lookup of entries
-- infinite loop!!! if the size of the batch pushed is greater than the max size of a memory segment - overcome by
-  insuring max size of memory segment is greater than size of batch
+  to journal.  this should be doable because the segments use a Map for fast lookup of entries
 
 desired
 

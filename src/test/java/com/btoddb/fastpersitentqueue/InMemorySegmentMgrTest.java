@@ -1,5 +1,6 @@
 package com.btoddb.fastpersitentqueue;
 
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import com.eaio.uuid.UUID;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
@@ -16,6 +17,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static junit.framework.TestCase.fail;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -262,6 +264,18 @@ public class InMemorySegmentMgrTest {
         assertThat(mgr.getNumberOfSwapIn(), is(mgr.getNumberOfSwapOut()));
     }
 
+    @Test
+    public void testSizeNeededGreaterThanMaxSegmentSize() throws Exception {
+        mgr.init();
+
+        try {
+            mgr.push(new FpqEntry(1, new byte[1000]));
+            fail("should have thrown FpqException because the size required to push events onto queue is larger than the max segment size");
+        }
+        catch (FpqException e) {
+            assertThat(e.getMessage(), containsString("greater than maximum segment size"));
+        }
+    }
     // ---------
 
     @Before
