@@ -86,6 +86,10 @@ public class InMemorySegmentMgrTest {
             System.out.println(new String(entry.getData()));
         }
 
+        // this triggers the last segment to be removed and gives it a chance to happen
+        mgr.pop(1);
+        Thread.sleep(500);
+
         assertThat(mgr.getNumberOfEntries(), is(0L));
         assertThat(mgr.getSegments(), hasSize(1));
 

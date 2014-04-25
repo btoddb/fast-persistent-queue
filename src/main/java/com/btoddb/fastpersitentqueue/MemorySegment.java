@@ -307,4 +307,20 @@ public class MemorySegment implements Comparable<MemorySegment> {
         // time based UUIDs
         return id.compareTo(o2.getId());
     }
+
+    @Override
+    public String toString() {
+        return "MemorySegment{" +
+                "id=" + id +
+                ", status=" + status +
+                ", pushingFinished=" + pushingFinished +
+                ", sizeInBytes=" + sizeInBytes +
+                ", numberOfEntries=" + numberOfEntries +
+                ", numberOfOnlineEntries=" + numberOfOnlineEntries +
+                ", totalEventsPushed=" + totalEventsPushed +
+                ", totalEventsPopped=" + totalEventsPopped +
+                ", entryListOffsetOnDisk=" + entryListOffsetOnDisk +
+                ", queue size=" + (null != queue ? queue.size() : "null") +
+                '}';
+    }
 }

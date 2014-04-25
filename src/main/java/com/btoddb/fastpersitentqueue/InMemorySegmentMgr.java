@@ -212,21 +212,21 @@ public class InMemorySegmentMgr {
                 entries = seg.pop(batchSize);
             }
             catch (FpqSegmentNotInReadyState e) {
-//                logger.info("segment {} is not in READY state ({})", seg.getId(), seg.getStatus());
+                logger.debug("segment, {}, is not in READY state ({}) - skipping", seg.getId(), seg.getStatus());
                 continue;
             }
 
             if (null != entries) {
+                logger.debug("popped {} entries from segment : {}", entries.size(), seg.toString());
                 numberOfEntries.addAndGet(-entries.size());
-                if (seg.getStatus() != MemorySegment.Status.READY) {
-                    logger.error( "VERY BAD - threading issue!! segment {} now has status {}", seg.getId(), seg.getStatus());
-                }
                 return entries;
             }
 
             // at this point no entries available for any thread to pop, so check if we can remove it
             // this call only returns true if segment is ready to be removed and this thread is the first to ask
             if (seg.shouldBeRemoved()) {
+                logger.debug("scheduling {} for removal", seg.getId().toString());
+
                 cleanupExecSrvc.submit(new Runnable() {
                     @Override
                     public void run() {
@@ -307,20 +307,23 @@ public class InMemorySegmentMgr {
         }
 
         final MemorySegment segment = tmp;
+        logger.debug("scheduling load of segment, {}", segment.getId());
         serializerExecSrvc.submit(new Runnable() {
             @Override
             public void run() {
                 try {
                     // segment is OFFLINE so no need for synchronization  during load
                     segmentSerializer.loadFromDisk(segment);
+                    logger.debug("segment loaded = {}", segment.toString());
 
                     // remove paging file before setting to READY in case something happens during remove
                     segmentSerializer.removePagingFile(segment);
 
                     segment.setPushingFinished(true);
-                    numberOfActiveSegments.incrementAndGet();
-                    numberOfSwapIn.incrementAndGet();
                     segment.setStatus(MemorySegment.Status.READY);
+                    numberOfActiveSegments.incrementAndGet();
+
+                    numberOfSwapIn.incrementAndGet();
                 }
                 catch (IOException e) {
                     logger.error("exception while loading memory segment, {}, from disk - discarding", segment.getId().toString(), e);
@@ -332,13 +335,15 @@ public class InMemorySegmentMgr {
 
     // this should be done in a thread and not inline with a customer call
     private void removeSegment(MemorySegment segment) {
-        logger.debug("removing segment {}", segment.getId().toString());
-        numberOfActiveSegments.decrementAndGet();
-
-        kickOffLoadIfNeeded();
+        logger.debug("removeSegment {}", segment.getId().toString());
 
         // this is thread-safe because ConcurrentSkipListSet says so
-        segments.remove(segment);
+        if (!segments.remove(segment)) {
+            logger.error("did not remove segment, {}, from set", segment.getId().toString());
+        }
+
+        numberOfActiveSegments.decrementAndGet();
+        kickOffLoadIfNeeded();
 
         segmentSerializer.removePagingFile(segment);
     }
