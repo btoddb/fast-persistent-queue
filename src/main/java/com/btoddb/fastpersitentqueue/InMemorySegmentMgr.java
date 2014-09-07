@@ -19,23 +19,27 @@ import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
- * - has fixed size (in bytes) queue segments
+ * Manages the ordering and paging of memory segments.  Provides the push/pop entry points for
+ * in-memory portion of FPQ.
+ *
  */
 public class InMemorySegmentMgr {
     private static final Logger logger = LoggerFactory.getLogger(InMemorySegmentMgr.class);
 
+    // properties
     private long maxSegmentSizeInBytes;
     private int maxNumberOfActiveSegments = 4;
     private volatile boolean shutdownInProgress;
-
-    private final Object selectWhichSegmentLoadMonitor = new Object();
-
-    private ConcurrentSkipListSet<MemorySegment> segments = new ConcurrentSkipListSet<MemorySegment>();
-    private MemorySegmentSerializer segmentSerializer = new MemorySegmentSerializer();
     private File pagingDirectory;
     private int numberOfSerializerThreads = 2;
     private int numberOfCleanupThreads = 1;
 
+    // internals
+    private final Object selectWhichSegmentLoadMonitor = new Object();
+    private ConcurrentSkipListSet<MemorySegment> segments = new ConcurrentSkipListSet<MemorySegment>();
+    private MemorySegmentSerializer segmentSerializer = new MemorySegmentSerializer();
+
+    // statistics/reporting
     private AtomicInteger numberOfActiveSegments = new AtomicInteger();
     private AtomicLong numberOfEntries = new AtomicLong();
     private AtomicLong numberOfSwapOut = new AtomicLong();
@@ -63,6 +67,13 @@ public class InMemorySegmentMgr {
                                                       });
 
     public void init() throws IOException {
+        if (0 == maxSegmentSizeInBytes) {
+            throw new FpqException("property, maxSegmentSizeInBytes, must be greater than zero");
+        }
+        if (4 > maxNumberOfActiveSegments) {
+            throw new FpqException("property, maxNumberOfActiveSegments, must be 4 or greater");
+        }
+
         segmentSerializer.setDirectory(pagingDirectory);
         segmentSerializer.init();
 
@@ -71,7 +82,7 @@ public class InMemorySegmentMgr {
     }
 
     private void loadPagedSegments() throws IOException {
-        // read files then sort by their UUID name so they are in proper chronological order
+        // read files and sort by their UUID name so they are in proper chronological order
         Collection<File> files = FileUtils.listFiles(pagingDirectory, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE);
         TreeSet<File> sortedFiles = new TreeSet<File>(new Comparator<File>() {
             @Override
@@ -84,35 +95,44 @@ public class InMemorySegmentMgr {
         // cleanup memory
         files.clear();
 
-        // reset
-        numberOfActiveSegments.set(0);
-        numberOfEntries.set(0);
+        assert 0 == numberOfActiveSegments.get();
+        assert segments.isEmpty();
+
         segments.clear();
 
         for (File f : sortedFiles) {
+            MemorySegment segment;
             // only load the segment's data if room in memory, otherwise just load its header
             if (numberOfActiveSegments.get() < maxNumberOfActiveSegments-1) {
-                MemorySegment seg = segmentSerializer.loadFromDisk(f.getName());
-                seg.setStatus(MemorySegment.Status.READY);
-                seg.setPushingFinished(true);
-                segments.add(seg);
+                segment = segmentSerializer.loadFromDisk(f.getName());
+                segment.setStatus(MemorySegment.Status.READY);
+                segment.setPushingFinished(true);
+
+                assert segment.getNumberOfOnlineEntries() > 0;
+                assert !segment.getQueue().isEmpty();
+
                 numberOfActiveSegments.incrementAndGet();
-                numberOfEntries.addAndGet(seg.getNumberOfEntries());
             }
             else {
-                MemorySegment seg = segmentSerializer.loadHeaderOnly(f.getName());
-                seg.setStatus(MemorySegment.Status.OFFLINE);
-                seg.setPushingFinished(true);
-                segments.add(seg);
-                numberOfEntries.addAndGet(seg.getNumberOfEntries());
+                segment = segmentSerializer.loadHeaderOnly(f.getName());
+                segment.setStatus(MemorySegment.Status.OFFLINE);
+                segment.setPushingFinished(true);
+
             }
+
+            assert segment.isPushingFinished();
+            assert segment.getNumberOfEntries() > 0;
+            assert segment.getEntryListOffsetOnDisk() > 0;
+
+            segments.add(segment);
+            numberOfEntries.addAndGet(segment.getNumberOfEntries());
         }
 
-        for (MemorySegment seg : segments) {
-            if (seg.getStatus() == MemorySegment.Status.READY) {
-                segmentSerializer.removePagingFile(seg);
-            }
-        }
+//        for (MemorySegment seg : segments) {
+//            if (seg.getStatus() == MemorySegment.Status.READY) {
+//                segmentSerializer.removePagingFile(seg);
+//            }
+//        }
     }
 
     public void push(FpqEntry fpqEntry) {
@@ -451,5 +471,29 @@ public class InMemorySegmentMgr {
 
     public long getNumberOfSwapIn() {
         return numberOfSwapIn.get();
+    }
+
+    public int getNumberOfSerializerThreads() {
+        return numberOfSerializerThreads;
+    }
+
+    public void setNumberOfSerializerThreads(int numberOfSerializerThreads) {
+        this.numberOfSerializerThreads = numberOfSerializerThreads;
+    }
+
+    public int getNumberOfCleanupThreads() {
+        return numberOfCleanupThreads;
+    }
+
+    public void setNumberOfCleanupThreads(int numberOfCleanupThreads) {
+        this.numberOfCleanupThreads = numberOfCleanupThreads;
+    }
+
+    public int getMaxNumberOfActiveSegments() {
+        return maxNumberOfActiveSegments;
+    }
+
+    public void setMaxNumberOfActiveSegments(int maxNumberOfActiveSegments) {
+        this.maxNumberOfActiveSegments = maxNumberOfActiveSegments;
     }
 }

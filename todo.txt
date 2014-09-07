@@ -1,5 +1,6 @@
 required
 
+*** - set a max size for the queue.  currently disk space can be used until exhausted
 - on pop, instead of removing from memory segments, mark them as popped.  then on commit, remove them and report
   to journal.  this should be doable because the segments use a Map for fast lookup of entries
 

@@ -6,6 +6,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -133,7 +134,7 @@ public class InMemorySegmentMgrTest {
         assertThat(mgr.getSegments(), hasSize(6));
         assertThat(mgr.getNumberOfActiveSegments(), is(4));
         assertThat(mgr.getNumberOfEntries(), is(30L));
-        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(2));
+        assertThat(FileUtils.listFiles(theDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE), hasSize(5));
     }
 
     @Test
@@ -166,6 +167,37 @@ public class InMemorySegmentMgrTest {
 
         assertThat(mgr.isEntryQueued(new FpqEntry(123, new byte[100])), is(true));
         assertThat(mgr.isEntryQueued(new FpqEntry(222, new byte[10])), is(false));
+    }
+
+    @Test
+    public void testMaxSegmentSizeWithinRange() throws Exception {
+        mgr.setMaxSegmentSizeInBytes(0);
+        try {
+            mgr.init();
+        }
+        catch (FpqException e) {
+            assertThat(e.getMessage(), containsString("maxSegmentSizeInBytes"));
+        }
+    }
+
+    @Test
+    public void testMaxNumberOfActiveSegmentsWithinRange() throws Exception {
+        mgr.setMaxSegmentSizeInBytes(3);
+        try {
+            mgr.init();
+        }
+        catch (FpqException e) {
+            assertThat(e.getMessage(), containsString("maxNumberOfActiveSegments, must be 4 or greater"));
+        }
+    }
+
+    @Test
+    @Ignore("started but not finished yet")
+    public void testIncreasingMaxNumberOfActiveSegments() throws Exception {
+        mgr.setMaxNumberOfActiveSegments(10);
+        mgr.init();
+
+        fail();
     }
 
     @Test
