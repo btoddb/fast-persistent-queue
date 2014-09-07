@@ -6,6 +6,18 @@
     <artifactId>fast-persistent-queue</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
+    <developers>
+        <developer>
+            <id>btoddb</id>
+            <name>B. Todd Burruss</name>
+            <email>btoddb@gmail.com</email>
+        </developer>
+    </developers>
+
+    <properties>
+        <github.global.server>github</github.global.server>
+    </properties>
+
     <issueManagement>
         <url>https://github.com/btoddb/fast-persistent-queue/issues</url>
         <system>GitHub Issues</system>
@@ -231,6 +243,26 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>com.github.github</groupId>
+                <artifactId>site-maven-plugin</artifactId>
+                <version>0.10-SNAPSHOT</version>
+                <configuration>
+                    <message>Creating site for ${project.version}</message>
+                    <path>${project.name}/${project.version}</path>
+                    <repositoryName>fast-persistent-queue</repositoryName>
+                    <repositoryOwner>btoddb</repositoryOwner>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>site</goal>
+                        </goals>
+                        <phase>site</phase>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -246,9 +278,6 @@
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.4</version>
             </plugin>
-
-
-
         </plugins>
     </reporting>
 
