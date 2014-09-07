@@ -1,15 +1,17 @@
 #!/bin/bash
 
-unset M2_HOME MAVEN_OPTS MVN_HOME
-MAVEN_HOME=/btoddb/apache-maven-3.2.3
-
 if [ $# -lt 1 ] ; then
   echo
   echo "usage: $0 <build-type> [<skipTests>]"
-  echo "       -- build-type = package | install | deploy | release"
+  echo "       -- build-type = package | verify | install | deploy | release"
   echo
   exit
 fi
+
+unset M2_HOME MAVEN_OPTS MVN_HOME
+MAVEN_HOME=/btoddb/apache-maven-3.2.3
+MAVEN_CMD_OPTS="--show-version"
+MAVEN_CMD="${MAVEN_HOME}/bin/mvn ${MAVEN_CMD_OPTS}"
 
 buildType=$1
 if [ $# -gt 1 ] ; then
@@ -17,21 +19,25 @@ if [ $# -gt 1 ] ; then
 fi
 
 case ${buildType} in
+  "verify")
+    ${MAVEN_CMD} clean install ${skipTests}
+    ;;
+
   "install")
-    ${MAVEN_HOME}/bin/mvn clean install ${skipTests}
+    ${MAVEN_CMD} clean install ${skipTests}
     ;;
 
   "deploy")
-    ${MAVEN_HOME}/bin/mvn clean deploy ${skipTests}
+    ${MAVEN_CMD} clean deploy ${skipTests}
     ;;
 
   "release")
-    ${MAVEN_HOME}/bin/mvn release:clean release:prepare
-#    ${MAVEN_HOME}/bin/mvn release:perform
+    ${MAVEN_CMD} release:clean release:prepare
+#    ${MAVEN_CMD} release:perform
     ;;
 
   *)
-    ${MAVEN_HOME}/bin/mvn clean package ${skipTests}
+    ${MAVEN_CMD} ${MAVEN_CMD_OPTS} clean package ${skipTests}
     ;;
 esac
 
