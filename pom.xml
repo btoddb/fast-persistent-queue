@@ -250,7 +250,7 @@
                 <version>0.10-SNAPSHOT</version>
                 <configuration>
                     <message>Creating site for ${project.version}</message>
-                    <path>${project.name}/${project.version}</path>
+                    <path>${project.version}</path>
                     <repositoryName>fast-persistent-queue</repositoryName>
                     <repositoryOwner>btoddb</repositoryOwner>
                 </configuration>
