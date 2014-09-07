@@ -20,7 +20,7 @@ fi
 
 case ${buildType} in
   "verify")
-    ${MAVEN_CMD} clean install ${skipTests}
+    ${MAVEN_CMD} clean verify ${skipTests}
     ;;
 
   "install")
@@ -34,6 +34,10 @@ case ${buildType} in
   "release")
     ${MAVEN_CMD} release:clean release:prepare
 #    ${MAVEN_CMD} release:perform
+    ;;
+
+  "site")
+    ${MAVEN_CMD} site ${skipTests}
     ;;
 
   *)
