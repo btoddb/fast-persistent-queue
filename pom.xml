@@ -251,8 +251,9 @@
                 <configuration>
                     <message>Creating site for ${project.version}</message>
                     <path>${project.version}</path>
-                    <repositoryName>fast-persistent-queue</repositoryName>
-                    <repositoryOwner>btoddb</repositoryOwner>
+                    <!--<repositoryName>fast-persistent-queue</repositoryName>-->
+                    <!--<repositoryOwner>btoddb</repositoryOwner>-->
+                    <merge>true</merge>
                 </configuration>
                 <executions>
                     <execution>
