@@ -266,6 +266,8 @@
             </plugin>
 
             <plugin>
+                <!-- license:update-file-header -->
+                <!-- license:check-file-header -->
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>license-maven-plugin</artifactId>
                 <version>1.7</version>
@@ -273,6 +275,8 @@
                     <licenseName>mit</licenseName>
                     <organizationName>btoddb.com</organizationName>
                     <inceptionYear>2014</inceptionYear>
+                    <failOnMissingHeader>true</failOnMissingHeader>
+                    <failOnNotUptodateHeader>true</failOnNotUptodateHeader>
                 </configuration>
                 <executions>
                     <execution>
@@ -281,12 +285,12 @@
                             <goal>update-file-header</goal>
                         </goals>
                         <phase>process-sources</phase>
-                        <!--<configuration>-->
-                            <!--<roots>-->
-                                <!--<root>src/main/java</root>-->
-                                <!--<root>src/test/java</root>-->
-                            <!--</roots>-->
-                        <!--</configuration>-->
+                        <configuration>
+                            <roots>
+                                <root>src/main/java</root>
+                                <root>src/test/java</root>
+                            </roots>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

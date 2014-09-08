@@ -1,3 +1,9 @@
 language: java
 
-script: mvn verify
+script: mvn license:check-file-header verify
+jdk:
+ - oraclejdk7
+
+notifications:
+  email:
+  - btoddb@gmail.com
