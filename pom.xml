@@ -4,7 +4,11 @@
 
     <groupId>com.btoddb</groupId>
     <artifactId>fast-persistent-queue</artifactId>
-    <version>0.0.4-SNAPSHOT</version>
+    <version>0.0.8-SNAPSHOT</version>
+
+    <name>fast-persistent-queue</name>
+    <description>A mostly FIFO fast persistent queue</description>
+    <url>http://btoddb.github.io/fast-persistent-queue/</url>
 
     <developers>
         <developer>
