@@ -4,7 +4,7 @@
 
     <groupId>com.btoddb</groupId>
     <artifactId>fast-persistent-queue</artifactId>
-    <version>0.0.4-SNAPSHOT</version>
+    <version>0.0.5-SNAPSHOT</version>
 
     <developers>
         <developer>

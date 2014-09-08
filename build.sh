@@ -32,7 +32,7 @@ case ${buildType} in
     ;;
 
   "release")
-    ${MAVEN_CMD} release:clean release:prepare release:perform
+    ${MAVEN_CMD} -P release release:clean release:prepare release:perform
     ;;
 
   "site")
