@@ -226,7 +226,12 @@ public class FpqChannelTest {
 
     @After
     public void cleanup() throws IOException {
-        channel.stop();
+        try {
+            channel.stop();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
         FileUtils.deleteDirectory(theDir);
     }
 

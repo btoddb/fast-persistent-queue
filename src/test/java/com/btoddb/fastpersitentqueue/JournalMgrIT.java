@@ -411,7 +411,12 @@ public class JournalMgrIT {
 
     @After
     public void cleanup() throws IOException {
-        mgr.shutdown();
+        try {
+            mgr.shutdown();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
         FileUtils.deleteDirectory(theDir);
     }
 }

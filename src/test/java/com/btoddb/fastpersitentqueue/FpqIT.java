@@ -526,7 +526,12 @@ public class FpqIT {
 
     @After
     public void cleanup() throws IOException {
-        fpq1.shutdown();
+        try {
+            fpq1.shutdown();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
         FileUtils.deleteDirectory(theDir);
     }
 
