@@ -4,7 +4,7 @@
 
     <groupId>com.btoddb</groupId>
     <artifactId>fast-persistent-queue</artifactId>
-    <version>0.0.5-SNAPSHOT</version>
+    <version>0.0.5</version>
 
     <developers>
         <developer>
@@ -35,7 +35,7 @@
         <connection>scm:git:git@github.com:btoddb/fast-persistent-queue.git</connection>
         <developerConnection>scm:git:git@github.com:btoddb/${project.artifactId}.git</developerConnection>
         <url>https://github.com/btoddb/fast-persistent-queue</url>
-      <tag>HEAD</tag>
+      <tag>fast-persistent-queue-0.0.5</tag>
   </scm>
 
     <dependencies>
