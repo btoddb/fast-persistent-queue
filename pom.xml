@@ -4,7 +4,7 @@
 
     <groupId>com.btoddb</groupId>
     <artifactId>fast-persistent-queue</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
 
     <developers>
         <developer>
@@ -247,7 +247,8 @@
             <plugin>
                 <groupId>com.github.github</groupId>
                 <artifactId>site-maven-plugin</artifactId>
-                <version>0.10-SNAPSHOT</version>
+                <!--<version>0.10-SNAPSHOT</version>-->
+                <version>0.9</version>
                 <configuration>
                     <message>Creating site for ${project.version}</message>
                     <path>${project.version}</path>
