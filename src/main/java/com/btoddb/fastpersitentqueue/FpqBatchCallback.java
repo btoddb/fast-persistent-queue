@@ -32,13 +32,14 @@ import java.util.Collection;
 /**
  * Created by burrb009 on 9/8/14.
  */
-public interface ReadCallback {
+public interface FpqBatchCallback {
+
     /**
-     * All exceptions thrown will be caught and rollback.
+     * Called when {@link FpqBatchReader} has data.  All exceptions thrown will be caught and rollback.
      *
      * @param entries Collection of entries from queue
      *
      * @return true if should commit, false otherwise
      */
-    boolean entries(Collection<FpqEntry> entries) throws Exception;
+    boolean available(Collection<FpqEntry> entries) throws Exception;
 }

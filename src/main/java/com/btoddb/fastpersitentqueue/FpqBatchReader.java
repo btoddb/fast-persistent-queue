@@ -30,18 +30,16 @@ import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-
 
 /**
  * Poll FPQ trying to acquire a batch of events
  */
-public class FpqReadThread implements Runnable {
-    private static final Logger logger = LoggerFactory.getLogger(FpqReadThread.class);
+public class FpqBatchReader implements Runnable {
+    private static final Logger logger = LoggerFactory.getLogger(FpqBatchReader.class);
 
     private Fpq fpq;
     private int maxBatchSize;
-    private ReadCallback callback;
+    private FpqBatchCallback callback;
 
     private volatile boolean stopProcessing;
     private Thread theThread;
@@ -71,7 +69,7 @@ public class FpqReadThread implements Runnable {
         while (!stopProcessing) {
             fpq.beginTransaction();
             try {
-                if (callback.entries(fpq.pop(maxBatchSize))) {
+                if (callback.available(fpq.pop(maxBatchSize))) {
                     fpq.commit();
                 }
                 else {
