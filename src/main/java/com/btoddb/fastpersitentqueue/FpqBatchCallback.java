@@ -35,11 +35,13 @@ import java.util.Collection;
 public interface FpqBatchCallback {
 
     /**
-     * Called when {@link FpqBatchReader} has data.  All exceptions thrown will be caught and rollback.
+     * Called when {@link com.btoddb.fastpersitentqueue.FpqBatchReader} has data.
+     * This call occurs within a transaction, so make the processing as fast as possible.
+     * Any exception thrown will be caught by {@link com.btoddb.fastpersitentqueue.FpqBatchReader} and cause the
+     * transaction to rollback.
      *
      * @param entries Collection of entries from queue
-     *
-     * @return true if should commit, false otherwise
      */
-    boolean available(Collection<FpqEntry> entries) throws Exception;
+    void available(Collection<FpqEntry> entries) throws Exception;
+
 }

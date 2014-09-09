@@ -30,6 +30,8 @@ import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+
 
 /**
  * Poll FPQ trying to acquire a batch of events
@@ -39,6 +41,8 @@ public class FpqBatchReader implements Runnable {
 
     private Fpq fpq;
     private int maxBatchSize;
+    private long maxBatchWaitInMs = 3000;
+    private long sleepTimeBetweenPopsInMs = 200;
     private FpqBatchCallback callback;
 
     private volatile boolean stopProcessing;
@@ -48,7 +52,7 @@ public class FpqBatchReader implements Runnable {
      * Initialize the thread state and start it
      */
     public void init() {
-        if (null != fpq) {
+        if (null == fpq) {
             throw new FpqException("FPQ has not been set/initialized - cannot start read thread");
         }
 
@@ -66,21 +70,49 @@ public class FpqBatchReader implements Runnable {
 
     @Override
     public void run() {
+        long waitTimeEnd = calculateWaitEnd();
+
         while (!stopProcessing) {
             fpq.beginTransaction();
             try {
-                if (callback.available(fpq.pop(maxBatchSize))) {
-                    fpq.commit();
+                // grab a batch - may not be large enough
+                Collection<FpqEntry> events = fpq.pop(maxBatchSize);
+
+                // if not large enough and wait duration not exceeded, then rollback and wait some more
+                if (null == events || events.size() < maxBatchSize) {
+                    // if we haven't reached the end of our "wait for full batch" time, then rollback and sleep
+                    if (System.currentTimeMillis() <= waitTimeEnd) {
+                        logger.debug("did not get a complete batch and wait time not exceeded - no callback");
+                        fpq.rollback();
+                        Thread.sleep(sleepTimeBetweenPopsInMs);
+                        continue;
+                    }
                 }
-                else {
-                    fpq.rollback();
+
+                // either we reached the end of our wait time, or we found a full batch
+
+                if (null != events) {
+                    // do callback.  any exceptions cause rollback, otherwise commit
+                    callback.available(events);
                 }
+                else if (logger.isDebugEnabled()) {
+                    logger.debug("event list was empty - no callback");
+                }
+
+                fpq.commit();
+
+                // reset wait time
+                waitTimeEnd = calculateWaitEnd();
             }
             catch (Exception e) {
                 logger.error("exception while reading from FPQ", e);
                 fpq.rollback();
             }
         }
+    }
+
+    private long calculateWaitEnd() {
+        return System.currentTimeMillis() + maxBatchWaitInMs;
     }
 
     public Fpq getFpq() {
@@ -95,15 +127,39 @@ public class FpqBatchReader implements Runnable {
         return stopProcessing;
     }
 
-    public void setStopProcessing(boolean stopProcessing) {
-        this.stopProcessing = stopProcessing;
-    }
-
     public int getMaxBatchSize() {
         return maxBatchSize;
     }
 
     public void setMaxBatchSize(int maxBatchSize) {
         this.maxBatchSize = maxBatchSize;
+    }
+
+    public FpqBatchCallback getCallback() {
+        return callback;
+    }
+
+    public void setCallback(FpqBatchCallback callback) {
+        this.callback = callback;
+    }
+
+    public long getMaxBatchWaitInMs() {
+        return maxBatchWaitInMs;
+    }
+
+    public void setMaxBatchWaitInMs(long maxBatchWaitInMs) {
+        this.maxBatchWaitInMs = maxBatchWaitInMs;
+    }
+
+    public long getSleepTimeBetweenPopsInMs() {
+        return sleepTimeBetweenPopsInMs;
+    }
+
+    public void setSleepTimeBetweenPopsInMs(long sleepTimeBetweenPopsInMs) {
+        this.sleepTimeBetweenPopsInMs = sleepTimeBetweenPopsInMs;
+    }
+
+    public void shutdown() {
+        stopProcessing = true;
     }
 }
