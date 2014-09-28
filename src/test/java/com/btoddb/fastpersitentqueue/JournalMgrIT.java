@@ -66,6 +66,37 @@ public class JournalMgrIT {
     }
 
     @Test
+    public void testInitWithExistingFiles() throws Exception {
+        //
+        // create some files then shutdown
+        //
+
+        mgr.setMaxJournalFileSize(60);
+        mgr.init();
+
+        for (int i=0;i < 100;i++) {
+            mgr.append(new FpqEntry(idGen.incrementAndGet(), ByteBuffer.allocate(10).putInt(i).array()));
+        }
+
+        mgr.shutdown();
+
+        //
+        // startup again and make sure we have a writable file
+        //
+
+        mgr = new JournalMgr();
+        mgr.setDirectory(theDir);
+        mgr.setNumberOfFlushWorkers(4);
+        mgr.setFlushPeriodInMs(1000);
+        mgr.init();
+
+        assertThat(mgr.getJournalsLoadedAtStartup(), is(50L));
+        assertThat(mgr.getNumberOfEntries(), is(100L));
+        assertThat(mgr.getJournalFiles().keySet(), hasSize(51));
+        assertThat(mgr.getCurrentJournalDescriptor().isWritingFinished(), is(false));
+    }
+
+    @Test
     public void testJournalDirectorySetter() {
         mgr.setDirectory(new File("/dirname"));
         assertThat(mgr.getDirectory(), is(new File("/dirname")));

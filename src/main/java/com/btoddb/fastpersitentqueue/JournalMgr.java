@@ -99,12 +99,7 @@ public class JournalMgr {
 
         prepareJournaling();
 
-        if (journalIdMap.isEmpty()) {
-            currentJournalDescriptor = createAndAddNewJournal();
-        }
-        else {
-            currentJournalDescriptor = journalIdMap.lastEntry().getValue();
-        }
+        currentJournalDescriptor = createAndAddNewJournal();
     }
 
     private void prepareJournaling() throws IOException {
