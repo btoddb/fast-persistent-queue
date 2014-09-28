@@ -26,6 +26,7 @@ package com.btoddb.fastpersitentqueue;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.config.Config;
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +72,19 @@ public class Fpq {
     private volatile boolean initializing;
     private volatile boolean shuttingDown;
     private long waitBeforeKillOnShutdown = 10000;
+
+    public void init(Config config) throws IOException {
+        setMaxMemorySegmentSizeInBytes(config.getMaxMemorySegmentSizeInBytes());
+        setMaxTransactionSize(config.getMaxTransactionSize());
+        setJournalDirectory(new File(config.getDirectory(), "journal"));
+        setPagingDirectory(new File(config.getDirectory(), "paging"));
+        setNumberOfFlushWorkers(config.getNumberOfFlushWorkers());
+        setFlushPeriodInMs(config.getFlushPeriodInMs());
+        setMaxJournalFileSize(config.getMaxJournalFileSize());
+        setMaxJournalDurationInMs(config.getJournalMaxDurationInMs());
+
+        init();
+    }
 
     public void init() throws IOException {
         initializing = true;
@@ -129,7 +143,7 @@ public class Fpq {
         checkInitializing();
         checkShutdown();
 
-        if (null != threadLocalFpqContext.get()) {
+        if (isTransactionActive()) {
             throw new FpqException("transaction already started on this thread - must commit/rollback before starting another");
         }
         FpqContext context = createContext();

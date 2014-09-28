@@ -20,6 +20,9 @@
 
     <properties>
         <github.global.server>github</github.global.server>
+
+        <jetty-version>9.2.3.v20140905</jetty-version>
+        <fasterxml-version>2.4.2</fasterxml-version>
     </properties>
 
     <issueManagement>
@@ -85,12 +88,65 @@
             <version>3.0.1</version>
         </dependency>
 
-        <!-- optional dependencies (like flume) -->
+        <!-- EventBus - optional dependencies -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>${jetty-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-jmx</artifactId>
+            <version>${jetty-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${fasterxml-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>jersey-client</artifactId>
+            <version>2.12</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-json-jackson</artifactId>
+            <version>2.12</version>
+            <scope>test</scope>
+        </dependency>        <!--<dependency>-->
+            <!--<groupId>com.fasterxml.jackson.module</groupId>-->
+            <!--<artifactId>jackson-module-jaxb-annotations</artifactId>-->
+            <!--<version>${fasterxml-version}</version>-->
+        <!--</dependency>-->
+        <!--<dependency>-->
+            <!--<groupId>com.fasterxml.jackson.jaxrs</groupId>-->
+            <!--<artifactId>jackson-jaxrs-json-provider</artifactId>-->
+            <!--<version>${fasterxml-version}</version>-->
+        <!--</dependency>-->
+        <!-- end EventBus optional -->
+
+        <!-- flume - optional dependencies -->
         <dependency>
             <groupId>org.apache.flume</groupId>
             <artifactId>flume-ng-core</artifactId>
             <version>1.5.0.1</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.mortbay.jetty</groupId>
+                    <artifactId>jetty</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.mortbay.jetty</groupId>
+                    <artifactId>jetty-util</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.mortbay.jetty</groupId>
+                    <artifactId>servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.flume</groupId>
@@ -110,7 +166,7 @@
             <version>1.2.17</version>
             <scope>provided</scope>
         </dependency>
-        <!-- end optional -->
+        <!-- end flume optional -->
 
         <!-- test dependencies -->
         <dependency>

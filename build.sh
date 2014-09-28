@@ -3,7 +3,7 @@
 if [ $# -lt 1 ] ; then
   echo
   echo "usage: $0 <build-type> [<skipTests>]"
-  echo "       -- build-type = package | verify | install | deploy | release"
+  echo "       -- build-type = package | verify | install | deploy | release | site | license-check | license-update"
   echo
   exit
 fi
@@ -37,6 +37,14 @@ case ${buildType} in
 
   "site")
     ${MAVEN_CMD} site ${skipTests}
+    ;;
+
+  "license-check")
+    ${MAVEN_CMD} license:check-file-header
+    ;;
+
+  "license-update")
+    ${MAVEN_CMD} license:update-file-header
     ;;
 
   *)

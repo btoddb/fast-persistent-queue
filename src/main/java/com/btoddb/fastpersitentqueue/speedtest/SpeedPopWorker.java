@@ -28,6 +28,7 @@ package com.btoddb.fastpersitentqueue.speedtest;
 
 import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.FpqEntry;
+import com.btoddb.fastpersitentqueue.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

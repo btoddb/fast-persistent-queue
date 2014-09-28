@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.speedtest;
+package com.btoddb.fastpersitentqueue.config;
 
 /*
  * #%L
@@ -33,6 +33,7 @@ import java.beans.PropertyDescriptor;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -57,6 +58,8 @@ public class Config {
     int numberOfFlushWorkers = 4;
     String directory;
 
+    Map<String, String> others = new HashMap<String, String>();
+
 
     public Config(String configFilename) throws IOException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         this.configFilename = configFilename;
@@ -72,11 +75,15 @@ public class Config {
                 String value = (String) entry.getValue();
 
                 PropertyUtilsBean pub = new PropertyUtilsBean();
-                PropertyDescriptor propDesc = pub.getPropertyDescriptor(this, name);
-                if (null == propDesc) {
-                    System.out.println("ERROR: property name, " + name + ", does not exist in config object - skipping");
+                PropertyDescriptor propDesc;
+                try {
+                    propDesc = pub.getPropertyDescriptor(this, name);
+                }
+                catch (Exception e) {
+                    others.put(name, value);
                     continue;
                 }
+
                 if (propDesc.getPropertyType() == int.class) {
                     propDesc.getWriteMethod().invoke(this, Integer.valueOf(value));
                 }
@@ -194,6 +201,10 @@ public class Config {
 
     public void setDirectory(String directory) {
         this.directory = directory;
+    }
+
+    public String getOther(String name) {
+        return others.get(name);
     }
 
     public String toString() {

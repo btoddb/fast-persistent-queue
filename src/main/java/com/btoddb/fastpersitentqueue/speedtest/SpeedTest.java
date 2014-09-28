@@ -27,12 +27,10 @@ package com.btoddb.fastpersitentqueue.speedtest;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.sun.jmx.mbeanserver.JmxMBeanServerBuilder;
+import com.btoddb.fastpersitentqueue.config.Config;
 import org.apache.commons.io.FileUtils;
 
-import javax.management.MBeanServer;
 import java.io.File;
-import java.lang.management.ManagementFactory;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -67,15 +65,7 @@ public class SpeedTest {
 
         try {
             queue = new Fpq();
-            queue.setMaxMemorySegmentSizeInBytes(config.getMaxMemorySegmentSizeInBytes());
-            queue.setMaxTransactionSize(config.getMaxTransactionSize());
-            queue.setJournalDirectory(new File(theDir, "journal"));
-            queue.setPagingDirectory(new File(theDir, "paging"));
-            queue.setNumberOfFlushWorkers(config.getNumberOfFlushWorkers());
-            queue.setFlushPeriodInMs(config.getFlushPeriodInMs());
-            queue.setMaxJournalFileSize(config.getMaxJournalFileSize());
-            queue.setMaxJournalDurationInMs(config.getJournalMaxDurationInMs());
-            queue.init();
+            queue.init(config);
 
             //
             // start workers
