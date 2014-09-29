@@ -47,9 +47,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
@@ -57,14 +55,13 @@ import static org.hamcrest.Matchers.is;
 public class EventBusIT {
     File theDir;
     EventBus bus;
-    ObjectMapper objectMapper;
 
     @Before
     public void setup() throws Exception {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        Config config = new Config("conf/config.properties");
+        Config config = Config.create("conf/config.yaml");
         config.setDirectory(theDir.getAbsolutePath());
 
         bus = new EventBus();
@@ -129,24 +126,7 @@ public class EventBusIT {
     // ----------
 
     private List<FpqEvent> retrieveFpqBusEvents(int numEvents) {
-        return ((TestPlunkImpl) bus.getPlunks().iterator().next()).waitForEvents(numEvents, 5000);
+        return ((TestPlunkerImpl) bus.getConfig().getPlunkers().iterator().next()).waitForEvents(numEvents, 5000);
     }
 
-//    public class IsNotANumber extends TypeSafeMatcher<FpqBusEvent> {
-//
-//        @Override
-//        public boolean matchesSafely(FpqBusEvent event) {
-//            return number.isNaN();
-//        }
-//
-//        public void describeTo(Description description) {
-//            description.appendText("not a number");
-//        }
-//
-//        @Factory
-//        public static <T> Matcher<Double> notANumber() {
-//            return new IsNotANumber();
-//        }
-//
-//    }
 }

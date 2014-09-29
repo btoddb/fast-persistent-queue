@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus;
+package com.btoddb.fastpersitentqueue.config;
 
 /*
  * #%L
@@ -26,23 +26,19 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.Fpq;
+import org.junit.Test;
+
+import static org.hamcrest.Matchers.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 
-/**
- *
- */
-public interface FpqCatcher {
-    void init(Fpq fpq);
+public class ConfigTest {
 
-    void shutdown() throws Exception;
-
-    String getId();
-    void setId(String id);
-
-    @SuppressWarnings("unused")
-    Fpq getFpq();
-
-    @SuppressWarnings("unused")
-    void setFpq(Fpq fpq);
+    @Test
+    public void testCreate() throws Exception {
+        Config config = Config.create("conf/config.yaml");
+        assertThat(config, is(notNullValue()));
+        assertThat(config.getCatchers(), hasSize(1));
+        assertThat(config.getPlunkers(), hasSize(1));
+    }
 }

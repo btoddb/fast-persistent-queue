@@ -26,49 +26,57 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.config.Config;
-import org.apache.flume.Event;
-import org.apache.flume.event.EventBuilder;
-
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 
 
 /**
- * Sends the collection of events to an Flume AvroSource
  */
-public class FlumeAvroPlunk implements FpqPlunk {
-    private AvroClientFactoryImpl clientFactory;
+public class TestPlunkerImpl implements FpqPlunker {
+    private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
 
-    /**
-     * Happens inside a transaction.
-     *
-     * <p/>Any exceptions escaping this method will cauase a rollback
-     *
-     * @return true to commit TX, false to rollback
-     */
+    private String id;
+
     @Override
     public boolean handle(Collection<FpqEvent> events) throws Exception {
-        List<Event> flumeEventList = new ArrayList<Event>(events.size());
-
-        // convert FPQ events to flume events
-        for (FpqEvent event : events) {
-            flumeEventList.add(EventBuilder.withBody(event.getBody(), event.getHeaders()));
-        }
-
-        clientFactory.getInstanceAndSend(flumeEventList);
-
+        eventList.addAll(events);
         return true;
     }
 
     @Override
-    public void init(Config config) {
-        clientFactory = new AvroClientFactoryImpl(new String[] {("localhost:4141")}, 1, 100, false, 120);
+    public void init() {
+        eventList.clear();
     }
 
     @Override
     public void shutdown() {
-        clientFactory.shutdown();
+
+    }
+
+//    public List<FpqEvent> getEventList() {
+//        return eventList;
+//    }
+
+    public List<FpqEvent> waitForEvents(int minNumEvents, long maxWaitInMillis) {
+        long endTime = System.currentTimeMillis()+maxWaitInMillis;
+        while(eventList.size() < minNumEvents && System.currentTimeMillis() <= endTime) {
+            try {
+                Thread.sleep(200);
+            }
+            catch (InterruptedException e) {
+                // do nothing
+                Thread.interrupted();
+            }
+        }
+        return eventList;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 }

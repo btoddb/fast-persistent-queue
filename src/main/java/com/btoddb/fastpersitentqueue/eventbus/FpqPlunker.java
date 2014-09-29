@@ -26,18 +26,19 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.config.Config;
-
 import java.util.Collection;
 
 
 /**
- * Created by burrb009 on 9/28/14.
+ *
  */
-public interface FpqPlunk {
+public interface FpqPlunker {
     boolean handle(Collection<FpqEvent> events) throws Exception;
 
-    void init(Config config);
+    String getId();
+    void setId(String id);
+
+    void init();
 
     void shutdown();
 }

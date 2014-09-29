@@ -28,7 +28,6 @@ package com.btoddb.fastpersitentqueue.eventbus;
 
 import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.Utils;
-import com.btoddb.fastpersitentqueue.config.Config;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.jetty.jmx.MBeanContainer;
@@ -61,6 +60,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 public class RestCatcherImpl implements FpqCatcher {
     private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
 
+    private String id;
     private int port = 8083;
     private String bind = "0.0.0.0";
     private int maxBatchSize = 100;
@@ -70,14 +70,7 @@ public class RestCatcherImpl implements FpqCatcher {
     ObjectMapper objectMapper;
 
     @Override
-    public void init(Fpq fpq, Config config) {
-        if (null != config.getOther("rest.bind")) {
-            bind = config.getOther("rest.bind");
-        }
-        if (null != config.getOther("rest.port")) {
-            port = Integer.parseInt(config.getOther("rest.port"));
-        }
-
+    public void init(Fpq fpq) {
         this.fpq = fpq;
         objectMapper = new ObjectMapper();
 
@@ -234,6 +227,13 @@ public class RestCatcherImpl implements FpqCatcher {
         this.port = port;
     }
 
+    public int getPort() {
+        return port;
+    }
+
+    public String getBind() {
+        return bind;
+    }
 
     @SuppressWarnings("unused")
     public int getMaxBatchSize() {
@@ -256,5 +256,15 @@ public class RestCatcherImpl implements FpqCatcher {
     @SuppressWarnings("unused")
     public void setFpq(Fpq fpq) {
         this.fpq = fpq;
+    }
+
+    @Override
+    public String getId() {
+        return id;
+    }
+
+    @Override
+    public void setId(String id) {
+        this.id = id;
     }
 }

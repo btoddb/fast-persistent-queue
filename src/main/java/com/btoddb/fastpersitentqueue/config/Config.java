@@ -26,23 +26,30 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
-import org.apache.commons.beanutils.PropertyUtilsBean;
+import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
+import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.Constructor;
 
-import java.beans.PropertyDescriptor;
-import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.Properties;
 
 
 /**
- * Created by burrb009 on 4/9/14.
+ *
  */
 public class Config {
-    String configFilename;
+    private static Logger logger = LoggerFactory.getLogger(Config.class);
+
+//    String configFilename;
 
     int durationOfTest = 20; // seconds
     int numberOfPushers = 4;
@@ -58,47 +65,68 @@ public class Config {
     int numberOfFlushWorkers = 4;
     String directory;
 
-    Map<String, String> others = new HashMap<String, String>();
+    Collection<FpqCatcher> catchers = new HashSet<FpqCatcher>();
+    Collection<FpqPlunker> plunkers = new HashSet<FpqPlunker>();
 
 
-    public Config(String configFilename) throws IOException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-        this.configFilename = configFilename;
-
-        System.out.println("reading config from : " + configFilename);
-        FileReader reader = new FileReader(configFilename);
+    public static Config create(String configFilename) throws FileNotFoundException {
+        Yaml yaml = new Yaml(new Constructor(Config.class));
+        Config config;
+        FileInputStream inStream = new FileInputStream(configFilename);
         try {
-            Properties props = new Properties();
-            props.load(reader);
-
-            for ( Map.Entry<Object, Object> entry : props.entrySet()) {
-                String name = (String) entry.getKey();
-                String value = (String) entry.getValue();
-
-                PropertyUtilsBean pub = new PropertyUtilsBean();
-                PropertyDescriptor propDesc;
-                try {
-                    propDesc = pub.getPropertyDescriptor(this, name);
-                }
-                catch (Exception e) {
-                    others.put(name, value);
-                    continue;
-                }
-
-                if (propDesc.getPropertyType() == int.class) {
-                    propDesc.getWriteMethod().invoke(this, Integer.valueOf(value));
-                }
-                else if(propDesc.getPropertyType() == long.class) {
-                    propDesc.getWriteMethod().invoke(this, Long.valueOf(value));
-                }
-                else {
-                    pub.setProperty(this, name, value);
-                }
-            }
+            config = (Config) yaml.load(inStream);
         }
         finally {
-            reader.close();
+            try {
+                inStream.close();
+            }
+            catch (IOException e) {
+                logger.error("exception while closing config file", e);
+            }
         }
+
+        return config;
     }
+
+//    public Config(String configFilename) throws IOException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+//        this.configFilename = configFilename;
+//
+//        System.out.println("reading config from : " + configFilename);
+//        FileReader reader = new FileReader(configFilename);
+//        try {
+//            Properties props = new Properties();
+//            props.load(reader);
+//
+//            for ( Map.Entry<Object, Object> entry : props.entrySet()) {
+//                String name = (String) entry.getKey();
+//                String value = (String) entry.getValue();
+//
+//                PropertyUtilsBean pub = new PropertyUtilsBean();
+//                PropertyDescriptor propDesc;
+//                try {
+//                    propDesc = pub.getPropertyDescriptor(this, name);
+//                }
+//                catch (Exception e) {
+//                    others.put(name, value);
+//                    continue;
+//                }
+//
+//                if (propDesc.getPropertyType() == int.class) {
+//                    propDesc.getWriteMethod().invoke(this, Integer.valueOf(value));
+//                }
+//                else if(propDesc.getPropertyType() == long.class) {
+//                    propDesc.getWriteMethod().invoke(this, Long.valueOf(value));
+//                }
+//                else {
+//                    pub.setProperty(this, name, value);
+//                }
+//            }
+//        }
+//        finally {
+//            reader.close();
+//        }
+//    }
+
     public int getDurationOfTest() {
         return durationOfTest;
     }
@@ -203,8 +231,20 @@ public class Config {
         this.directory = directory;
     }
 
-    public String getOther(String name) {
-        return others.get(name);
+    public Collection<FpqCatcher> getCatchers() {
+        return catchers;
+    }
+
+    public void setCatchers(Collection<FpqCatcher> catchers) {
+        this.catchers = catchers;
+    }
+
+    public Collection<FpqPlunker> getPlunkers() {
+        return plunkers;
+    }
+
+    public void setPlunkers(Collection<FpqPlunker> plunkers) {
+        this.plunkers = plunkers;
     }
 
     public String toString() {

@@ -26,49 +26,60 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.config.Config;
+import org.apache.flume.Event;
+import org.apache.flume.event.EventBuilder;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 
 
 /**
+ * Sends the collection of events to an Flume AvroSource
  */
-public class TestPlunkImpl implements FpqPlunk {
-    private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
+public class FlumeAvroPlunker implements FpqPlunker {
+    private AvroClientFactoryImpl clientFactory;
 
+    private String id;
+
+    /**
+     * Happens inside a transaction.
+     *
+     * <p/>Any exceptions escaping this method will cauase a rollback
+     *
+     * @return true to commit TX, false to rollback
+     */
     @Override
     public boolean handle(Collection<FpqEvent> events) throws Exception {
-        eventList.addAll(events);
+        List<Event> flumeEventList = new ArrayList<Event>(events.size());
+
+        // convert FPQ events to flume events
+        for (FpqEvent event : events) {
+            flumeEventList.add(EventBuilder.withBody(event.getBody(), event.getHeaders()));
+        }
+
+        clientFactory.getInstanceAndSend(flumeEventList);
+
         return true;
     }
 
     @Override
-    public void init(Config config) {
-        eventList.clear();
+    public String getId() {
+        return id;
+    }
+
+    @Override
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    @Override
+    public void init() {
+        clientFactory = new AvroClientFactoryImpl(new String[] {("localhost:4141")}, 1, 100, false, 120);
     }
 
     @Override
     public void shutdown() {
-
-    }
-
-    public List<FpqEvent> getEventList() {
-        return eventList;
-    }
-
-    public List<FpqEvent> waitForEvents(int minNumEvents, long maxWaitInMillis) {
-        long endTime = System.currentTimeMillis()+maxWaitInMillis;
-        while(eventList.size() < minNumEvents && System.currentTimeMillis() <= endTime) {
-            try {
-                Thread.sleep(200);
-            }
-            catch (InterruptedException e) {
-                // do nothing
-                Thread.interrupted();
-            }
-        }
-        return eventList;
+        clientFactory.shutdown();
     }
 }

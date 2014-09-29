@@ -39,7 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 
@@ -53,11 +52,10 @@ public class EventBus implements FpqBatchCallback {
 
     private Fpq fpq;
     private FpqBatchReader batchReader;
-
-    private FpqCatcher endpoint;
-    private FpqPlunk plunk;
+    private Config config;
 
     public void init(Config config) throws FpqException {
+        this.config = config;
         fpq = new Fpq();
         try {
             fpq.init(config);
@@ -66,8 +64,8 @@ public class EventBus implements FpqBatchCallback {
             Utils.logAndThrow(logger, "exception while initializing FPQ - cannot continue", e);
         }
 
-        configurePlunks(config);
-        configureEndpoints(config);
+        configurePlunkers(config);
+        configureCatchers(config);
 
         batchReader = new FpqBatchReader();
         batchReader.setFpq(fpq);
@@ -75,38 +73,17 @@ public class EventBus implements FpqBatchCallback {
         batchReader.init();
     }
 
-    private void configurePlunks(Config config) {
-        // TODO:BTB - make this handle a list of plunks
-        String configStr = config.getOther("bus.plunks");
-        try {
-            Class<FpqPlunk> clazz = (Class<FpqPlunk>) Class.forName(configStr);
-            plunk = clazz.newInstance();
-            plunk.init(config);
+    private void configurePlunkers(Config config) {
+        for (FpqPlunker plunker : config.getPlunkers()) {
+            plunker.init();
         }
-        catch (ClassNotFoundException e) {
-            logger.error("could not find plunk, {}", configStr);
-        }
-        catch (Exception e) {
-            logger.error("exception while instantiating plunk, {}", configStr);
-        }
+
     }
 
-    private void configureEndpoints(Config config) {
-        // TODO:BTB - make this handle a list of endpoints
-        String configStr = config.getOther("bus.endpoints");
-        try {
-            Class<FpqCatcher> clazz = (Class<FpqCatcher>) Class.forName(configStr);
-            endpoint = clazz.newInstance();
-            endpoint.init(fpq, config);
+    private void configureCatchers(Config config) {
+        for (FpqCatcher catcher : config.getCatchers()) {
+            catcher.init(fpq);
         }
-        catch (ClassNotFoundException e) {
-            logger.error("could not find endpoint, {}", configStr);
-        }
-        catch (Exception e) {
-            logger.error("exception while instantiating endpoint, {}", configStr);
-        }
-
-
     }
 
     public void start() {
@@ -122,23 +99,21 @@ public class EventBus implements FpqBatchCallback {
             eventList.add(event);
         }
 
-        plunk.handle(eventList);
+        config.getPlunkers().iterator().next().handle(eventList);
     }
 
-    public Collection<FpqPlunk> getPlunks() {
-        return Collections.singleton(plunk);
-    }
-
-    public Collection<FpqCatcher> getEndpoints() {
-        return Collections.singleton(endpoint);
+    public Config getConfig() {
+        return config;
     }
 
     public void shutdown() {
-        try {
-            endpoint.shutdown();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down FPQ endpoints", e);
+        for (FpqCatcher catcher : config.getCatchers()) {
+            try {
+                catcher.shutdown();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down FPQ catcher, {}", catcher.getId(), e);
+            }
         }
 
         try {
@@ -148,11 +123,13 @@ public class EventBus implements FpqBatchCallback {
             logger.error("exception while shutting down FPQ", e);
         }
 
-        try {
-            plunk.shutdown();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down FPQ plunks", e);
+        for (FpqPlunker plunker : config.getPlunkers()) {
+            try {
+                plunker.shutdown();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down FPQ plunker, {}", plunker.getId(), e);
+            }
         }
 
         try {

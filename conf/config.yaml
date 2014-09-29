@@ -1,0 +1,23 @@
+durationOfTest: 10
+numberOfPushers: 4
+numberOfPoppers: 4
+entrySize: 2000
+maxTransactionSize: 2000
+pushBatchSize: 2000
+popBatchSize: 2000
+maxMemorySegmentSizeInBytes: 10000000
+maxJournalFileSize: 10000000
+journalMaxDurationInMs: 30000
+flushPeriodInMs: 1000
+numberOfFlushWorkers: 4
+directory: speedtest
+
+catchers:
+  - !!com.btoddb.fastpersitentqueue.eventbus.RestCatcherImpl
+    id: test-rest
+    bind: 0.0.0.0
+    port: 8083
+
+plunkers:
+  - !!com.btoddb.fastpersitentqueue.eventbus.TestPlunkerImpl
+    id: test-plunk

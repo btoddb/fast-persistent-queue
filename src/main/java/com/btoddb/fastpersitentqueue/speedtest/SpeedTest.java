@@ -54,7 +54,7 @@ public class SpeedTest {
             System.exit(1);
         }
 
-        Config config = new Config(args[0]);
+        Config config = Config.create(args[0]);
 
         System.out.println(config.toString());
 
