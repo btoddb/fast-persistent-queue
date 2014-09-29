@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue;
+package com.btoddb.fastpersitentqueue.eventbus;
 
 /*
  * #%L
@@ -26,22 +26,10 @@ package com.btoddb.fastpersitentqueue;
  * #L%
  */
 
-import java.util.Collection;
-
-
 /**
- *
+ * Created by burrb009 on 9/29/14.
  */
-public interface FpqBatchCallback {
+public class PlunkUtils {
 
-    /**
-     * Called when {@link com.btoddb.fastpersitentqueue.FpqBatchReader} has data.
-     * This call occurs within a transaction, so make the processing as fast as possible.
-     * Any exception thrown will be caught by {@link com.btoddb.fastpersitentqueue.FpqBatchReader} and cause the
-     * transaction to rollback.
-     *
-     * @param events Collection of entries from queue
-     */
-    void available(Collection<FpqEntry> events) throws Exception;
 
 }

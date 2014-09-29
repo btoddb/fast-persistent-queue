@@ -58,8 +58,8 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
 
-public class RestEndpointImpl {
-    private static final Logger logger = LoggerFactory.getLogger(RestEndpointImpl.class);
+public class RestCatcherImpl implements FpqCatcher {
+    private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
 
     private int port = 8083;
     private String bind = "0.0.0.0";
@@ -69,6 +69,7 @@ public class RestEndpointImpl {
     Server server;
     ObjectMapper objectMapper;
 
+    @Override
     public void init(Fpq fpq, Config config) {
         if (null != config.getOther("rest.bind")) {
             bind = config.getOther("rest.bind");
@@ -93,7 +94,7 @@ public class RestEndpointImpl {
         MBeanContainer mbContainer = new MBeanContainer(ManagementFactory.getPlatformMBeanServer());
         server.addEventListener(mbContainer);
         server.addBean(mbContainer);
-        server.addBean(Log.getLogger(RestEndpointImpl.class));
+        server.addBean(Log.getLogger(RestCatcherImpl.class));
 
         ServerConnector connector = new ServerConnector(server);
         connector.setHost(bind);
@@ -151,6 +152,7 @@ public class RestEndpointImpl {
         return false;
     }
 
+    @Override
     public void shutdown() throws Exception {
         server.stop();
     }
@@ -169,17 +171,17 @@ public class RestEndpointImpl {
             // TODO:BTB - check that request isn't "too large"
             //
 
-            List<FpqBusEvent> eventList;
+            List<FpqEvent> eventList;
             BufferedInputStream reqInStream = new BufferedInputStream(request.getInputStream());
 
             // check for list of events, or single event
             if (!isJsonArray(reqInStream)) {
-                FpqBusEvent event = objectMapper.readValue(reqInStream, new TypeReference<FpqBusEvent>() {});
+                FpqEvent event = objectMapper.readValue(reqInStream, new TypeReference<FpqEvent>() {});
                 eventList = Collections.singletonList(event);
             }
             else {
                 try {
-                    eventList = objectMapper.readValue(reqInStream, new TypeReference<List<FpqBusEvent>>() {});
+                    eventList = objectMapper.readValue(reqInStream, new TypeReference<List<FpqEvent>>() {});
                 }
                 catch (Exception e) {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -198,7 +200,7 @@ public class RestEndpointImpl {
 
             try {
                 fpq.beginTransaction();
-                for (FpqBusEvent event : eventList) {
+                for (FpqEvent event : eventList) {
                     fpq.push(objectMapper.writeValueAsBytes(event));
                 }
                 fpq.commit();
@@ -244,11 +246,13 @@ public class RestEndpointImpl {
     }
 
 
+    @Override
     @SuppressWarnings("unused")
     public Fpq getFpq() {
         return fpq;
     }
 
+    @Override
     @SuppressWarnings("unused")
     public void setFpq(Fpq fpq) {
         this.fpq = fpq;

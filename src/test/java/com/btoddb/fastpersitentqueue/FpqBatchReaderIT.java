@@ -98,6 +98,7 @@ public class FpqBatchReaderIT {
         });
 
         br.init();
+        br.start();
 
         for (int j=0;j < numEvents/10;j++) {
             fpq1.beginTransaction();

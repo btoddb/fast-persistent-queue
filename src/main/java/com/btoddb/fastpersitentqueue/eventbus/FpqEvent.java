@@ -26,25 +26,30 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 
 /**
- * Created by burrb009 on 9/26/14.
+ *
  */
-public class FpqBusEvent {
+public class FpqEvent {
     private Map<String, String> headers = new HashMap<String, String>();
-    private String body;
+    private byte[] body;
 
-    public FpqBusEvent() {}
+    public FpqEvent() {}
 
-    public FpqBusEvent(Map<String, String> headers, String body) {
+    public FpqEvent(Map<String, String> headers, String body) {
+        this(headers, body.getBytes());
+    }
+
+    public FpqEvent(Map<String, String> headers, byte[] body) {
         this.headers = headers;
         this.body = body;
     }
 
-    public FpqBusEvent addHeader(String name, String value) {
+    public FpqEvent addHeader(String name, String value) {
         headers.put(name, value);
         return this;
     }
@@ -57,12 +62,24 @@ public class FpqBusEvent {
         this.headers = headers;
     }
 
-    public String getBody() {
+    public byte[] getBody() {
         return body;
     }
 
-    public void setBody(String body) {
-        this.body = body;
+    public String getBodyAsString() {
+        return new String(body);
+    }
+
+    public void setBodyAsString(String body) {
+        this.body = body.getBytes();
+    }
+
+    @Override
+    public String toString() {
+        return "FpqBusEvent{" +
+                "headers=" + headers +
+                ", body='" + getBodyAsString() + '\'' +
+                '}';
     }
 
     @Override
@@ -74,9 +91,9 @@ public class FpqBusEvent {
             return false;
         }
 
-        FpqBusEvent that = (FpqBusEvent) o;
+        FpqEvent that = (FpqEvent) o;
 
-        if (body != null ? !body.equals(that.body) : that.body != null) {
+        if (!Arrays.equals(body, that.body)) {
             return false;
         }
         if (headers != null ? !headers.equals(that.headers) : that.headers != null) {
@@ -89,15 +106,7 @@ public class FpqBusEvent {
     @Override
     public int hashCode() {
         int result = headers != null ? headers.hashCode() : 0;
-        result = 31 * result + (body != null ? body.hashCode() : 0);
+        result = 31 * result + (body != null ? Arrays.hashCode(body) : 0);
         return result;
-    }
-
-    @Override
-    public String toString() {
-        return "FpqBusEvent{" +
-                "headers=" + headers +
-                ", body='" + body + '\'' +
-                '}';
     }
 }

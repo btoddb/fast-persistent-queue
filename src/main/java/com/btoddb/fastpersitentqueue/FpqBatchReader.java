@@ -62,7 +62,9 @@ public class FpqBatchReader implements Runnable {
         else if (maxBatchSize > fpq.getMaxTransactionSize()) {
             throw new FpqException("maxBatchSize cannot be greater than FPQ.maxTransactionSize - cannot start read thread");
         }
+    }
 
+    public void start() {
         theThread = new Thread(this);
         theThread.setName(getClass().getSimpleName());
         theThread.start();
@@ -76,10 +78,10 @@ public class FpqBatchReader implements Runnable {
             fpq.beginTransaction();
             try {
                 // grab a batch - may not be large enough
-                Collection<FpqEntry> events = fpq.pop(maxBatchSize);
+                Collection<FpqEntry> entries = fpq.pop(maxBatchSize);
 
                 // if not large enough and wait duration not exceeded, then rollback and wait some more
-                if (null == events || events.size() < maxBatchSize) {
+                if (null == entries || entries.size() < maxBatchSize) {
                     // if we haven't reached the end of our "wait for full batch" time, then rollback and sleep
                     if (System.currentTimeMillis() <= waitTimeEnd) {
                         logger.debug("did not get a complete batch and wait time not exceeded - no callback");
@@ -91,9 +93,9 @@ public class FpqBatchReader implements Runnable {
 
                 // either we reached the end of our wait time, or we found a full batch
 
-                if (null != events) {
+                if (null != entries) {
                     // do callback.  any exceptions cause rollback, otherwise commit
-                    callback.available(events);
+                    callback.available(entries);
                 }
                 else if (logger.isDebugEnabled()) {
                     logger.debug("event list was empty - no callback");

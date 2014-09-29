@@ -47,6 +47,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 
@@ -65,6 +69,7 @@ public class EventBusIT {
 
         bus = new EventBus();
         bus.init(config);
+        bus.start();
     }
 
     @After
@@ -80,9 +85,9 @@ public class EventBusIT {
 
     @Test
     public void testPutSingleEvent() throws Exception {
-        FpqBusEvent event = new FpqBusEvent();
+        FpqEvent event = new FpqEvent();
         event.addHeader("foo", "bar");
-        event.setBody("some-data-for-body");
+        event.setBodyAsString("some-data-for-body");
 
         Client client = ClientBuilder.newClient();
         Response resp = client.target("http://localhost:8083/v1")
@@ -90,17 +95,21 @@ public class EventBusIT {
                 .post(Entity.entity(event, MediaType.APPLICATION_JSON_TYPE));
 
         assertThat(resp.getStatus(), is(200));
+
         Map<String, Integer> respObj = resp.readEntity(Map.class);
         assertThat(respObj.get("received"), is(1));
 
+        List<FpqEvent> eventList = retrieveFpqBusEvents(1);
+        assertThat(eventList, hasSize(1));
+        assertThat(eventList.get(0), is(event));
     }
 
     @Test
     public void testPutEventList() throws Exception {
         int numEvents = 5;
-        List<FpqBusEvent> eventList = new ArrayList<FpqBusEvent>(numEvents);
+        List<FpqEvent> eventList = new ArrayList<FpqEvent>(numEvents);
         for (int i=0;i < numEvents;i++) {
-            eventList.add(new FpqBusEvent(Collections.singletonMap("msgId", String.valueOf(i)), String.valueOf(i)));
+            eventList.add(new FpqEvent(Collections.singletonMap("msgId", String.valueOf(i)), String.valueOf(i)));
         }
 
         Client client = ClientBuilder.newClient();
@@ -111,5 +120,33 @@ public class EventBusIT {
         assertThat(resp.getStatus(), is(200));
         Map<String, Integer> respObj = resp.readEntity(Map.class);
         assertThat(respObj.get("received"), is(numEvents));
+
+        List<FpqEvent> plunkEventList = retrieveFpqBusEvents(numEvents);
+        assertThat(plunkEventList, hasSize(numEvents));
+        assertThat(plunkEventList, containsInAnyOrder(eventList.toArray()));
     }
+
+    // ----------
+
+    private List<FpqEvent> retrieveFpqBusEvents(int numEvents) {
+        return ((TestPlunkImpl) bus.getPlunks().iterator().next()).waitForEvents(numEvents, 5000);
+    }
+
+//    public class IsNotANumber extends TypeSafeMatcher<FpqBusEvent> {
+//
+//        @Override
+//        public boolean matchesSafely(FpqBusEvent event) {
+//            return number.isNaN();
+//        }
+//
+//        public void describeTo(Description description) {
+//            description.appendText("not a number");
+//        }
+//
+//        @Factory
+//        public static <T> Matcher<Double> notANumber() {
+//            return new IsNotANumber();
+//        }
+//
+//    }
 }

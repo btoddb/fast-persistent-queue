@@ -41,7 +41,7 @@ public class RestEndpointImplTest {
     public void testIsJsonArrayWithWhitespace() {
         String json = " \t  \r  \n   [adafd]";
 
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(json.getBytes())), is(true));
     }
@@ -50,7 +50,7 @@ public class RestEndpointImplTest {
     public void testIsJsonArrayNoWhitespace() {
         String json = "[adafd]";
 
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(json.getBytes())), is(true));
     }
@@ -59,7 +59,7 @@ public class RestEndpointImplTest {
     public void testIsJsonArrayNotArrayWithWhitespace() {
         String json = "   \r  \t   \n   adafd";
 
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(json.getBytes())), is(false));
     }
@@ -68,7 +68,7 @@ public class RestEndpointImplTest {
     public void testIsJsonArrayNotArrayNoWhitespace() {
         String json = "adafd";
 
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(json.getBytes())), is(false));
     }
@@ -77,7 +77,7 @@ public class RestEndpointImplTest {
     public void testIsJsonArrayAllWhiteSpace() {
         String json = "      ";
 
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(json.getBytes())), is(false));
     }
@@ -86,21 +86,21 @@ public class RestEndpointImplTest {
     public void testIsJsonArrayEmptyString() {
         String json = "";
 
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(json.getBytes())), is(false));
     }
 
     @Test
     public void testIsJsonArrayNullString() {
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(null), is(false));
     }
 
     @Test
     public void testIsJsonArrayTooMuchWhitespace() {
-        RestEndpointImpl restEndpoint = new RestEndpointImpl();
+        RestCatcherImpl restEndpoint = new RestCatcherImpl();
 
         assertThat(restEndpoint.isJsonArray(new ByteArrayInputStream(RandomStringUtils.randomAlphabetic(120).getBytes())), is(false));
     }

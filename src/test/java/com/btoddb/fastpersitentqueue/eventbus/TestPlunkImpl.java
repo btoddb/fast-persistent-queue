@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue;
+package com.btoddb.fastpersitentqueue.eventbus;
 
 /*
  * #%L
@@ -26,22 +26,49 @@ package com.btoddb.fastpersitentqueue;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.config.Config;
+
 import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 
 
 /**
- *
  */
-public interface FpqBatchCallback {
+public class TestPlunkImpl implements FpqPlunk {
+    private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
 
-    /**
-     * Called when {@link com.btoddb.fastpersitentqueue.FpqBatchReader} has data.
-     * This call occurs within a transaction, so make the processing as fast as possible.
-     * Any exception thrown will be caught by {@link com.btoddb.fastpersitentqueue.FpqBatchReader} and cause the
-     * transaction to rollback.
-     *
-     * @param events Collection of entries from queue
-     */
-    void available(Collection<FpqEntry> events) throws Exception;
+    @Override
+    public boolean handle(Collection<FpqEvent> events) throws Exception {
+        eventList.addAll(events);
+        return true;
+    }
 
+    @Override
+    public void init(Config config) {
+        eventList.clear();
+    }
+
+    @Override
+    public void shutdown() {
+
+    }
+
+    public List<FpqEvent> getEventList() {
+        return eventList;
+    }
+
+    public List<FpqEvent> waitForEvents(int minNumEvents, long maxWaitInMillis) {
+        long endTime = System.currentTimeMillis()+maxWaitInMillis;
+        while(eventList.size() < minNumEvents && System.currentTimeMillis() <= endTime) {
+            try {
+                Thread.sleep(200);
+            }
+            catch (InterruptedException e) {
+                // do nothing
+                Thread.interrupted();
+            }
+        }
+        return eventList;
+    }
 }

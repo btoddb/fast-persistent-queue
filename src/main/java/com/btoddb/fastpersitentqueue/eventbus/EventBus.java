@@ -27,21 +27,35 @@ package com.btoddb.fastpersitentqueue.eventbus;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.FpqBatchCallback;
+import com.btoddb.fastpersitentqueue.FpqBatchReader;
+import com.btoddb.fastpersitentqueue.FpqEntry;
 import com.btoddb.fastpersitentqueue.Utils;
 import com.btoddb.fastpersitentqueue.config.Config;
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 
 /**
  *
  */
-public class EventBus {
+public class EventBus implements FpqBatchCallback {
     private static final Logger logger = LoggerFactory.getLogger(EventBus.class);
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private Fpq fpq;
-    private RestEndpointImpl endpoint;
+    private FpqBatchReader batchReader;
+
+    private FpqCatcher endpoint;
+    private FpqPlunk plunk;
 
     public void init(Config config) throws FpqException {
         fpq = new Fpq();
@@ -52,11 +66,81 @@ public class EventBus {
             Utils.logAndThrow(logger, "exception while initializing FPQ - cannot continue", e);
         }
 
-        endpoint = new RestEndpointImpl();
-        endpoint.init(fpq, config);
+        configurePlunks(config);
+        configureEndpoints(config);
+
+        batchReader = new FpqBatchReader();
+        batchReader.setFpq(fpq);
+        batchReader.setCallback(this);
+        batchReader.init();
+    }
+
+    private void configurePlunks(Config config) {
+        // TODO:BTB - make this handle a list of plunks
+        String configStr = config.getOther("bus.plunks");
+        try {
+            Class<FpqPlunk> clazz = (Class<FpqPlunk>) Class.forName(configStr);
+            plunk = clazz.newInstance();
+            plunk.init(config);
+        }
+        catch (ClassNotFoundException e) {
+            logger.error("could not find plunk, {}", configStr);
+        }
+        catch (Exception e) {
+            logger.error("exception while instantiating plunk, {}", configStr);
+        }
+    }
+
+    private void configureEndpoints(Config config) {
+        // TODO:BTB - make this handle a list of endpoints
+        String configStr = config.getOther("bus.endpoints");
+        try {
+            Class<FpqCatcher> clazz = (Class<FpqCatcher>) Class.forName(configStr);
+            endpoint = clazz.newInstance();
+            endpoint.init(fpq, config);
+        }
+        catch (ClassNotFoundException e) {
+            logger.error("could not find endpoint, {}", configStr);
+        }
+        catch (Exception e) {
+            logger.error("exception while instantiating endpoint, {}", configStr);
+        }
+
+
+    }
+
+    public void start() {
+        // see this.available()
+        batchReader.start();
+    }
+
+    @Override
+    public void available(Collection<FpqEntry> entries) throws Exception {
+        List<FpqEvent> eventList = new ArrayList<FpqEvent>(entries.size());
+        for (FpqEntry entry : entries) {
+            FpqEvent event = objectMapper.readValue(entry.getData(), FpqEvent.class);
+            eventList.add(event);
+        }
+
+        plunk.handle(eventList);
+    }
+
+    public Collection<FpqPlunk> getPlunks() {
+        return Collections.singleton(plunk);
+    }
+
+    public Collection<FpqCatcher> getEndpoints() {
+        return Collections.singleton(endpoint);
     }
 
     public void shutdown() {
+        try {
+            endpoint.shutdown();
+        }
+        catch (Exception e) {
+            logger.error("exception while shutting down FPQ endpoints", e);
+        }
+
         try {
             fpq.shutdown();
         }
@@ -65,10 +149,17 @@ public class EventBus {
         }
 
         try {
-            endpoint.shutdown();
+            plunk.shutdown();
         }
         catch (Exception e) {
-            logger.error("exception while shutting down FPQ", e);
+            logger.error("exception while shutting down FPQ plunks", e);
+        }
+
+        try {
+            batchReader.shutdown();
+        }
+        catch (Exception e) {
+            logger.error("exception while shutting down FPQ batch reader", e);
         }
     }
 }
