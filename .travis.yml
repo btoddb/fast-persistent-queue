@@ -1,6 +1,6 @@
 language: java
 
-script: mvn license:check-file-header verify
+script: mvn clean license:check-file-header verify
 jdk:
  - oraclejdk7
 
