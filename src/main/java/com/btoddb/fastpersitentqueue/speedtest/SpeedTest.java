@@ -27,7 +27,6 @@ package com.btoddb.fastpersitentqueue.speedtest;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.config.Config;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -54,18 +53,19 @@ public class SpeedTest {
             System.exit(1);
         }
 
-        Config config = Config.create(args[0]);
+        SpeedTestConfig config = SpeedTestConfig.create(args[0]);
 
         System.out.println(config.toString());
 
         File theDir = new File(config.getDirectory(), "speed-"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        Fpq queue = null;
+        Fpq queue = config.getFpq();
+        queue.setJournalDirectory(new File(theDir, "journals"));
+        queue.setPagingDirectory(new File(theDir, "pages"));
 
         try {
-            queue = new Fpq();
-            queue.init(config);
+            queue.init();
 
             //
             // start workers

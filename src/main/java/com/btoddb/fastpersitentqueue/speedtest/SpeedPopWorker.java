@@ -28,7 +28,6 @@ package com.btoddb.fastpersitentqueue.speedtest;
 
 import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.FpqEntry;
-import com.btoddb.fastpersitentqueue.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,13 +43,13 @@ public class SpeedPopWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPopWorker.class);
 
     private final Fpq fpq;
-    private final Config config;
+    private final SpeedTestConfig config;
     private final AtomicLong sum;
 
     int numberOfEntries = 0;
     private boolean stopWhenQueueEmpty = false;
 
-    public SpeedPopWorker(Fpq fpq, Config config, AtomicLong sum) {
+    public SpeedPopWorker(Fpq fpq, SpeedTestConfig config, AtomicLong sum) {
         this.fpq = fpq;
         this.config = config;
         this.sum = sum;

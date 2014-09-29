@@ -73,18 +73,18 @@ public class Fpq {
     private volatile boolean shuttingDown;
     private long waitBeforeKillOnShutdown = 10000;
 
-    public void init(Config config) throws IOException {
-        setMaxMemorySegmentSizeInBytes(config.getMaxMemorySegmentSizeInBytes());
-        setMaxTransactionSize(config.getMaxTransactionSize());
-        setJournalDirectory(new File(config.getDirectory(), "journal"));
-        setPagingDirectory(new File(config.getDirectory(), "paging"));
-        setNumberOfFlushWorkers(config.getNumberOfFlushWorkers());
-        setFlushPeriodInMs(config.getFlushPeriodInMs());
-        setMaxJournalFileSize(config.getMaxJournalFileSize());
-        setMaxJournalDurationInMs(config.getJournalMaxDurationInMs());
-
-        init();
-    }
+//    public void init(Config config) throws IOException {
+//        setMaxMemorySegmentSizeInBytes(config.getMaxMemorySegmentSizeInBytes());
+//        setMaxTransactionSize(config.getMaxTransactionSize());
+//        setJournalDirectory(new File(config.getDirectory(), "journal"));
+//        setPagingDirectory(new File(config.getDirectory(), "paging"));
+//        setNumberOfFlushWorkers(config.getNumberOfFlushWorkers());
+//        setFlushPeriodInMs(config.getFlushPeriodInMs());
+//        setMaxJournalFileSize(config.getMaxJournalFileSize());
+//        setMaxJournalDurationInMs(config.getMaxJournalDurationInMs());
+//
+//        init();
+//    }
 
     public void init() throws IOException {
         initializing = true;

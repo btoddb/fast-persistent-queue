@@ -1,0 +1,17 @@
+durationOfTest: 10
+numberOfPushers: 4
+numberOfPoppers: 4
+entrySize: 2000
+pushBatchSize: 2000
+popBatchSize: 2000
+directory: speedtest
+
+fpq: !!com.btoddb.fastpersitentqueue.Fpq
+  maxTransactionSize: 2000
+  maxMemorySegmentSizeInBytes: 10000000
+  maxJournalFileSize: 10000000
+  maxJournalDurationInMs: 30000
+  flushPeriodInMs: 1000
+  numberOfFlushWorkers: 4
+  journalDirectory: speedtest/journals
+  pagingDirectory: speedtest/pages

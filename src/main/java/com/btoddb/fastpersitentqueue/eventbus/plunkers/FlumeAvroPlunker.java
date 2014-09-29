@@ -26,6 +26,8 @@ package com.btoddb.fastpersitentqueue.eventbus.plunkers;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.config.Config;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
 import org.apache.flume.Event;
@@ -42,7 +44,10 @@ import java.util.List;
 public class FlumeAvroPlunker implements FpqPlunker {
     private AvroClientFactoryImpl clientFactory;
 
+    private Config config;
+
     private String id;
+    private Fpq fpq;
 
     /**
      * Happens inside a transaction.
@@ -76,7 +81,17 @@ public class FlumeAvroPlunker implements FpqPlunker {
     }
 
     @Override
-    public void init() {
+    public Fpq getFpq() {
+        return fpq;
+    }
+
+    public void setFpq(Fpq fpq) {
+        this.fpq = fpq;
+    }
+
+    @Override
+    public void init(Config config) {
+        this.config = config;
         clientFactory = new AvroClientFactoryImpl(new String[] {("localhost:4141")}, 1, 100, false, 120);
     }
 

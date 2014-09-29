@@ -26,82 +26,70 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.FpqBatchCallback;
-import com.btoddb.fastpersitentqueue.FpqBatchReader;
-import com.btoddb.fastpersitentqueue.FpqEntry;
 import com.btoddb.fastpersitentqueue.Utils;
 import com.btoddb.fastpersitentqueue.config.Config;
+import com.btoddb.fastpersitentqueue.eventbus.routers.FpqRouter;
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 
 /**
  *
  */
-public class EventBus implements FpqBatchCallback {
+public class EventBus {
     private static final Logger logger = LoggerFactory.getLogger(EventBus.class);
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private Fpq fpq;
-    private FpqBatchReader batchReader;
+//    private Fpq fpq;
     private Config config;
 
     public void init(Config config) throws FpqException {
         this.config = config;
-        fpq = new Fpq();
-        try {
-            fpq.init(config);
-        }
-        catch (Exception e) {
-            Utils.logAndThrow(logger, "exception while initializing FPQ - cannot continue", e);
-        }
 
         configurePlunkers(config);
         configureCatchers(config);
-
-        batchReader = new FpqBatchReader();
-        batchReader.setFpq(fpq);
-        batchReader.setCallback(this);
-        batchReader.init();
-    }
-
-    private void configurePlunkers(Config config) {
-        for (FpqPlunker plunker : config.getPlunkers()) {
-            plunker.init();
-        }
-
+        configureRouters(config);
     }
 
     private void configureCatchers(Config config) {
         for (FpqCatcher catcher : config.getCatchers()) {
-            catcher.init(fpq);
+            catcher.init(config, this);
         }
     }
 
-    public void start() {
-        // see this.available()
-        batchReader.start();
+    private void configurePlunkers(Config config) {
+        for (Map.Entry<String, FpqPlunker> entry : config.getPlunkers().entrySet()) {
+            FpqPlunker plunker = entry.getValue();
+            if (null == plunker.getId()) {
+                plunker.setId(entry.getKey());
+            }
+            plunker.init(config);
+        }
     }
 
-    @Override
-    public void available(Collection<FpqEntry> entries) throws Exception {
-        List<FpqEvent> eventList = new ArrayList<FpqEvent>(entries.size());
-        for (FpqEntry entry : entries) {
-            FpqEvent event = objectMapper.readValue(entry.getData(), FpqEvent.class);
-            eventList.add(event);
+    private void configureRouters(Config config) {
+        for (FpqRouter router : config.getRouters()) {
+            router.init(config);
+        }
+    }
+
+//    public void start() {
+//    }
+
+    public void handleCatcher(String catcherId, List<FpqEvent> eventList) {
+        try {
+            FpqRouter router = config.getRouters().iterator().next();
+            router.route(eventList);
+        }
+        catch (Exception e) {
+            Utils.logAndThrow(logger, String.format("exception while handle events from catcher, %s", catcherId), e);
         }
 
-        config.getPlunkers().iterator().next().handle(eventList);
     }
-
     public Config getConfig() {
         return config;
     }
@@ -116,27 +104,22 @@ public class EventBus implements FpqBatchCallback {
             }
         }
 
-        try {
-            fpq.shutdown();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down FPQ", e);
+        for (FpqRouter router : config.getRouters()) {
+            try {
+                router.shutdown();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down FPQ router, {}", router.getId());
+            }
         }
 
-        for (FpqPlunker plunker : config.getPlunkers()) {
+        for (FpqPlunker plunker : config.getPlunkers().values()) {
             try {
                 plunker.shutdown();
             }
             catch (Exception e) {
                 logger.error("exception while shutting down FPQ plunker, {}", plunker.getId(), e);
             }
-        }
-
-        try {
-            batchReader.shutdown();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down FPQ batch reader", e);
         }
     }
 }

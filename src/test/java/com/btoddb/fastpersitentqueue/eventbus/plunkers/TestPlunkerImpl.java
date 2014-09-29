@@ -26,9 +26,19 @@ package com.btoddb.fastpersitentqueue.eventbus.plunkers;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.FpqBatchCallback;
+import com.btoddb.fastpersitentqueue.FpqBatchReader;
+import com.btoddb.fastpersitentqueue.FpqEntry;
+import com.btoddb.fastpersitentqueue.Utils;
+import com.btoddb.fastpersitentqueue.config.Config;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,10 +46,14 @@ import java.util.List;
 
 /**
  */
-public class TestPlunkerImpl implements FpqPlunker {
-    private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
+public class TestPlunkerImpl implements FpqPlunker, FpqBatchCallback {
+    private static Logger logger = LoggerFactory.getLogger(TestPlunkerImpl.class);
 
+    private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
+    private Config config;
     private String id;
+    private Fpq fpq;
+    private FpqBatchReader batchReader;
 
     @Override
     public boolean handle(Collection<FpqEvent> events) throws Exception {
@@ -48,12 +62,50 @@ public class TestPlunkerImpl implements FpqPlunker {
     }
 
     @Override
-    public void init() {
-        eventList.clear();
+    public void init(Config config) {
+        this.config = config;
+        try {
+            fpq.init();
+        }
+        catch (Exception e) {
+            Utils.logAndThrow(logger, "exception while initializing FPQ - cannot continue", e);
+        }
+
+        batchReader = new FpqBatchReader();
+        batchReader.setFpq(fpq);
+        batchReader.setCallback(this);
+        batchReader.init();
+        // see this.available()
+        batchReader.start();
+
+    }
+
+    @Override
+    public void available(Collection<FpqEntry> entries) throws Exception {
+        List<FpqEvent> eventList = new ArrayList<FpqEvent>(entries.size());
+        for (FpqEntry entry : entries) {
+            FpqEvent event = config.getObjectMapper().readValue(entry.getData(), FpqEvent.class);
+            eventList.add(event);
+        }
+
+        handle(eventList);
     }
 
     @Override
     public void shutdown() {
+        try {
+            batchReader.shutdown();
+        }
+        catch (Exception e) {
+            logger.error("exception while shutting down FPQ batch reader", e);
+        }
+
+        try {
+            fpq.shutdown();
+        }
+        catch (Exception e) {
+            logger.error("exception while shutting down FPQ", e);
+        }
 
     }
 
@@ -81,5 +133,13 @@ public class TestPlunkerImpl implements FpqPlunker {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public Fpq getFpq() {
+        return fpq;
+    }
+
+    public void setFpq(Fpq fpq) {
+        this.fpq = fpq;
     }
 }

@@ -1,0 +1,25 @@
+
+catchers:
+  - !!com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl
+    id: test-rest
+    bind: 0.0.0.0
+    port: 8083
+
+routers:
+  - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
+    id: rest-to-test
+    catcher: test-rest
+    plunker: test-plunker
+
+# Plunkers are associated with a single FPQ
+plunkers:
+  test-plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.TestPlunkerImpl
+      fpq: !!com.btoddb.fastpersitentqueue.Fpq
+        maxTransactionSize: 2000
+        maxMemorySegmentSizeInBytes: 10000000
+        maxJournalFileSize: 10000000
+        maxJournalDurationInMs: 30000
+        flushPeriodInMs: 1000
+        numberOfFlushWorkers: 4
+        journalDirectory: will_be_overriden_by_junit
+        pagingDirectory: will_be_overriden_by_junit

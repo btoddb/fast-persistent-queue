@@ -27,7 +27,6 @@ package com.btoddb.fastpersitentqueue.speedtest;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,14 +40,14 @@ import java.util.concurrent.atomic.AtomicLong;
 public class SpeedPushWorker implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(SpeedPushWorker.class);
 
-    private final Config config;
+    private final SpeedTestConfig config;
     private final Fpq fpq;
     private final AtomicLong counter;
     private final AtomicLong pushSum;
 
     int numberOfEntries = 0;
 
-    public SpeedPushWorker(Fpq fpq, Config config, AtomicLong counter, AtomicLong pushSum) {
+    public SpeedPushWorker(Fpq fpq, SpeedTestConfig config, AtomicLong counter, AtomicLong pushSum) {
         this.fpq = fpq;
         this.config = config;
         this.counter = counter;

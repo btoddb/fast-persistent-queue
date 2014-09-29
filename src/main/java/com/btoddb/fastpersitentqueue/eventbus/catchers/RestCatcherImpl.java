@@ -26,12 +26,12 @@ package com.btoddb.fastpersitentqueue.eventbus.catchers;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.Utils;
+import com.btoddb.fastpersitentqueue.config.Config;
+import com.btoddb.fastpersitentqueue.eventbus.EventBus;
 import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.jetty.jmx.MBeanContainer;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Request;
@@ -62,19 +62,20 @@ import java.util.concurrent.ArrayBlockingQueue;
 public class RestCatcherImpl implements FpqCatcher {
     private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
 
+    private Server server;
+    private Config config;
+    private EventBus bus;
+
     private String id;
     private int port = 8083;
     private String bind = "0.0.0.0";
     private int maxBatchSize = 100;
-    private Fpq fpq;
 
-    Server server;
-    ObjectMapper objectMapper;
 
     @Override
-    public void init(Fpq fpq) {
-        this.fpq = fpq;
-        objectMapper = new ObjectMapper();
+    public void init(Config config, EventBus bus) {
+        this.config = config;
+        this.bus = bus;
 
         startJettyServer();
     }
@@ -171,12 +172,14 @@ public class RestCatcherImpl implements FpqCatcher {
 
             // check for list of events, or single event
             if (!isJsonArray(reqInStream)) {
-                FpqEvent event = objectMapper.readValue(reqInStream, new TypeReference<FpqEvent>() {});
+                FpqEvent event = config.getObjectMapper().readValue(reqInStream, new TypeReference<FpqEvent>() {
+                });
                 eventList = Collections.singletonList(event);
             }
             else {
                 try {
-                    eventList = objectMapper.readValue(reqInStream, new TypeReference<List<FpqEvent>>() {});
+                    eventList = config.getObjectMapper().readValue(reqInStream, new TypeReference<List<FpqEvent>>() {
+                    });
                 }
                 catch (Exception e) {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -194,21 +197,12 @@ public class RestCatcherImpl implements FpqCatcher {
             }
 
             try {
-                fpq.beginTransaction();
-                for (FpqEvent event : eventList) {
-                    fpq.push(objectMapper.writeValueAsBytes(event));
-                }
-                fpq.commit();
+                bus.handleCatcher(id, eventList);
             }
             catch (Exception e) {
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 response.getWriter().print(e.getMessage());
                 return;
-            }
-            finally {
-                if (fpq.isTransactionActive()) {
-                    fpq.rollback();
-                }
             }
 
             baseRequest.setHandled(true);
@@ -245,19 +239,6 @@ public class RestCatcherImpl implements FpqCatcher {
     @SuppressWarnings("unused")
     public void setMaxBatchSize(int maxBatchSize) {
         this.maxBatchSize = maxBatchSize;
-    }
-
-
-    @Override
-    @SuppressWarnings("unused")
-    public Fpq getFpq() {
-        return fpq;
-    }
-
-    @Override
-    @SuppressWarnings("unused")
-    public void setFpq(Fpq fpq) {
-        this.fpq = fpq;
     }
 
     @Override

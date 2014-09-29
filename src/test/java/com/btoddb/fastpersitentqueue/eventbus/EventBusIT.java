@@ -55,18 +55,19 @@ import static org.hamcrest.Matchers.is;
 public class EventBusIT {
     File theDir;
     EventBus bus;
+    Config config;
 
     @Before
     public void setup() throws Exception {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        Config config = Config.create("conf/config.yaml");
-        config.setDirectory(theDir.getAbsolutePath());
+        config = Config.create("conf/event-bus.yaml");
+        config.getPlunkers().get("test-plunker").getFpq().setJournalDirectory(new File(theDir, "journals"));
+        config.getPlunkers().get("test-plunker").getFpq().setPagingDirectory(new File(theDir, "pages"));
 
         bus = new EventBus();
         bus.init(config);
-        bus.start();
     }
 
     @After
@@ -77,7 +78,6 @@ public class EventBusIT {
         finally {
             FileUtils.deleteDirectory(theDir);
         }
-
     }
 
     @Test
@@ -126,7 +126,7 @@ public class EventBusIT {
     // ----------
 
     private List<FpqEvent> retrieveFpqBusEvents(int numEvents) {
-        return ((TestPlunkerImpl) bus.getConfig().getPlunkers().iterator().next()).waitForEvents(numEvents, 5000);
+        return ((TestPlunkerImpl) bus.getConfig().getPlunkers().values().iterator().next()).waitForEvents(numEvents, 5000);
     }
 
 }

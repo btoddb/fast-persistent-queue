@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.config;
+package com.btoddb.fastpersitentqueue.speedtest;
 
 /*
  * #%L
@@ -26,6 +26,7 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
 import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
 import com.btoddb.fastpersitentqueue.eventbus.routers.FpqRouter;
@@ -48,24 +49,28 @@ import java.util.Map;
 /**
  *
  */
-public class Config {
-    private static Logger logger = LoggerFactory.getLogger(Config.class);
+public class SpeedTestConfig {
+    private static Logger logger = LoggerFactory.getLogger(SpeedTestConfig.class);
 
     String configFilename;
 
-    ObjectMapper objectMapper = new ObjectMapper();
+    int durationOfTest = 20; // seconds
+    int numberOfPushers = 4;
+    int numberOfPoppers = 4;
+    int entrySize = 1000;
+    int maxTransactionSize = 2000;
+    int pushBatchSize = 1;
+    int popBatchSize = 2000;
+    String directory;
+    Fpq fpq;
 
-    Collection<FpqCatcher> catchers = new HashSet<>();
-    Map<String, FpqPlunker> plunkers = new HashMap<>();
-    Collection<FpqRouter> routers = new HashSet<>();
 
-
-    public static Config create(String configFilename) throws FileNotFoundException {
-        Yaml yaml = new Yaml(new Constructor(Config.class));
-        Config config;
+    public static SpeedTestConfig create(String configFilename) throws FileNotFoundException {
+        Yaml yaml = new Yaml(new Constructor(SpeedTestConfig.class));
+        SpeedTestConfig config;
         FileInputStream inStream = new FileInputStream(configFilename);
         try {
-            config = (Config) yaml.load(inStream);
+            config = (SpeedTestConfig) yaml.load(inStream);
             config.configFilename = configFilename;
         }
         finally {
@@ -84,39 +89,79 @@ public class Config {
         return configFilename;
     }
 
-    public Collection<FpqRouter> getRouters() {
-        return routers;
+    public int getDurationOfTest() {
+        return durationOfTest;
     }
 
-    public void setRouters(Collection<FpqRouter> routers) {
-        this.routers = routers;
+    public void setDurationOfTest(int durationOfTest) {
+        this.durationOfTest = durationOfTest;
     }
 
-    public Collection<FpqCatcher> getCatchers() {
-        return catchers;
+    public int getNumberOfPushers() {
+        return numberOfPushers;
     }
 
-    public void setCatchers(Collection<FpqCatcher> catchers) {
-        this.catchers = catchers;
+    public void setNumberOfPushers(int numberOfPushers) {
+        this.numberOfPushers = numberOfPushers;
     }
 
-    public Map<String, FpqPlunker> getPlunkers() {
-        return plunkers;
+    public int getNumberOfPoppers() {
+        return numberOfPoppers;
     }
 
-    public void setPlunkers(Map<String, FpqPlunker> plunkerMap) {
-        this.plunkers = plunkerMap;
+    public void setNumberOfPoppers(int numberOfPoppers) {
+        this.numberOfPoppers = numberOfPoppers;
     }
 
-    public ObjectMapper getObjectMapper() {
-        return objectMapper;
+    public int getEntrySize() {
+        return entrySize;
     }
 
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public void setEntrySize(int entrySize) {
+        this.entrySize = entrySize;
+    }
+
+    public int getMaxTransactionSize() {
+        return maxTransactionSize;
+    }
+
+    public void setMaxTransactionSize(int maxTransactionSize) {
+        this.maxTransactionSize = maxTransactionSize;
+    }
+
+    public int getPushBatchSize() {
+        return pushBatchSize;
+    }
+
+    public void setPushBatchSize(int pushBatchSize) {
+        this.pushBatchSize = pushBatchSize;
+    }
+
+    public int getPopBatchSize() {
+        return popBatchSize;
+    }
+
+    public void setPopBatchSize(int popBatchSize) {
+        this.popBatchSize = popBatchSize;
     }
 
     public String toString() {
         return ToStringBuilder.reflectionToString(this);
+    }
+
+    public String getDirectory() {
+        return directory;
+    }
+
+    public void setDirectory(String directory) {
+        this.directory = directory;
+    }
+
+    public Fpq getFpq() {
+        return fpq;
+    }
+
+    public void setFpq(Fpq fpq) {
+        this.fpq = fpq;
     }
 }

@@ -26,6 +26,9 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.config.Config;
+
 import java.util.Collection;
 
 
@@ -38,7 +41,9 @@ public interface FpqPlunker {
     String getId();
     void setId(String id);
 
-    void init();
+    Fpq getFpq();
+
+    void init(Config config);
 
     void shutdown();
 }

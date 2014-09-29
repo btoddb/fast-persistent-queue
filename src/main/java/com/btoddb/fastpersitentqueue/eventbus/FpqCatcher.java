@@ -27,22 +27,17 @@ package com.btoddb.fastpersitentqueue.eventbus;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
+import com.btoddb.fastpersitentqueue.config.Config;
 
 
 /**
  *
  */
 public interface FpqCatcher {
-    void init(Fpq fpq);
+    void init(Config config, EventBus bus);
 
     void shutdown() throws Exception;
 
     String getId();
     void setId(String id);
-
-    @SuppressWarnings("unused")
-    Fpq getFpq();
-
-    @SuppressWarnings("unused")
-    void setFpq(Fpq fpq);
 }
