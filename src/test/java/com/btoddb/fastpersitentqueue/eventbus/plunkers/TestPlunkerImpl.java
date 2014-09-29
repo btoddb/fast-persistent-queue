@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus;
+package com.btoddb.fastpersitentqueue.eventbus.plunkers;
 
 /*
  * #%L
@@ -25,6 +25,9 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * THE SOFTWARE.
  * #L%
  */
+
+import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
+import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
 
 import java.util.Collection;
 import java.util.LinkedList;

@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus;
+package com.btoddb.fastpersitentqueue.eventbus.catchers;
 
 /*
  * #%L
@@ -28,6 +28,8 @@ package com.btoddb.fastpersitentqueue.eventbus;
 
 import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.Utils;
+import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
+import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.jetty.jmx.MBeanContainer;

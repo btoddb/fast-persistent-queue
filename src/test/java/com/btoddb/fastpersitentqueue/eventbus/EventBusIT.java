@@ -27,7 +27,7 @@ package com.btoddb.fastpersitentqueue.eventbus;
  */
 
 import com.btoddb.fastpersitentqueue.config.Config;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.btoddb.fastpersitentqueue.eventbus.plunkers.TestPlunkerImpl;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Before;

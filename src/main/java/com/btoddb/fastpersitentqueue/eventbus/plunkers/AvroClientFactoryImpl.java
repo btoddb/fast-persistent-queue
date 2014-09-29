@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus;
+package com.btoddb.fastpersitentqueue.eventbus.plunkers;
 
 /*
  * #%L

@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus;
+package com.btoddb.fastpersitentqueue.eventbus.catchers;
 
 /*
  * #%L
@@ -26,6 +26,7 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl;
 import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Test;
 
@@ -35,7 +36,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.*;
 
 
-public class RestEndpointImplTest {
+public class RestCatcherImplTest {
 
     @Test
     public void testIsJsonArrayWithWhitespace() {

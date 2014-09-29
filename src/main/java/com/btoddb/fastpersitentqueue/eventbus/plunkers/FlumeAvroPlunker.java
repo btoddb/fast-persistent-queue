@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus;
+package com.btoddb.fastpersitentqueue.eventbus.plunkers;
 
 /*
  * #%L
@@ -26,6 +26,8 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
+import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
 import org.apache.flume.Event;
 import org.apache.flume.event.EventBuilder;
 

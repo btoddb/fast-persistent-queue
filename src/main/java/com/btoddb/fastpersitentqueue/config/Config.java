@@ -49,7 +49,7 @@ import java.util.Map;
 public class Config {
     private static Logger logger = LoggerFactory.getLogger(Config.class);
 
-//    String configFilename;
+    String configFilename;
 
     int durationOfTest = 20; // seconds
     int numberOfPushers = 4;
@@ -75,6 +75,7 @@ public class Config {
         FileInputStream inStream = new FileInputStream(configFilename);
         try {
             config = (Config) yaml.load(inStream);
+            config.configFilename = configFilename;
         }
         finally {
             try {
@@ -88,44 +89,9 @@ public class Config {
         return config;
     }
 
-//    public Config(String configFilename) throws IOException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-//        this.configFilename = configFilename;
-//
-//        System.out.println("reading config from : " + configFilename);
-//        FileReader reader = new FileReader(configFilename);
-//        try {
-//            Properties props = new Properties();
-//            props.load(reader);
-//
-//            for ( Map.Entry<Object, Object> entry : props.entrySet()) {
-//                String name = (String) entry.getKey();
-//                String value = (String) entry.getValue();
-//
-//                PropertyUtilsBean pub = new PropertyUtilsBean();
-//                PropertyDescriptor propDesc;
-//                try {
-//                    propDesc = pub.getPropertyDescriptor(this, name);
-//                }
-//                catch (Exception e) {
-//                    others.put(name, value);
-//                    continue;
-//                }
-//
-//                if (propDesc.getPropertyType() == int.class) {
-//                    propDesc.getWriteMethod().invoke(this, Integer.valueOf(value));
-//                }
-//                else if(propDesc.getPropertyType() == long.class) {
-//                    propDesc.getWriteMethod().invoke(this, Long.valueOf(value));
-//                }
-//                else {
-//                    pub.setProperty(this, name, value);
-//                }
-//            }
-//        }
-//        finally {
-//            reader.close();
-//        }
-//    }
+    public String getConfigFilename() {
+        return configFilename;
+    }
 
     public int getDurationOfTest() {
         return durationOfTest;
