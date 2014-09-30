@@ -28,6 +28,8 @@ package com.btoddb.fastpersitentqueue.eventbus;
 
 import com.btoddb.fastpersitentqueue.Utils;
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,16 +100,25 @@ public class EventBus {
      * @param eventList list of {@link com.btoddb.fastpersitentqueue.eventbus.FpqEvent}s
      */
     public void handleCatcher(String catcherId, List<FpqEvent> eventList) {
-        try {
-            FpqRouter router = config.getRouters().iterator().next();
+        Multimap<PlunkerRunner, FpqEvent> routingMap = LinkedListMultimap.create();
 
-            PlunkerRunner runner = router.canRoute(catcherId, null);
-            if (null != runner) {
-                runner.run(eventList);
+        // divide events by route
+        for (FpqEvent event : eventList) {
+            for (FpqRouter router : config.getRouters()) {
+                PlunkerRunner runner;
+                if (null != (runner=router.canRoute(catcherId, event))) {
+                    routingMap.put(runner, event);
+                }
             }
         }
-        catch (Exception e) {
-            Utils.logAndThrow(logger, String.format("exception while handle events from catcher, %s", catcherId), e);
+
+        for (PlunkerRunner runner : routingMap.keySet()) {
+            try {
+                runner.run(routingMap.get(runner));
+            }
+            catch (Exception e) {
+                Utils.logAndThrow(logger, String.format("exception while handle events from catcher, %s", catcherId), e);
+            }
         }
     }
 

@@ -62,8 +62,10 @@ public class EventBusIT {
         FileUtils.forceMkdir(theDir);
 
         config = Config.create("conf/event-bus.yaml");
-        config.getPlunkers().get("test-plunker").getFpq().setJournalDirectory(new File(theDir, "journals"));
-        config.getPlunkers().get("test-plunker").getFpq().setPagingDirectory(new File(theDir, "pages"));
+        for (PlunkerRunner runner : config.getPlunkers().values()) {
+            runner.getFpq().setJournalDirectory(new File(theDir, runner.getPlunker().getId()+"/journals"));
+            runner.getFpq().setPagingDirectory(new File(theDir, runner.getPlunker().getId()+"/pages"));
+        }
 
         bus = new EventBus();
         bus.init(config);
@@ -103,7 +105,7 @@ public class EventBusIT {
     @Test
     public void testPutEventList() throws Exception {
         int numEvents = 5;
-        List<FpqEvent> eventList = new ArrayList<FpqEvent>(numEvents);
+        List<FpqEvent> eventList = new ArrayList<>(numEvents);
         for (int i=0;i < numEvents;i++) {
             eventList.add(new FpqEvent(Collections.singletonMap("msgId", String.valueOf(i)), String.valueOf(i)));
         }

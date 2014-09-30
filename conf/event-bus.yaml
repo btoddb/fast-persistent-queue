@@ -10,6 +10,10 @@ routers:
     id: rest-to-test
     catcher: test-rest
     plunker: test-plunker
+  - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
+    id: rest-to-garbage
+    catcher: test-rest
+    plunker: garbage-plunker
 
 # Plunkers are associated with a single FPQ
 plunkers:
@@ -19,6 +23,19 @@ plunkers:
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000000
+      maxJournalFileSize: 10000000
+      maxJournalDurationInMs: 30000
+      flushPeriodInMs: 1000
+      numberOfFlushWorkers: 4
+      journalDirectory: will_be_overriden_by_junit
+      pagingDirectory: will_be_overriden_by_junit
+
+  null-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.GarbagePlunkerImpl
+      id: garbage-plunker
+    fpq:
+      maxTransactionSize: 2000
+      maxMemorySegmentSizeInBytes: 10000
       maxJournalFileSize: 10000000
       maxJournalDurationInMs: 30000
       flushPeriodInMs: 1000
