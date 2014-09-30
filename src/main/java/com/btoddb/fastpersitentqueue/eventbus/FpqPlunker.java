@@ -27,7 +27,6 @@ package com.btoddb.fastpersitentqueue.eventbus;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.config.Config;
 
 import java.util.Collection;
 
@@ -35,15 +34,6 @@ import java.util.Collection;
 /**
  *
  */
-public interface FpqPlunker {
+public interface FpqPlunker extends EventBusComponent {
     boolean handle(Collection<FpqEvent> events) throws Exception;
-
-    String getId();
-    void setId(String id);
-
-    Fpq getFpq();
-
-    void init(Config config);
-
-    void shutdown();
 }

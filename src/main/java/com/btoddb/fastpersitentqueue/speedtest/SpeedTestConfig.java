@@ -27,10 +27,6 @@ package com.btoddb.fastpersitentqueue.speedtest;
  */
 
 import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
-import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
-import com.btoddb.fastpersitentqueue.eventbus.routers.FpqRouter;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,10 +36,6 @@ import org.yaml.snakeyaml.constructor.Constructor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 
 
 /**

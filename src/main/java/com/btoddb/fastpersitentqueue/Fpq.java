@@ -26,7 +26,6 @@ package com.btoddb.fastpersitentqueue;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.config.Config;
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

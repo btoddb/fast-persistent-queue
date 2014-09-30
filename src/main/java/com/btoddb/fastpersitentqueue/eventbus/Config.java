@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.config;
+package com.btoddb.fastpersitentqueue.eventbus;
 
 /*
  * #%L
@@ -26,9 +26,6 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
-import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
-import com.btoddb.fastpersitentqueue.eventbus.routers.FpqRouter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
@@ -56,7 +53,7 @@ public class Config {
     ObjectMapper objectMapper = new ObjectMapper();
 
     Collection<FpqCatcher> catchers = new HashSet<>();
-    Map<String, FpqPlunker> plunkers = new HashMap<>();
+    Map<String, PlunkerRunner> plunkers = new HashMap<>();
     Collection<FpqRouter> routers = new HashSet<>();
 
 
@@ -100,11 +97,11 @@ public class Config {
         this.catchers = catchers;
     }
 
-    public Map<String, FpqPlunker> getPlunkers() {
+    public Map<String, PlunkerRunner> getPlunkers() {
         return plunkers;
     }
 
-    public void setPlunkers(Map<String, FpqPlunker> plunkerMap) {
+    public void setPlunkers(Map<String, PlunkerRunner> plunkerMap) {
         this.plunkers = plunkerMap;
     }
 

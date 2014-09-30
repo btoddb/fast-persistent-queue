@@ -27,8 +27,9 @@ package com.btoddb.fastpersitentqueue.eventbus.catchers;
  */
 
 import com.btoddb.fastpersitentqueue.Utils;
-import com.btoddb.fastpersitentqueue.config.Config;
+import com.btoddb.fastpersitentqueue.eventbus.Config;
 import com.btoddb.fastpersitentqueue.eventbus.EventBus;
+import com.btoddb.fastpersitentqueue.eventbus.EventBusComponentBaseImpl;
 import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -59,14 +60,12 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
 
-public class RestCatcherImpl implements FpqCatcher {
+public class RestCatcherImpl extends EventBusComponentBaseImpl implements FpqCatcher {
     private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
 
     private Server server;
-    private Config config;
     private EventBus bus;
 
-    private String id;
     private int port = 8083;
     private String bind = "0.0.0.0";
     private int maxBatchSize = 100;
@@ -74,7 +73,8 @@ public class RestCatcherImpl implements FpqCatcher {
 
     @Override
     public void init(Config config, EventBus bus) {
-        this.config = config;
+        super.init(config);
+
         this.bus = bus;
 
         startJettyServer();
@@ -149,8 +149,13 @@ public class RestCatcherImpl implements FpqCatcher {
     }
 
     @Override
-    public void shutdown() throws Exception {
-        server.stop();
+    public void shutdown() {
+        try {
+            server.stop();
+        }
+        catch (Exception e) {
+            logger.error("exception while shutting down jetty server", e);
+        }
     }
 
     public class RequestHandler extends AbstractHandler {
@@ -241,13 +246,4 @@ public class RestCatcherImpl implements FpqCatcher {
         this.maxBatchSize = maxBatchSize;
     }
 
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public void setId(String id) {
-        this.id = id;
-    }
 }

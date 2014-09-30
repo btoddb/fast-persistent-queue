@@ -26,7 +26,6 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.config.Config;
 import com.btoddb.fastpersitentqueue.eventbus.plunkers.TestPlunkerImpl;
 import org.apache.commons.io.FileUtils;
 import org.junit.After;
@@ -126,7 +125,7 @@ public class EventBusIT {
     // ----------
 
     private List<FpqEvent> retrieveFpqBusEvents(int numEvents) {
-        return ((TestPlunkerImpl) bus.getConfig().getPlunkers().values().iterator().next()).waitForEvents(numEvents, 5000);
+        return ((TestPlunkerImpl) bus.getConfig().getPlunkers().values().iterator().next().getPlunker()).waitForEvents(numEvents, 5000);
     }
 
 }

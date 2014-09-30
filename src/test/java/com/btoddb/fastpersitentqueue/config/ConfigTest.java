@@ -26,6 +26,7 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.eventbus.Config;
 import org.junit.Test;
 
 import static org.hamcrest.Matchers.*;

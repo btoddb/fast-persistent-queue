@@ -1,69 +1,42 @@
 package com.btoddb.fastpersitentqueue.eventbus.routers;
 
-import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.Utils;
-import com.btoddb.fastpersitentqueue.config.Config;
+import com.btoddb.fastpersitentqueue.eventbus.EventBusComponentBaseImpl;
+import com.btoddb.fastpersitentqueue.eventbus.FpqRouter;
+import com.btoddb.fastpersitentqueue.eventbus.Config;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
+import com.btoddb.fastpersitentqueue.eventbus.PlunkerRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-
 
 /**
- *
+ * Routes all events received by the named {@link com.btoddb.fastpersitentqueue.eventbus.FpqCatcher} to the
+ * specified {@link com.btoddb.fastpersitentqueue.eventbus.FpqPlunker}.
  */
-public class OneToOneRouterImpl implements FpqRouter {
+public class OneToOneRouterImpl extends EventBusComponentBaseImpl implements FpqRouter {
     private static final Logger logger = LoggerFactory.getLogger(OneToOneRouterImpl.class);
-
-    private Config config;
 
     private String catcher;
     private String plunker;
 
     @Override
     public void init(Config config) {
-        this.config = config;
+        super.init(config);
     }
 
     @Override
     public void shutdown() {
-
+        // nothing to do yet
     }
 
     @Override
-    public void canRoute(String catcherName, FpqEvent event) {
-
-    }
-
-    @Override
-    public void route(Collection<FpqEvent> events) {
-        Fpq fpq = config.getPlunkers().get(plunker).getFpq();
-        fpq.beginTransaction();
-        try {
-            for (FpqEvent event : events) {
-                fpq.push(config.getObjectMapper().writeValueAsBytes(event));
-            }
-            fpq.commit();
+    public PlunkerRunner canRoute(String catcherId, FpqEvent event) {
+        if (catcher.equals(catcherId)) {
+            return config.getPlunkers().get(plunker);
         }
-        catch (Exception e) {
-            Utils.logAndThrow(logger, String.format("exception while routing events to plunker, %s", plunker), e);
+        else {
+            return null;
         }
-        finally {
-            if (fpq.isTransactionActive()) {
-                fpq.rollback();
-            }
-        }
-    }
-
-    @Override
-    public String getId() {
-        return null;
-    }
-
-    @Override
-    public void setId(String id) {
-
     }
 
     public String getCatcher() {

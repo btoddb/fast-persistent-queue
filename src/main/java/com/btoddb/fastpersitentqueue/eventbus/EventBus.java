@@ -27,12 +27,11 @@ package com.btoddb.fastpersitentqueue.eventbus;
  */
 
 import com.btoddb.fastpersitentqueue.Utils;
-import com.btoddb.fastpersitentqueue.config.Config;
-import com.btoddb.fastpersitentqueue.eventbus.routers.FpqRouter;
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -43,57 +42,79 @@ import java.util.Map;
 public class EventBus {
     private static final Logger logger = LoggerFactory.getLogger(EventBus.class);
 
-
-//    private Fpq fpq;
     private Config config;
 
+    /**
+     * Call this method to configure and initialize the bus.
+     *
+     * @param config initialized {@link Config} object
+     * @throws FpqException
+     */
     public void init(Config config) throws FpqException {
         this.config = config;
 
-        configurePlunkers(config);
-        configureCatchers(config);
-        configureRouters(config);
+        try {
+            configurePlunkers(config);
+            configureCatchers(config);
+            configureRouters(config);
+        }
+        catch (Exception e) {
+            Utils.logAndThrow(logger, "exception while configuring EventBus - cannot continue", e);
+        }
     }
 
+    // configure the catchers
     private void configureCatchers(Config config) {
         for (FpqCatcher catcher : config.getCatchers()) {
             catcher.init(config, this);
         }
     }
 
-    private void configurePlunkers(Config config) {
-        for (Map.Entry<String, FpqPlunker> entry : config.getPlunkers().entrySet()) {
-            FpqPlunker plunker = entry.getValue();
+    // configure the plunkers
+    // each plunker is paired with an FPQ within a PlunkerRunner
+    // the PlunkerRunner handles the polling of FPQ, TX mgmt, and deliver to plunker
+    private void configurePlunkers(Config config) throws IOException {
+        for (Map.Entry<String, PlunkerRunner> entry : config.getPlunkers().entrySet()) {
+            PlunkerRunner runner = entry.getValue();
+            FpqPlunker plunker = runner.getPlunker();
             if (null == plunker.getId()) {
                 plunker.setId(entry.getKey());
             }
-            plunker.init(config);
+            runner.init(config);
         }
     }
 
+    // configure the routers
     private void configureRouters(Config config) {
         for (FpqRouter router : config.getRouters()) {
             router.init(config);
         }
     }
 
-//    public void start() {
-//    }
-
+    /**
+     * Should be called by a {@link com.btoddb.fastpersitentqueue.eventbus.FpqCatcher} after receiving events.
+     *
+     * @param catcherId ID of the catcher for reporting and routing
+     * @param eventList list of {@link com.btoddb.fastpersitentqueue.eventbus.FpqEvent}s
+     */
     public void handleCatcher(String catcherId, List<FpqEvent> eventList) {
         try {
             FpqRouter router = config.getRouters().iterator().next();
-            router.route(eventList);
+
+            PlunkerRunner runner = router.canRoute(catcherId, null);
+            if (null != runner) {
+                runner.run(eventList);
+            }
         }
         catch (Exception e) {
             Utils.logAndThrow(logger, String.format("exception while handle events from catcher, %s", catcherId), e);
         }
-
-    }
-    public Config getConfig() {
-        return config;
     }
 
+    /**
+     * Should be called when finished with the bus.
+     *
+     */
     public void shutdown() {
         for (FpqCatcher catcher : config.getCatchers()) {
             try {
@@ -113,13 +134,18 @@ public class EventBus {
             }
         }
 
-        for (FpqPlunker plunker : config.getPlunkers().values()) {
+        for (PlunkerRunner runner : config.getPlunkers().values()) {
             try {
-                plunker.shutdown();
+                runner.shutdown();
             }
             catch (Exception e) {
-                logger.error("exception while shutting down FPQ plunker, {}", plunker.getId(), e);
+                logger.error("exception while shutting down FPQ plunker, {}", runner.getPlunker().getId(), e);
             }
         }
     }
+
+    public Config getConfig() {
+        return config;
+    }
+
 }

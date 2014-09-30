@@ -26,18 +26,10 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.Fpq;
-import com.btoddb.fastpersitentqueue.config.Config;
-
 
 /**
  *
  */
-public interface FpqCatcher {
+public interface FpqCatcher extends EventBusComponent {
     void init(Config config, EventBus bus);
-
-    void shutdown() throws Exception;
-
-    String getId();
-    void setId(String id);
 }
