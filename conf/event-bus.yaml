@@ -10,9 +10,9 @@ routers:
     id: rest-to-test
     catcher: test-rest
     plunker: test-plunker
-  - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
-    id: rest-to-garbage
-    catcher: test-rest
+  - !!com.btoddb.fastpersitentqueue.eventbus.routers.ConditionalRouterImpl
+    id: default-route
+    condition: headers[skipDefaultRouting] = .+ AND body = hello
     plunker: garbage-plunker
 
 # Plunkers are associated with a single FPQ

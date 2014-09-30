@@ -42,7 +42,7 @@ import java.util.List;
 
 /**
  */
-public class TestPlunkerImpl extends EventBusComponentBaseImpl implements FpqPlunker {
+public class TestPlunkerImpl extends PlunkerBaseImpl {
     private static Logger logger = LoggerFactory.getLogger(TestPlunkerImpl.class);
 
     private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
@@ -53,7 +53,7 @@ public class TestPlunkerImpl extends EventBusComponentBaseImpl implements FpqPlu
     }
 
     @Override
-    public boolean handle(Collection<FpqEvent> events) throws Exception {
+    protected boolean handleInternal(Collection<FpqEvent> events) throws Exception {
         eventList.addAll(events);
         return true;
     }

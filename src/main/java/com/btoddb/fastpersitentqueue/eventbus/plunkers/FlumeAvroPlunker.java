@@ -42,7 +42,7 @@ import java.util.List;
 /**
  * Sends the collection of events to an Flume AvroSource
  */
-public class FlumeAvroPlunker extends EventBusComponentBaseImpl implements FpqPlunker {
+public class FlumeAvroPlunker extends PlunkerBaseImpl {
     private AvroClientFactoryImpl clientFactory;
 
 
@@ -54,7 +54,7 @@ public class FlumeAvroPlunker extends EventBusComponentBaseImpl implements FpqPl
      * @return true to commit TX, false to rollback
      */
     @Override
-    public boolean handle(Collection<FpqEvent> events) throws Exception {
+    protected boolean handleInternal(Collection<FpqEvent> events) throws Exception {
         List<Event> flumeEventList = new ArrayList<Event>(events.size());
 
         // convert FPQ events to flume events
