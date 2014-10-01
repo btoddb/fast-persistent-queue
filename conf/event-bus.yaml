@@ -1,38 +1,23 @@
 
 catchers:
   - !!com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl
-    id: test-rest
+    id: rest-catcher
     bind: 0.0.0.0
     port: 8083
 
 routers:
   - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
-    id: rest-to-test
-    catcher: test-rest
-    plunker: test-plunker
-  - !!com.btoddb.fastpersitentqueue.eventbus.routers.ConditionalRouterImpl
-    id: default-route
-    condition: headers[skipDefaultRouting] = .+ AND body = hello
-    plunker: garbage-plunker
+    id: rest-to-avro
+    catcher: rest-catcher
+    plunker: avro-plunker
 
 # Plunkers are associated with a single FPQ
 plunkers:
-  test-plunker:
-    plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.TestPlunkerImpl
-      id: test-plunker
-    fpq:
-      maxTransactionSize: 2000
-      maxMemorySegmentSizeInBytes: 10000000
-      maxJournalFileSize: 10000000
-      maxJournalDurationInMs: 30000
-      flushPeriodInMs: 1000
-      numberOfFlushWorkers: 4
-      journalDirectory: will_be_overriden_by_junit
-      pagingDirectory: will_be_overriden_by_junit
-
-  null-plunker:
-    plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.GarbagePlunkerImpl
-      id: garbage-plunker
+  avro-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.FlumeAvroPlunkerImpl
+      hosts:
+        - localhost:4141
+        - 127.0.0.1:4141
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000
@@ -40,5 +25,5 @@ plunkers:
       maxJournalDurationInMs: 30000
       flushPeriodInMs: 1000
       numberOfFlushWorkers: 4
-      journalDirectory: will_be_overriden_by_junit
-      pagingDirectory: will_be_overriden_by_junit
+      journalDirectory: tmp/journals
+      pagingDirectory: tmp/paging

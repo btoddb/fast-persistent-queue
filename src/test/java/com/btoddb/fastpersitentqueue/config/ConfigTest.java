@@ -37,7 +37,7 @@ public class ConfigTest {
 
     @Test
     public void testCreate() throws Exception {
-        Config config = Config.create("conf/event-bus.yaml");
+        Config config = Config.create("src/test/resources/event-bus-test.yaml");
         assertThat(config, is(notNullValue()));
         assertThat(config.getCatchers(), hasSize(1));
         assertThat(config.getPlunkers().keySet(), hasSize(2));

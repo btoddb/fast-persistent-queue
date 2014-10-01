@@ -39,7 +39,7 @@ public class HeaderExpressionTest {
     public void testHeaderMatcherEqualTrue() {
         HeaderExpression exp = new HeaderExpression("the-header", "=", "val.+");
 
-        FpqEvent event = new FpqEvent();
+        FpqEvent event = new FpqEvent(null);
         event.addHeader("foo", "bar")
                 .addHeader("the-header", "target-value");
         assertThat(exp.match(event), is(true));
@@ -49,8 +49,8 @@ public class HeaderExpressionTest {
     public void testHeaderMatcherEqualFalse() {
         HeaderExpression exp = new HeaderExpression("the-header", "=", "val.+");
 
-        FpqEvent event = new FpqEvent();
-        event.addHeader("foo", "bar")
+        FpqEvent event = new FpqEvent(null)
+                .addHeader("foo", "bar")
                 .addHeader("the-header", "target-miss");
         assertThat(exp.match(event), is(false));
     }
@@ -59,8 +59,8 @@ public class HeaderExpressionTest {
     public void testHeaderMatcherNotEqualTrue() {
         HeaderExpression exp = new HeaderExpression("the-header", "!=", "val.+");
 
-        FpqEvent event = new FpqEvent();
-        event.addHeader("foo", "bar")
+        FpqEvent event = new FpqEvent(null)
+                .addHeader("foo", "bar")
                 .addHeader("the-header", "target");
         assertThat(exp.match(event), is(true));
     }
@@ -69,8 +69,8 @@ public class HeaderExpressionTest {
     public void testHeaderMatcherNotEqualFalse() {
         HeaderExpression exp = new HeaderExpression("the-header", "!=", "val.+");
 
-        FpqEvent event = new FpqEvent();
-        event.addHeader("foo", "bar")
+        FpqEvent event = new FpqEvent(null)
+                .addHeader("foo", "bar")
                 .addHeader("the-header", "target-value");
         assertThat(exp.match(event), is(false));
     }

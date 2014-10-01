@@ -26,6 +26,9 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
+import com.fasterxml.jackson.databind.BeanProperty;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
@@ -50,12 +53,22 @@ public class Config {
 
     String configFilename;
 
-    ObjectMapper objectMapper = new ObjectMapper();
+    ObjectMapper objectMapper;
 
     Collection<FpqCatcher> catchers = new HashSet<>();
     Map<String, PlunkerRunner> plunkers = new HashMap<>();
     Collection<FpqRouter> routers = new HashSet<>();
 
+
+    public Config() {
+        objectMapper = new ObjectMapper();
+//        objectMapper.setInjectableValues(new InjectableValues() {
+//            @Override
+//            public Object findInjectableValue(Object valueId, DeserializationContext ctxt, BeanProperty forProperty, Object beanInstance) {
+//                return null;
+//            }
+//        })
+    }
 
     public static Config create(String configFilename) throws FileNotFoundException {
         Yaml yaml = new Yaml(new Constructor(Config.class));

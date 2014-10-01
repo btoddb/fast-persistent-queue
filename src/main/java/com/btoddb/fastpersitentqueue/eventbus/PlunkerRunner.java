@@ -56,6 +56,8 @@ public class PlunkerRunner implements FpqBatchCallback {
     public void init(Config config) throws IOException {
         this.config = config;
 
+        plunker.init(config);
+
         fpq.init();
 
         batchReader = new FpqBatchReader();

@@ -176,21 +176,20 @@ public class RestCatcherImpl extends EventBusComponentBaseImpl implements FpqCat
             BufferedInputStream reqInStream = new BufferedInputStream(request.getInputStream());
 
             // check for list of events, or single event
-            if (!isJsonArray(reqInStream)) {
-                FpqEvent event = config.getObjectMapper().readValue(reqInStream, new TypeReference<FpqEvent>() {
-                });
-                eventList = Collections.singletonList(event);
-            }
-            else {
-                try {
+            try {
+                if (!isJsonArray(reqInStream)) {
+                    FpqEvent event = config.getObjectMapper().readValue(reqInStream, FpqEvent.class);
+                    eventList = Collections.singletonList(event);
+                }
+                else {
                     eventList = config.getObjectMapper().readValue(reqInStream, new TypeReference<List<FpqEvent>>() {
                     });
                 }
-                catch (Exception e) {
-                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    response.getWriter().print(e.getMessage());
-                    return;
-                }
+            }
+            catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.getWriter().print(e.getMessage());
+                return;
             }
 
             // parse list of events

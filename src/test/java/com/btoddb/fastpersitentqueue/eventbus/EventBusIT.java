@@ -61,7 +61,7 @@ public class EventBusIT {
         theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        config = Config.create("conf/event-bus.yaml");
+        config = Config.create("src/test/resources/event-bus-test.yaml");
         for (PlunkerRunner runner : config.getPlunkers().values()) {
             runner.getFpq().setJournalDirectory(new File(theDir, runner.getPlunker().getId()+"/journals"));
             runner.getFpq().setPagingDirectory(new File(theDir, runner.getPlunker().getId()+"/pages"));
@@ -83,9 +83,8 @@ public class EventBusIT {
 
     @Test
     public void testPutSingleEvent() throws Exception {
-        FpqEvent event = new FpqEvent();
-        event.addHeader("foo", "bar");
-        event.setBodyAsString("some-data-for-body");
+        FpqEvent event = new FpqEvent("some-data-for-body", true)
+                .addHeader("foo", "bar");
 
         Client client = ClientBuilder.newClient();
         Response resp = client.target("http://localhost:8083/v1")
@@ -107,7 +106,7 @@ public class EventBusIT {
         int numEvents = 5;
         List<FpqEvent> eventList = new ArrayList<>(numEvents);
         for (int i=0;i < numEvents;i++) {
-            eventList.add(new FpqEvent(Collections.singletonMap("msgId", String.valueOf(i)), String.valueOf(i)));
+            eventList.add(new FpqEvent(Collections.singletonMap("msgId", String.valueOf(i)), String.valueOf(i), true));
         }
 
         Client client = ClientBuilder.newClient();

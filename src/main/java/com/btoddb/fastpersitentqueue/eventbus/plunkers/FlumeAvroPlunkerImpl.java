@@ -26,11 +26,8 @@ package com.btoddb.fastpersitentqueue.eventbus.plunkers;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.Fpq;
 import com.btoddb.fastpersitentqueue.eventbus.Config;
-import com.btoddb.fastpersitentqueue.eventbus.EventBusComponentBaseImpl;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
-import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
 import org.apache.flume.Event;
 import org.apache.flume.event.EventBuilder;
 
@@ -42,8 +39,14 @@ import java.util.List;
 /**
  * Sends the collection of events to an Flume AvroSource
  */
-public class FlumeAvroPlunker extends PlunkerBaseImpl {
+public class FlumeAvroPlunkerImpl extends PlunkerBaseImpl {
     private AvroClientFactoryImpl clientFactory;
+
+    private String[] hosts;
+    private int connectionsPerHost = 1;
+    private int maxBatchSize = 100;
+    private int reconnectPeriod = 120;
+
 
 
     /**
@@ -70,11 +73,43 @@ public class FlumeAvroPlunker extends PlunkerBaseImpl {
     @Override
     public void init(Config config) {
         super.init(config);
-        clientFactory = new AvroClientFactoryImpl(new String[] {("localhost:4141")}, 1, 100, false, 120);
+        clientFactory = new AvroClientFactoryImpl(hosts, connectionsPerHost, maxBatchSize, false, reconnectPeriod);
     }
 
     @Override
     public void shutdown() {
         clientFactory.shutdown();
+    }
+
+    public String[] getHosts() {
+        return hosts;
+    }
+
+    public void setHosts(String[] hosts) {
+        this.hosts = hosts;
+    }
+
+    public int getConnectionsPerHost() {
+        return connectionsPerHost;
+    }
+
+    public void setConnectionsPerHost(int connectionsPerHost) {
+        this.connectionsPerHost = connectionsPerHost;
+    }
+
+    public int getMaxBatchSize() {
+        return maxBatchSize;
+    }
+
+    public void setMaxBatchSize(int maxBatchSize) {
+        this.maxBatchSize = maxBatchSize;
+    }
+
+    public int getReconnectPeriod() {
+        return reconnectPeriod;
+    }
+
+    public void setReconnectPeriod(int reconnectPeriod) {
+        this.reconnectPeriod = reconnectPeriod;
     }
 }

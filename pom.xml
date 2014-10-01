@@ -23,6 +23,7 @@
 
         <jetty-version>9.2.3.v20140905</jetty-version>
         <fasterxml-version>2.4.2</fasterxml-version>
+        <flume-version>1.5.0.1</flume-version>
     </properties>
 
     <issueManagement>
@@ -63,6 +64,11 @@
             <version>1.7.5</version>
         </dependency>
         <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>11.0.2</version>
+        </dependency>
+        <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.4</version>
@@ -72,11 +78,6 @@
             <artifactId>uuid</artifactId>
             <version>3.3.0</version>
         </dependency>
-        <!--<dependency>-->
-            <!--<groupId>commons-beanutils</groupId>-->
-            <!--<artifactId>commons-beanutils</artifactId>-->
-            <!--<version>1.8.3</version>-->
-        <!--</dependency>-->
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
@@ -120,23 +121,24 @@
             <artifactId>jersey-media-json-jackson</artifactId>
             <version>2.12</version>
             <scope>test</scope>
-        </dependency>        <!--<dependency>-->
-            <!--<groupId>com.fasterxml.jackson.module</groupId>-->
-            <!--<artifactId>jackson-module-jaxb-annotations</artifactId>-->
-            <!--<version>${fasterxml-version}</version>-->
-        <!--</dependency>-->
-        <!--<dependency>-->
-            <!--<groupId>com.fasterxml.jackson.jaxrs</groupId>-->
-            <!--<artifactId>jackson-jaxrs-json-provider</artifactId>-->
-            <!--<version>${fasterxml-version}</version>-->
-        <!--</dependency>-->
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flume</groupId>
+            <artifactId>flume-ng-sdk</artifactId>
+            <version>${flume-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.9</version>
+        </dependency>
         <!-- end EventBus optional -->
 
         <!-- flume - optional dependencies -->
         <dependency>
             <groupId>org.apache.flume</groupId>
             <artifactId>flume-ng-core</artifactId>
-            <version>1.5.0.1</version>
+            <version>${flume-version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -156,7 +158,7 @@
         <dependency>
             <groupId>org.apache.flume</groupId>
             <artifactId>flume-ng-node</artifactId>
-            <version>1.5.0.1</version>
+            <version>${flume-version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

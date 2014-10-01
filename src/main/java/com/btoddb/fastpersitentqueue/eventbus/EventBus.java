@@ -33,6 +33,7 @@ import com.google.common.collect.Multimap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,7 @@ public class EventBus {
     private static final Logger logger = LoggerFactory.getLogger(EventBus.class);
 
     private Config config;
+    private boolean stopProcessing;
 
     /**
      * Call this method to configure and initialize the bus.
@@ -155,8 +157,39 @@ public class EventBus {
         }
     }
 
+    public void waitUntilStopped() {
+        while (!stopProcessing) {
+            try {
+                Thread.sleep(1000);
+            }
+            catch (InterruptedException e) {
+                Thread.interrupted();
+            }
+        }
+
+        shutdown();
+    }
+
+    public boolean isStopProcessing() {
+        return stopProcessing;
+    }
+
+    public void setStopProcessing(boolean stopProcessing) {
+        this.stopProcessing = stopProcessing;
+    }
+
     public Config getConfig() {
         return config;
     }
 
+    public static void main(String[] args) throws FileNotFoundException {
+        Config config = Config.create("conf/event-bus.yaml");
+        EventBus bus = new EventBus();
+        bus.init(config);
+
+        // we're live!
+
+        bus.waitUntilStopped();
+
+    }
 }

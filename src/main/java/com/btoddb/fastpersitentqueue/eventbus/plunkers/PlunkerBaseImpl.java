@@ -30,6 +30,8 @@ import com.btoddb.fastpersitentqueue.eventbus.BusMetrics;
 import com.btoddb.fastpersitentqueue.eventbus.EventBusComponentBaseImpl;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import com.btoddb.fastpersitentqueue.eventbus.FpqPlunker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 
@@ -38,6 +40,8 @@ import java.util.Collection;
  *
  */
 public abstract class PlunkerBaseImpl extends EventBusComponentBaseImpl implements FpqPlunker {
+    private static final Logger logger = LoggerFactory.getLogger(PlunkerBaseImpl.class);
+
     protected abstract boolean handleInternal(Collection<FpqEvent> events) throws Exception;
 
 
@@ -48,7 +52,7 @@ public abstract class PlunkerBaseImpl extends EventBusComponentBaseImpl implemen
             return handleInternal(events);
         }
         catch (Exception e) {
-
+            logger.error("exception while handling events in plunker, {}", getId());
         }
         finally {
 

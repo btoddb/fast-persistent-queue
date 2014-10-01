@@ -26,6 +26,13 @@ package com.btoddb.fastpersitentqueue.eventbus;
  * #L%
  */
 
+import com.fasterxml.jackson.annotation.JacksonInject;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import org.apache.commons.codec.binary.Base64;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,19 +41,48 @@ import java.util.Map;
 /**
  *
  */
+@JsonPropertyOrder({"headers", "bodyIsText", "body"})
 public class FpqEvent {
     private Map<String, String> headers = new HashMap<String, String>();
-    private byte[] body;
+    private final byte[] body;
+    private final boolean bodyIsText;
 
-    public FpqEvent() {}
 
-    public FpqEvent(Map<String, String> headers, String body) {
-        this(headers, body.getBytes());
+    public FpqEvent(byte[] body) {
+        this.body = body;
+        bodyIsText = false;
+    }
+
+    public FpqEvent(String body, boolean bodyIsText) {
+        this.bodyIsText = bodyIsText;
+        if (bodyIsText) {
+            this.body = body.getBytes();
+        }
+        else {
+            this.body = Base64.decodeBase64(body);
+        }
+    }
+
+    @JsonCreator
+    public FpqEvent(
+            @JsonProperty("headers") Map<String, String> headers,
+            @JsonProperty("body") String body,
+            @JsonProperty("bodyIsText") boolean bodyIsText
+            ) {
+        this.headers = headers;
+        this.bodyIsText = bodyIsText;
+        if (bodyIsText) {
+            this.body = body.getBytes();
+        }
+        else {
+            this.body = Base64.decodeBase64(body);
+        }
     }
 
     public FpqEvent(Map<String, String> headers, byte[] body) {
         this.headers = headers;
         this.body = body;
+        bodyIsText = false;
     }
 
     public FpqEvent addHeader(String name, String value) {
@@ -66,19 +102,25 @@ public class FpqEvent {
         return body;
     }
 
+    @JsonGetter("body")
     public String getBodyAsString() {
-        return new String(body);
+        if (bodyIsText) {
+            return new String(body);
+        }
+        else {
+            return Base64.encodeBase64String(body);
+        }
     }
 
-    public void setBodyAsString(String body) {
-        this.body = body.getBytes();
+    public boolean isBodyIsText() {
+        return bodyIsText;
     }
 
     @Override
     public String toString() {
         return "FpqBusEvent{" +
                 "headers=" + headers +
-                ", body='" + getBodyAsString() + '\'' +
+                ", body='" + getBody() + '\'' +
                 '}';
     }
 
