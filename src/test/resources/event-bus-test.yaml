@@ -5,17 +5,15 @@ catchers:
       bind: 0.0.0.0
       port: 8083
     snoopers:
-      timestamp-snooper: !!com.btoddb.fastpersitentqueue.eventbus.wiretaps.TimestampSnooper
+      timestamp-snooper: !!com.btoddb.fastpersitentqueue.eventbus.snoopers.TimestampSnooper
         headerName: timestamp
         overwrite: true
 
 routers:
-  - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
-    id: rest-to-test
+  rest-to-test: !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
     catcher: rest-catcher
     plunker: test-plunker
-  - !!com.btoddb.fastpersitentqueue.eventbus.routers.ConditionalRouterImpl
-    id: default-route
+  default-route: !!com.btoddb.fastpersitentqueue.eventbus.routers.ConditionalRouterImpl
     condition: headers[skipDefaultRouting] = .+ AND body = hello
     plunker: garbage-plunker
 

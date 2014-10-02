@@ -31,7 +31,7 @@ package com.btoddb.fastpersitentqueue.eventbus;
  *
  */
 public interface EventBusComponent {
-    void init(Config config);
+    void init(Config config) throws Exception;
     void shutdown();
 
     String getId();

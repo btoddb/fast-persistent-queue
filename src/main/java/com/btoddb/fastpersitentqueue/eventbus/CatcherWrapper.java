@@ -1,10 +1,11 @@
 package com.btoddb.fastpersitentqueue.eventbus;
 
-import com.btoddb.fastpersitentqueue.eventbus.wiretaps.Snooper;
+import com.btoddb.fastpersitentqueue.eventbus.snoopers.Snooper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -20,9 +21,7 @@ public class CatcherWrapper {
 
     private EventBus eventBus;
 
-    public void init(Config config, EventBus eventBus) {
-        this.eventBus = eventBus;
-
+    public void init(Config config) throws Exception {
         if (null != snoopers) {
             for (Map.Entry<String, Snooper> entry : snoopers.entrySet()) {
                 entry.getValue().setId(entry.getKey());
@@ -58,12 +57,26 @@ public class CatcherWrapper {
     }
 
     public void handleCatcher(String catcherId, List<FpqEvent> eventList) {
-        for (FpqEvent event : eventList) {
+        Iterator<FpqEvent> iter = eventList.iterator();
+        while (iter.hasNext()) {
+            FpqEvent event = iter.next();
             for (Snooper snooper : snoopers.values()) {
-                snooper.tap(event);
+                if (!snooper.tap(event)) {
+                    // don't want this event anymore, so no more snooping
+                    iter.remove();
+                    break;
+                }
             }
         }
         eventBus.handleCatcher(catcherId, eventList);
+    }
+
+    public EventBus getEventBus() {
+        return eventBus;
+    }
+
+    public void setEventBus(EventBus eventBus) {
+        this.eventBus = eventBus;
     }
 
     public FpqCatcher getCatcher() {

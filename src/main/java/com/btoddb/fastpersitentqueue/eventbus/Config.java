@@ -57,7 +57,7 @@ public class Config {
 
     Map<String, CatcherWrapper> catchers = new HashMap<>();
     Map<String, PlunkerRunner> plunkers = new HashMap<>();
-    Collection<FpqRouter> routers = new HashSet<>();
+    Map<String, FpqRouter> routers = new HashMap<>();
 
 
     public Config() {
@@ -88,11 +88,11 @@ public class Config {
         return configFilename;
     }
 
-    public Collection<FpqRouter> getRouters() {
+    public Map<String, FpqRouter> getRouters() {
         return routers;
     }
 
-    public void setRouters(Collection<FpqRouter> routers) {
+    public void setRouters(Map<String, FpqRouter> routers) {
         this.routers = routers;
     }
 

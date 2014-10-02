@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus.wiretaps;
+package com.btoddb.fastpersitentqueue.eventbus.snoopers;
 
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
 import org.junit.Test;

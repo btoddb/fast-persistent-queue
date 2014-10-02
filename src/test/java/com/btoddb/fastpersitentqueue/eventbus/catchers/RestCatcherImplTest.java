@@ -26,14 +26,13 @@ package com.btoddb.fastpersitentqueue.eventbus.catchers;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl;
 import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.*;
 
 
 public class RestCatcherImplTest {

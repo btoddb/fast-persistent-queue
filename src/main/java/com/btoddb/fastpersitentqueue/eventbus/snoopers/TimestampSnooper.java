@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.eventbus.wiretaps;
+package com.btoddb.fastpersitentqueue.eventbus.snoopers;
 
 import com.btoddb.fastpersitentqueue.eventbus.Config;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
@@ -24,10 +24,12 @@ public class TimestampSnooper implements Snooper {
     }
 
     @Override
-    public void tap(FpqEvent event) {
+    public boolean tap(FpqEvent event) {
         if (overwrite || !event.getHeaders().containsKey(headerName)) {
             event.addHeader(headerName, String.valueOf(System.currentTimeMillis()));
         }
+
+        return true;
     }
 
     public String getHeaderName() {

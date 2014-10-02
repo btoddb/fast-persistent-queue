@@ -44,7 +44,7 @@ import java.util.List;
  * Runs the plunker - handling the mundane part of popping from FPQ, etc that all
  * plunkers must do.
  */
-public class PlunkerRunner implements FpqBatchCallback {
+public class PlunkerRunner implements EventBusComponent, FpqBatchCallback {
     private static final Logger logger = LoggerFactory.getLogger(PlunkerRunner.class);
 
     private Config config;
@@ -53,8 +53,8 @@ public class PlunkerRunner implements FpqBatchCallback {
     private FpqPlunker plunker;
     private Fpq fpq;
 
-
-    public void init(Config config) throws IOException {
+    @Override
+    public void init(Config config) throws Exception {
         this.config = config;
 
         plunker.init(config);
@@ -127,6 +127,26 @@ public class PlunkerRunner implements FpqBatchCallback {
         catch (Exception e) {
             logger.error("exception while shutting down plunker, {}", plunker.getId(), e);
         }
+    }
+
+    @Override
+    public String getId() {
+        return null;
+    }
+
+    @Override
+    public void setId(String id) {
+
+    }
+
+    @Override
+    public Config getConfig() {
+        return null;
+    }
+
+    @Override
+    public void setConfig(Config config) {
+
     }
 
     public FpqPlunker getPlunker() {

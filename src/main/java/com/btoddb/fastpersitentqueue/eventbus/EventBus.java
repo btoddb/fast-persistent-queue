@@ -69,36 +69,43 @@ public class EventBus {
     }
 
     // configure the catchers
-    private void configureCatchers(Config config) {
+    // each catcher is wrapped with a CatcherWrapper which handles the
+    // catcher callback and applying snoopers
+    private void configureCatchers(Config config) throws Exception {
         for (Map.Entry<String, CatcherWrapper> entry : config.getCatchers().entrySet()) {
             CatcherWrapper wrapper = entry.getValue();
             if (null == wrapper.getCatcher().getId()) {
                 wrapper.getCatcher().setId(entry.getKey());
             }
-
-            entry.getValue().init(config, this);
+            wrapper.setEventBus(this);
+            wrapper.init(config);
         }
     }
 
     // configure the plunkers
     // each plunker is paired with an FPQ within a PlunkerRunner
     // the PlunkerRunner handles the polling of FPQ, TX mgmt, and deliver to plunker
-    private void configurePlunkers(Config config) throws IOException {
+    private void configurePlunkers(Config config) throws Exception {
         for (Map.Entry<String, PlunkerRunner> entry : config.getPlunkers().entrySet()) {
             PlunkerRunner runner = entry.getValue();
+            initializeComponent(runner, entry.getKey());
             FpqPlunker plunker = runner.getPlunker();
-            if (null == plunker.getId()) {
-                plunker.setId(entry.getKey());
-            }
-            runner.init(config);
+            initializeComponent(plunker, entry.getKey());
         }
     }
 
     // configure the routers
-    private void configureRouters(Config config) {
-        for (FpqRouter router : config.getRouters()) {
-            router.init(config);
+    private void configureRouters(Config config) throws Exception {
+        for (Map.Entry<String, FpqRouter> entry : config.getRouters().entrySet()) {
+            initializeComponent(entry.getValue(), entry.getKey());
         }
+    }
+
+    private void initializeComponent(EventBusComponent component, String id) throws Exception {
+        if (null == component.getId()) {
+            component.setId(id);
+        }
+        component.init(config);
     }
 
     /**
@@ -112,7 +119,7 @@ public class EventBus {
 
         // divide events by route
         for (FpqEvent event : eventList) {
-            for (FpqRouter router : config.getRouters()) {
+            for (FpqRouter router : config.getRouters().values()) {
                 PlunkerRunner runner;
                 if (null != (runner=router.canRoute(catcherId, event))) {
                     routingMap.put(runner, event);
@@ -144,7 +151,7 @@ public class EventBus {
             }
         }
 
-        for (FpqRouter router : config.getRouters()) {
+        for (FpqRouter router : config.getRouters().values()) {
             try {
                 router.shutdown();
             }
