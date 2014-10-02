@@ -39,7 +39,8 @@ public class ConfigTest {
     public void testCreate() throws Exception {
         Config config = Config.create("src/test/resources/event-bus-test.yaml");
         assertThat(config, is(notNullValue()));
-        assertThat(config.getCatchers(), hasSize(1));
+        assertThat(config.getCatchers().keySet(), hasSize(1));
+        assertThat(config.getCatchers(), hasKey("rest-catcher"));
         assertThat(config.getPlunkers().keySet(), hasSize(2));
         assertThat(config.getPlunkers(), hasKey("test-plunker"));
         assertThat(config.getPlunkers(), hasKey("null-plunker"));

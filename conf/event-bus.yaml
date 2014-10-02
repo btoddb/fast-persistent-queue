@@ -1,23 +1,41 @@
 
 catchers:
-  - !!com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl
-    id: rest-catcher
-    bind: 0.0.0.0
-    port: 8083
+  rest-catcher:
+    catcher: !!com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl
+      bind: 0.0.0.0
+      port: 8083
+    snoopers:
+      timestamp-snooper: !!com.btoddb.fastpersitentqueue.eventbus.wiretaps.TimestampSnooper
+        headerName: timestamp
+        overwrite: true
 
 routers:
   - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
-    id: rest-to-avro
+    id: rest-to-test
     catcher: rest-catcher
-    plunker: avro-plunker
+    plunker: test-plunker
+
 
 # Plunkers are associated with a single FPQ
 plunkers:
+  test-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.FlumeAvroPlunkerImpl
+      hosts:
+        - localhost:4141
+    fpq:
+      maxTransactionSize: 2000
+      maxMemorySegmentSizeInBytes: 10000
+      maxJournalFileSize: 10000000
+      maxJournalDurationInMs: 30000
+      flushPeriodInMs: 1000
+      numberOfFlushWorkers: 4
+      journalDirectory: tmp/journals
+      pagingDirectory: tmp/paging
+
   avro-plunker:
     plunker: !!com.btoddb.fastpersitentqueue.eventbus.plunkers.FlumeAvroPlunkerImpl
       hosts:
         - localhost:4141
-        - 127.0.0.1:4141
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000

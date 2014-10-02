@@ -48,8 +48,9 @@ public class PlunkerRunner implements FpqBatchCallback {
     private static final Logger logger = LoggerFactory.getLogger(PlunkerRunner.class);
 
     private Config config;
-    private FpqPlunker plunker;
     private FpqBatchReader batchReader;
+
+    private FpqPlunker plunker;
     private Fpq fpq;
 
 

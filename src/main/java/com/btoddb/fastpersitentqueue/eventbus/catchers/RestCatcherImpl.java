@@ -27,8 +27,8 @@ package com.btoddb.fastpersitentqueue.eventbus.catchers;
  */
 
 import com.btoddb.fastpersitentqueue.Utils;
+import com.btoddb.fastpersitentqueue.eventbus.CatcherWrapper;
 import com.btoddb.fastpersitentqueue.eventbus.Config;
-import com.btoddb.fastpersitentqueue.eventbus.EventBus;
 import com.btoddb.fastpersitentqueue.eventbus.EventBusComponentBaseImpl;
 import com.btoddb.fastpersitentqueue.eventbus.FpqCatcher;
 import com.btoddb.fastpersitentqueue.eventbus.FpqEvent;
@@ -64,7 +64,7 @@ public class RestCatcherImpl extends EventBusComponentBaseImpl implements FpqCat
     private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
 
     private Server server;
-    private EventBus bus;
+    private CatcherWrapper wrapper;
 
     private int port = 8083;
     private String bind = "0.0.0.0";
@@ -72,11 +72,9 @@ public class RestCatcherImpl extends EventBusComponentBaseImpl implements FpqCat
 
 
     @Override
-    public void init(Config config, EventBus bus) {
+    public void init(Config config, CatcherWrapper wrapper) {
         super.init(config);
-
-        this.bus = bus;
-
+        this.wrapper = wrapper;
         startJettyServer();
     }
 
@@ -201,7 +199,7 @@ public class RestCatcherImpl extends EventBusComponentBaseImpl implements FpqCat
             }
 
             try {
-                bus.handleCatcher(id, eventList);
+                wrapper.handleCatcher(id, eventList);
             }
             catch (Exception e) {
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

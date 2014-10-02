@@ -47,11 +47,14 @@ import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 
 public class EventBusIT {
+    long now = System.currentTimeMillis();
     File theDir;
     EventBus bus;
     Config config;
@@ -98,6 +101,8 @@ public class EventBusIT {
 
         List<FpqEvent> eventList = retrieveFpqBusEvents(1);
         assertThat(eventList, hasSize(1));
+        assertThat(Long.parseLong(eventList.get(0).getHeaders().get("timestamp")), is(greaterThanOrEqualTo(now)));
+        eventList.get(0).getHeaders().remove("timestamp");
         assertThat(eventList.get(0), is(event));
     }
 
@@ -120,6 +125,10 @@ public class EventBusIT {
 
         List<FpqEvent> plunkEventList = retrieveFpqBusEvents(numEvents);
         assertThat(plunkEventList, hasSize(numEvents));
+        for (FpqEvent evt : plunkEventList) {
+            assertThat(Long.parseLong(evt.getHeaders().get("timestamp")), is(greaterThanOrEqualTo(now)));
+            evt.getHeaders().remove("timestamp");
+        }
         assertThat(plunkEventList, containsInAnyOrder(eventList.toArray()));
     }
 

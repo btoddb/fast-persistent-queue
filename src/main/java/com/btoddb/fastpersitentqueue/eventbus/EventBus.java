@@ -57,10 +57,11 @@ public class EventBus {
     public void init(Config config) throws FpqException {
         this.config = config;
 
+        // TODO:BTB - probably should use a "ready to receive" flag and set after all configuration is 'done'!
         try {
             configurePlunkers(config);
-            configureCatchers(config);
             configureRouters(config);
+            configureCatchers(config);
         }
         catch (Exception e) {
             Utils.logAndThrow(logger, "exception while configuring EventBus - cannot continue", e);
@@ -69,8 +70,13 @@ public class EventBus {
 
     // configure the catchers
     private void configureCatchers(Config config) {
-        for (FpqCatcher catcher : config.getCatchers()) {
-            catcher.init(config, this);
+        for (Map.Entry<String, CatcherWrapper> entry : config.getCatchers().entrySet()) {
+            CatcherWrapper wrapper = entry.getValue();
+            if (null == wrapper.getCatcher().getId()) {
+                wrapper.getCatcher().setId(entry.getKey());
+            }
+
+            entry.getValue().init(config, this);
         }
     }
 
@@ -129,12 +135,12 @@ public class EventBus {
      *
      */
     public void shutdown() {
-        for (FpqCatcher catcher : config.getCatchers()) {
+        for (CatcherWrapper catcher : config.getCatchers().values()) {
             try {
                 catcher.shutdown();
             }
             catch (Exception e) {
-                logger.error("exception while shutting down FPQ catcher, {}", catcher.getId(), e);
+                logger.error("exception while shutting down FPQ catcher, {}", catcher.getCatcher().getId(), e);
             }
         }
 

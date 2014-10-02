@@ -1,14 +1,18 @@
 
 catchers:
-  - !!com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl
-    id: test-rest
-    bind: 0.0.0.0
-    port: 8083
+  rest-catcher:
+    catcher: !!com.btoddb.fastpersitentqueue.eventbus.catchers.RestCatcherImpl
+      bind: 0.0.0.0
+      port: 8083
+    snoopers:
+      timestamp-snooper: !!com.btoddb.fastpersitentqueue.eventbus.wiretaps.TimestampSnooper
+        headerName: timestamp
+        overwrite: true
 
 routers:
   - !!com.btoddb.fastpersitentqueue.eventbus.routers.OneToOneRouterImpl
     id: rest-to-test
-    catcher: test-rest
+    catcher: rest-catcher
     plunker: test-plunker
   - !!com.btoddb.fastpersitentqueue.eventbus.routers.ConditionalRouterImpl
     id: default-route

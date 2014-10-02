@@ -55,19 +55,13 @@ public class Config {
 
     ObjectMapper objectMapper;
 
-    Collection<FpqCatcher> catchers = new HashSet<>();
+    Map<String, CatcherWrapper> catchers = new HashMap<>();
     Map<String, PlunkerRunner> plunkers = new HashMap<>();
     Collection<FpqRouter> routers = new HashSet<>();
 
 
     public Config() {
         objectMapper = new ObjectMapper();
-//        objectMapper.setInjectableValues(new InjectableValues() {
-//            @Override
-//            public Object findInjectableValue(Object valueId, DeserializationContext ctxt, BeanProperty forProperty, Object beanInstance) {
-//                return null;
-//            }
-//        })
     }
 
     public static Config create(String configFilename) throws FileNotFoundException {
@@ -102,11 +96,11 @@ public class Config {
         this.routers = routers;
     }
 
-    public Collection<FpqCatcher> getCatchers() {
+    public Map<String, CatcherWrapper> getCatchers() {
         return catchers;
     }
 
-    public void setCatchers(Collection<FpqCatcher> catchers) {
+    public void setCatchers(Map<String, CatcherWrapper> catchers) {
         this.catchers = catchers;
     }
 

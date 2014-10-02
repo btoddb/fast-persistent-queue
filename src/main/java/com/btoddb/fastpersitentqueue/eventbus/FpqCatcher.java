@@ -31,5 +31,5 @@ package com.btoddb.fastpersitentqueue.eventbus;
  *
  */
 public interface FpqCatcher extends EventBusComponent {
-    void init(Config config, EventBus bus);
+    void init(Config config, CatcherWrapper bus);
 }
