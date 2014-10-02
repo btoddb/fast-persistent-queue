@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.config;
+package com.btoddb.fastpersitentqueue.chronicle.plunkers;
 
 /*
  * #%L
@@ -26,23 +26,38 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.Config;
-import org.junit.Test;
+import com.btoddb.fastpersitentqueue.chronicle.ChronicleMetrics;
+import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponentBaseImpl;
+import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
+import com.btoddb.fastpersitentqueue.chronicle.FpqPlunker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.MatcherAssert.assertThat;
+import java.util.Collection;
 
 
-public class ConfigTest {
+/**
+ *
+ */
+public abstract class PlunkerBaseImpl extends ChronicleComponentBaseImpl implements FpqPlunker {
+    private static final Logger logger = LoggerFactory.getLogger(PlunkerBaseImpl.class);
 
-    @Test
-    public void testCreate() throws Exception {
-        Config config = Config.create("src/test/resources/chronicle-test.yaml");
-        assertThat(config, is(notNullValue()));
-        assertThat(config.getCatchers().keySet(), hasSize(1));
-        assertThat(config.getCatchers(), hasKey("rest-catcher"));
-        assertThat(config.getPlunkers().keySet(), hasSize(2));
-        assertThat(config.getPlunkers(), hasKey("test-plunker"));
-        assertThat(config.getPlunkers(), hasKey("null-plunker"));
+    protected abstract boolean handleInternal(Collection<FpqEvent> events) throws Exception;
+
+
+    @Override
+    public final boolean handle(Collection<FpqEvent> events) throws Exception {
+        try {
+            ChronicleMetrics.registry.meter(getId()).mark(events.size());
+            return handleInternal(events);
+        }
+        catch (Exception e) {
+            logger.error("exception while handling events in plunker, {}", getId());
+        }
+        finally {
+
+        }
+
+        return false;
     }
 }

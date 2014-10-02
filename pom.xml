@@ -94,7 +94,7 @@
             <version>3.0.1</version>
         </dependency>
 
-        <!-- EventBus - optional dependencies -->
+        <!-- Chronicle - optional dependencies -->
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
@@ -132,7 +132,7 @@
             <artifactId>commons-codec</artifactId>
             <version>1.9</version>
         </dependency>
-        <!-- end EventBus optional -->
+        <!-- end Chronicle optional -->
 
         <!-- flume - optional dependencies -->
         <dependency>

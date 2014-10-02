@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.config;
+package com.btoddb.fastpersitentqueue.chronicle.routers.expressions;
 
 /*
  * #%L
@@ -26,23 +26,23 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.Config;
-import org.junit.Test;
-
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.MatcherAssert.assertThat;
+import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 
 
-public class ConfigTest {
+/**
+ * Created by burrb009 on 9/30/14.
+ */
+public class HeaderExpression extends ExpressionBaseImpl {
+    public final String header;
 
-    @Test
-    public void testCreate() throws Exception {
-        Config config = Config.create("src/test/resources/chronicle-test.yaml");
-        assertThat(config, is(notNullValue()));
-        assertThat(config.getCatchers().keySet(), hasSize(1));
-        assertThat(config.getCatchers(), hasKey("rest-catcher"));
-        assertThat(config.getPlunkers().keySet(), hasSize(2));
-        assertThat(config.getPlunkers(), hasKey("test-plunker"));
-        assertThat(config.getPlunkers(), hasKey("null-plunker"));
+    public HeaderExpression(String header, String op, String value) {
+        super(op, value);
+        this.header = header;
+    }
+
+
+    @Override
+    public boolean match(FpqEvent event) {
+        return internalMatch(event.getHeaders().get(header));
     }
 }

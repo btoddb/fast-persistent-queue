@@ -1,0 +1,47 @@
+
+catchers:
+  rest-catcher:
+    catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.RestCatcherImpl
+      bind: 0.0.0.0
+      port: 8083
+    snoopers:
+      timestamp-snooper: !!com.btoddb.fastpersitentqueue.chronicle.snoopers.TimestampSnooper
+        headerName: timestamp
+        overwrite: true
+
+routers:
+  - !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
+    id: rest-to-test
+    catcher: rest-catcher
+    plunker: test-plunker
+
+
+# Plunkers are associated with a single FPQ
+plunkers:
+  test-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FlumeAvroPlunkerImpl
+      hosts:
+        - localhost:4141
+    fpq:
+      maxTransactionSize: 2000
+      maxMemorySegmentSizeInBytes: 10000
+      maxJournalFileSize: 10000000
+      maxJournalDurationInMs: 30000
+      flushPeriodInMs: 1000
+      numberOfFlushWorkers: 4
+      journalDirectory: tmp/journals
+      pagingDirectory: tmp/paging
+
+  avro-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FlumeAvroPlunkerImpl
+      hosts:
+        - localhost:4141
+    fpq:
+      maxTransactionSize: 2000
+      maxMemorySegmentSizeInBytes: 10000
+      maxJournalFileSize: 10000000
+      maxJournalDurationInMs: 30000
+      flushPeriodInMs: 1000
+      numberOfFlushWorkers: 4
+      journalDirectory: tmp/journals
+      pagingDirectory: tmp/paging

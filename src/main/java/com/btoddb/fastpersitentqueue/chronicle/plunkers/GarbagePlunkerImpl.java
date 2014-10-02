@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.config;
+package com.btoddb.fastpersitentqueue.chronicle.plunkers;
 
 /*
  * #%L
@@ -26,23 +26,23 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.Config;
-import org.junit.Test;
+import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.MatcherAssert.assertThat;
+import java.util.Collection;
 
 
-public class ConfigTest {
+/**
+ *
+ */
+public class GarbagePlunkerImpl extends PlunkerBaseImpl {
+    @Override
+    public boolean handleInternal(Collection<FpqEvent> events) throws Exception {
+        // nothing to do
+        return true;
+    }
 
-    @Test
-    public void testCreate() throws Exception {
-        Config config = Config.create("src/test/resources/chronicle-test.yaml");
-        assertThat(config, is(notNullValue()));
-        assertThat(config.getCatchers().keySet(), hasSize(1));
-        assertThat(config.getCatchers(), hasKey("rest-catcher"));
-        assertThat(config.getPlunkers().keySet(), hasSize(2));
-        assertThat(config.getPlunkers(), hasKey("test-plunker"));
-        assertThat(config.getPlunkers(), hasKey("null-plunker"));
+    @Override
+    public void shutdown() {
+        // nothing to do
     }
 }

@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.config;
+package com.btoddb.fastpersitentqueue.chronicle.routers.expressions;
 
 /*
  * #%L
@@ -26,23 +26,45 @@ package com.btoddb.fastpersitentqueue.config;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.Config;
-import org.junit.Test;
+import com.btoddb.fastpersitentqueue.exceptions.FpqException;
 
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.MatcherAssert.assertThat;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
-public class ConfigTest {
+/**
+ * Base implementation for router expressions.
+ */
+public abstract class ExpressionBaseImpl implements Expression {
+    public final Operator op;
+    public final String value;
+    public final Pattern pattern;
 
-    @Test
-    public void testCreate() throws Exception {
-        Config config = Config.create("src/test/resources/chronicle-test.yaml");
-        assertThat(config, is(notNullValue()));
-        assertThat(config.getCatchers().keySet(), hasSize(1));
-        assertThat(config.getCatchers(), hasKey("rest-catcher"));
-        assertThat(config.getPlunkers().keySet(), hasSize(2));
-        assertThat(config.getPlunkers(), hasKey("test-plunker"));
-        assertThat(config.getPlunkers(), hasKey("null-plunker"));
+    ExpressionBaseImpl(String op, String value) {
+        this.value = value;
+        pattern = Pattern.compile(value);
+        switch (op) {
+            case "=":
+                this.op = Operator.EQUAL;
+                break;
+            case "!=":
+                this.op = Operator.NOT_EQUAL;
+                break;
+
+            default:
+                throw new FpqException("unknown operator, "+op);
+        }
+    }
+
+    protected boolean internalMatch(String x) {
+        Matcher m = pattern.matcher(x);
+        switch (op) {
+            case EQUAL:
+                return m.find();
+            case NOT_EQUAL:
+                return !m.find();
+            default:
+                throw new FpqException("operator is invalid : " + op);
+        }
     }
 }
