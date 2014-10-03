@@ -31,8 +31,10 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -117,37 +119,16 @@ public class FpqEvent {
 
     @Override
     public String toString() {
-        return "FpqBusEvent{" +
-                "headers=" + headers +
-                ", body='" + getBody() + '\'' +
-                '}';
+        return ToStringBuilder.reflectionToString(this);
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        FpqEvent that = (FpqEvent) o;
-
-        if (!Arrays.equals(body, that.body)) {
-            return false;
-        }
-        if (headers != null ? !headers.equals(that.headers) : that.headers != null) {
-            return false;
-        }
-
-        return true;
+        return EqualsBuilder.reflectionEquals(this, o, false);
     }
 
     @Override
     public int hashCode() {
-        int result = headers != null ? headers.hashCode() : 0;
-        result = 31 * result + (body != null ? Arrays.hashCode(body) : 0);
-        return result;
+        return HashCodeBuilder.reflectionHashCode(this);
     }
 }
