@@ -27,6 +27,9 @@ package com.btoddb.fastpersitentqueue.chronicle;
  */
 
 
+import java.util.Collection;
+
+
 /**
  * All components managed by Chronicle should derive from this abstract class.
  */
@@ -35,7 +38,7 @@ public abstract class ChronicleComponentBaseImpl implements ChronicleComponent {
     protected String id;
 
     @Override
-    public void init(Config config) {
+    public void init(Config config) throws Exception {
         this.config = config;
     }
 

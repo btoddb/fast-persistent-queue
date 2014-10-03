@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileNotFoundException;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 
 
@@ -64,6 +64,8 @@ public class Chronicle {
         }
         catch (Exception e) {
             Utils.logAndThrow(logger, "exception while configuring Chronicle - cannot continue", e);
+            shutdown();
+            setStopProcessing(true);
         }
     }
 
@@ -71,13 +73,13 @@ public class Chronicle {
     // each catcher is wrapped with a CatcherWrapper which handles the
     // catcher callback and applying snoopers
     private void configureCatchers(Config config) throws Exception {
-        for (Map.Entry<String, CatcherWrapper> entry : config.getCatchers().entrySet()) {
-            CatcherWrapper wrapper = entry.getValue();
-            if (null == wrapper.getCatcher().getId()) {
-                wrapper.getCatcher().setId(entry.getKey());
+        for (Map.Entry<String, RouteAndSnoop> entry : config.getCatchers().entrySet()) {
+            RouteAndSnoop router = entry.getValue();
+            if (null == router.getCatcher().getId()) {
+                router.getCatcher().setId(entry.getKey());
             }
-            wrapper.setChronicle(this);
-            wrapper.init(config);
+            router.setChronicle(this);
+            router.init(config);
         }
     }
 
@@ -111,13 +113,13 @@ public class Chronicle {
      * Should be called by a {@link com.btoddb.fastpersitentqueue.chronicle.FpqCatcher} after receiving events.
      *
      * @param catcherId ID of the catcher for reporting and routing
-     * @param eventList list of {@link com.btoddb.fastpersitentqueue.chronicle.FpqEvent}s
+     * @param events list of {@link com.btoddb.fastpersitentqueue.chronicle.FpqEvent}s
      */
-    public void handleCatcher(String catcherId, List<FpqEvent> eventList) {
+    public void handleCatcher(String catcherId, Collection<FpqEvent> events) {
         Multimap<PlunkerRunner, FpqEvent> routingMap = LinkedListMultimap.create();
 
         // divide events by route
-        for (FpqEvent event : eventList) {
+        for (FpqEvent event : events) {
             for (FpqRouter router : config.getRouters().values()) {
                 PlunkerRunner runner;
                 if (null != (runner=router.canRoute(catcherId, event))) {
@@ -126,13 +128,18 @@ public class Chronicle {
             }
         }
 
-        for (PlunkerRunner runner : routingMap.keySet()) {
-            try {
-                runner.run(routingMap.get(runner));
+        if (!routingMap.isEmpty()) {
+            for (PlunkerRunner runner : routingMap.keySet()) {
+                try {
+                    runner.run(routingMap.get(runner));
+                }
+                catch (Exception e) {
+                    Utils.logAndThrow(logger, String.format("exception while handle events from catcher, %s", catcherId), e);
+                }
             }
-            catch (Exception e) {
-                Utils.logAndThrow(logger, String.format("exception while handle events from catcher, %s", catcherId), e);
-            }
+        }
+        else {
+            config.getErrorHandler().handle(events);
         }
     }
 
@@ -141,30 +148,40 @@ public class Chronicle {
      *
      */
     public void shutdown() {
-        for (CatcherWrapper catcher : config.getCatchers().values()) {
-            try {
-                catcher.shutdown();
-            }
-            catch (Exception e) {
-                logger.error("exception while shutting down FPQ catcher, {}", catcher.getCatcher().getId(), e);
+        if (null == config) {
+            return;
+        }
+
+        if (null != config.getCatchers()) {
+            for (RouteAndSnoop catcher : config.getCatchers().values()) {
+                try {
+                    catcher.shutdown();
+                }
+                catch (Exception e) {
+                    logger.error("exception while shutting down FPQ catcher, {}", catcher.getCatcher().getId(), e);
+                }
             }
         }
 
-        for (FpqRouter router : config.getRouters().values()) {
-            try {
-                router.shutdown();
-            }
-            catch (Exception e) {
-                logger.error("exception while shutting down FPQ router, {}", router.getId());
+        if (null != config.getRouters()) {
+            for (FpqRouter router : config.getRouters().values()) {
+                try {
+                    router.shutdown();
+                }
+                catch (Exception e) {
+                    logger.error("exception while shutting down FPQ router, {}", router.getId());
+                }
             }
         }
 
-        for (PlunkerRunner runner : config.getPlunkers().values()) {
-            try {
-                runner.shutdown();
-            }
-            catch (Exception e) {
-                logger.error("exception while shutting down FPQ plunker, {}", runner.getPlunker().getId(), e);
+        if (null != config.getPlunkers()) {
+            for (PlunkerRunner runner : config.getPlunkers().values()) {
+                try {
+                    runner.shutdown();
+                }
+                catch (Exception e) {
+                    logger.error("exception while shutting down FPQ plunker, {}", runner.getPlunker().getId(), e);
+                }
             }
         }
     }

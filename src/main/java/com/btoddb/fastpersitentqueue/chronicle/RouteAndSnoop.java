@@ -4,17 +4,17 @@ import com.btoddb.fastpersitentqueue.chronicle.snoopers.Snooper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 
 /**
  *
  */
-public class CatcherWrapper {
-    private static final Logger logger = LoggerFactory.getLogger(CatcherWrapper.class);
+public class RouteAndSnoop {
+    private static final Logger logger = LoggerFactory.getLogger(RouteAndSnoop.class);
 
     private FpqCatcher catcher;
     private Map<String, Snooper> snoopers;
@@ -56,7 +56,7 @@ public class CatcherWrapper {
         }
     }
 
-    public void handleCatcher(String catcherId, List<FpqEvent> eventList) {
+    public void handleCatcher(String catcherId, Collection<FpqEvent> eventList) {
         Iterator<FpqEvent> iter = eventList.iterator();
         while (iter.hasNext()) {
             FpqEvent event = iter.next();

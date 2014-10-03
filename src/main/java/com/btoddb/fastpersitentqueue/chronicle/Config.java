@@ -47,10 +47,10 @@ public class Config {
     private static Logger logger = LoggerFactory.getLogger(Config.class);
 
     String configFilename;
-
+    ErrorHandler errorHandler;
     ObjectMapper objectMapper;
 
-    Map<String, CatcherWrapper> catchers = new HashMap<>();
+    Map<String, RouteAndSnoop> catchers = new HashMap<>();
     Map<String, PlunkerRunner> plunkers = new HashMap<>();
     Map<String, FpqRouter> routers = new HashMap<>();
 
@@ -91,11 +91,11 @@ public class Config {
         this.routers = routers;
     }
 
-    public Map<String, CatcherWrapper> getCatchers() {
+    public Map<String, RouteAndSnoop> getCatchers() {
         return catchers;
     }
 
-    public void setCatchers(Map<String, CatcherWrapper> catchers) {
+    public void setCatchers(Map<String, RouteAndSnoop> catchers) {
         this.catchers = catchers;
     }
 
@@ -113,6 +113,14 @@ public class Config {
 
     public void setObjectMapper(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    public ErrorHandler getErrorHandler() {
+        return errorHandler;
+    }
+
+    public void setErrorHandler(ErrorHandler errorHandler) {
+        this.errorHandler = errorHandler;
     }
 
     public String toString() {

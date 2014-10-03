@@ -60,7 +60,7 @@ public class ConditionalRouterImpl extends ChronicleComponentBaseImpl implements
     private String plunker;
 
     @Override
-    public void init(Config config) {
+    public void init(Config config) throws Exception {
         super.init(config);
         compileExpression(condition);
     }

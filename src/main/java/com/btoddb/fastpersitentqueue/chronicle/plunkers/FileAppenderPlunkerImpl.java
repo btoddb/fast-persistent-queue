@@ -1,4 +1,4 @@
-package com.btoddb.fastpersitentqueue.chronicle.routers;
+package com.btoddb.fastpersitentqueue.chronicle.plunkers;
 
 /*
  * #%L
@@ -12,10 +12,10 @@ package com.btoddb.fastpersitentqueue.chronicle.routers;
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,58 +26,56 @@ package com.btoddb.fastpersitentqueue.chronicle.routers;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponentBaseImpl;
-import com.btoddb.fastpersitentqueue.chronicle.FpqRouter;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
-import com.btoddb.fastpersitentqueue.chronicle.PlunkerRunner;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Collection;
+
 
 /**
- * Routes all events received by the named {@link com.btoddb.fastpersitentqueue.chronicle.FpqCatcher} to the
- * specified {@link com.btoddb.fastpersitentqueue.chronicle.FpqPlunker}.
+ *
  */
-public class OneToOneRouterImpl extends ChronicleComponentBaseImpl implements FpqRouter {
-    private static final Logger logger = LoggerFactory.getLogger(OneToOneRouterImpl.class);
+public class FileAppenderPlunkerImpl extends PlunkerBaseImpl {
+    private static Logger logger = LoggerFactory.getLogger(FileAppenderPlunkerImpl.class);
 
-    private String catcher;
-    private String plunker;
+    private String file;
+    private PrintWriter fw;
 
     @Override
     public void init(Config config) throws Exception {
         super.init(config);
+        File f = new File(file);
+        FileUtils.forceMkdir(f.getParentFile());
+        fw = new PrintWriter(new FileWriter(file));
+    }
+
+    @Override
+    protected boolean handleInternal(Collection<FpqEvent> events) throws Exception {
+        for (FpqEvent event : events) {
+            config.getObjectMapper().writeValue(fw, event);
+            fw.println();
+        }
+        fw.flush();
+        return true;
     }
 
     @Override
     public void shutdown() {
-        // nothing to do yet
+        fw.close();
     }
 
-    @Override
-    public PlunkerRunner canRoute(String catcherId, FpqEvent event) {
-        if (catcher.equals(catcherId)) {
-            return config.getPlunkers().get(plunker);
-        }
-        else {
-            return null;
-        }
+    public String getFile() {
+        return file;
     }
 
-    public String getCatcher() {
-        return catcher;
-    }
-
-    public void setCatcher(String catcher) {
-        this.catcher = catcher;
-    }
-
-    public String getPlunker() {
-        return plunker;
-    }
-
-    public void setPlunker(String plunker) {
-        this.plunker = plunker;
+    public void setFile(String file) {
+        this.file = file;
     }
 }

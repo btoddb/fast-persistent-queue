@@ -71,7 +71,7 @@ public class FlumeAvroPlunkerImpl extends PlunkerBaseImpl {
     }
 
     @Override
-    public void init(Config config) {
+    public void init(Config config) throws Exception {
         super.init(config);
         clientFactory = new AvroClientFactoryImpl(hosts, connectionsPerHost, maxBatchSize, false, reconnectPeriod);
     }

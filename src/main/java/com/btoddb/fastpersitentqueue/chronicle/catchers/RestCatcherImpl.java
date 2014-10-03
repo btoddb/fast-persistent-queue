@@ -27,10 +27,8 @@ package com.btoddb.fastpersitentqueue.chronicle.catchers;
  */
 
 import com.btoddb.fastpersitentqueue.Utils;
-import com.btoddb.fastpersitentqueue.chronicle.CatcherWrapper;
-import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponentBaseImpl;
+import com.btoddb.fastpersitentqueue.chronicle.RouteAndSnoop;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
-import com.btoddb.fastpersitentqueue.chronicle.FpqCatcher;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.eclipse.jetty.jmx.MBeanContainer;
@@ -60,11 +58,10 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
 
-public class RestCatcherImpl extends ChronicleComponentBaseImpl implements FpqCatcher {
+public class RestCatcherImpl extends CatcherBaseImpl {
     private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
 
     private Server server;
-    private CatcherWrapper wrapper;
 
     private int port = 8083;
     private String bind = "0.0.0.0";
@@ -72,9 +69,8 @@ public class RestCatcherImpl extends ChronicleComponentBaseImpl implements FpqCa
 
 
     @Override
-    public void init(Config config, CatcherWrapper wrapper) {
-        super.init(config);
-        this.wrapper = wrapper;
+    public void init(Config config, RouteAndSnoop router) throws Exception {
+        super.init(config, router);
         startJettyServer();
     }
 
@@ -199,9 +195,10 @@ public class RestCatcherImpl extends ChronicleComponentBaseImpl implements FpqCa
             }
 
             try {
-                wrapper.handleCatcher(id, eventList);
+                catchEvents(eventList);
             }
             catch (Exception e) {
+                logger.error("exception while processing events", e);
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 response.getWriter().print(e.getMessage());
                 return;

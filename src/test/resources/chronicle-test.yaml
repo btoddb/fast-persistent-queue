@@ -1,5 +1,8 @@
-
 catchers:
+  errors:
+    catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.DirectCallCatcherImpl
+      id: errors
+
   rest-catcher:
     catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.RestCatcherImpl
       bind: 0.0.0.0
@@ -16,6 +19,9 @@ routers:
   default-route: !!com.btoddb.fastpersitentqueue.chronicle.routers.ConditionalRouterImpl
     condition: headers[skipDefaultRouting] = .+ AND body = hello
     plunker: garbage-plunker
+  errors: !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
+    catcher: errors
+    plunker: error-plunker
 
 # Plunkers are associated with a single FPQ
 plunkers:
@@ -34,7 +40,7 @@ plunkers:
 
   null-plunker:
     plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.GarbagePlunkerImpl
-      id: garbage-plunker
+      id: null-plunker
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000
@@ -44,3 +50,19 @@ plunkers:
       numberOfFlushWorkers: 4
       journalDirectory: will_be_overriden_by_junit
       pagingDirectory: will_be_overriden_by_junit
+
+  error-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FileAppenderPlunkerImpl
+      file: tmp/{header.customer}/errors.out
+    fpq:
+      maxTransactionSize: 2000
+      maxMemorySegmentSizeInBytes: 10000
+      maxJournalFileSize: 10000000
+      maxJournalDurationInMs: 30000
+      flushPeriodInMs: 1000
+      numberOfFlushWorkers: 4
+      journalDirectory: will_be_overriden_by_junit
+      pagingDirectory: will_be_overriden_by_junit
+
+errorHandler: !!com.btoddb.fastpersitentqueue.chronicle.ErrorHandlerImpl
+  catcher: errors

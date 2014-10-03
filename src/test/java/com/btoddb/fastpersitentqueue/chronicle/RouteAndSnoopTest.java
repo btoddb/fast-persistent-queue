@@ -20,7 +20,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-public class CatcherWrapperTest {
+public class RouteAndSnoopTest {
     Chronicle chronicle;
 
     @Before
@@ -39,11 +39,11 @@ public class CatcherWrapperTest {
         Snooper snooper = mock(Snooper.class);
         when(snooper.tap(any(FpqEvent.class))).thenReturn(false, true, false);
 
-        CatcherWrapper wrapper = new CatcherWrapper();
-        wrapper.setSnoopers(Collections.singletonMap(snooper.getId(), snooper));
-        wrapper.setChronicle(chronicle);
+        RouteAndSnoop router = new RouteAndSnoop();
+        router.setSnoopers(Collections.singletonMap(snooper.getId(), snooper));
+        router.setChronicle(chronicle);
 
-        wrapper.handleCatcher("the-catcher-id", eventList);
+        router.handleCatcher("the-catcher-id", eventList);
 
         assertThat(eventList, hasSize(1));
 

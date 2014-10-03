@@ -44,7 +44,7 @@ public class TestPlunkerImpl extends PlunkerBaseImpl {
     private List<FpqEvent> eventList = new LinkedList<FpqEvent>();
 
     @Override
-    public void init(Config config) {
+    public void init(Config config) throws Exception {
         super.init(config);
     }
 
