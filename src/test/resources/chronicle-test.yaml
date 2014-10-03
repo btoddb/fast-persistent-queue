@@ -52,8 +52,8 @@ plunkers:
       pagingDirectory: will_be_overriden_by_junit
 
   error-plunker:
-    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FileAppenderPlunkerImpl
-      file: tmp/{header.customer}/errors.out
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FilePlunkerImpl
+      filePattern: tmp/${header.customer}/errors.out
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000
