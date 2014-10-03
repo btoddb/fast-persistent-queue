@@ -39,7 +39,7 @@ public class ConfigTest {
     public void testCreate() throws Exception {
         Config config = Config.create("src/test/resources/chronicle-test.yaml");
         assertThat(config, is(notNullValue()));
-        assertThat(config.getCatchers().keySet(), hasSize(1));
+        assertThat(config.getCatchers().keySet(), hasSize(2));
         assertThat(config.getCatchers(), hasKey("rest-catcher"));
         assertThat(config.getPlunkers().keySet(), hasSize(2));
         assertThat(config.getPlunkers(), hasKey("test-plunker"));
