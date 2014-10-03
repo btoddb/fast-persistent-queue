@@ -1,5 +1,5 @@
 catchers:
-  errors:
+  error-catcher:
     catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.DirectCallCatcherImpl
       id: errors
 
