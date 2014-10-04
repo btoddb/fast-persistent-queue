@@ -34,7 +34,7 @@ import java.util.Collection;
 /**
  *
  */
-public class ErrorHandlerImpl extends ChronicleComponentBaseImpl implements ErrorHandler {
+public class ErrorHandlerImpl extends ChronicleComponentBaseImpl implements FpqErrorHandler {
     private String catcher;
 
     @Override

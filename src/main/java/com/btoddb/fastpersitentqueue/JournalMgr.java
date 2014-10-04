@@ -320,17 +320,25 @@ public class JournalMgr {
         }
 
         // for journals that are completely popped, but not removed (because a client still could have pushed)
-        for (JournalDescriptor desc: journalIdMap.values()) {
-            if (0 == desc.getNumberOfUnconsumedEntries()) {
-                removeJournal(desc);
+        Set<JournalDescriptor> removeThese = new HashSet<>();
+        try {
+            for (JournalDescriptor desc : journalIdMap.values()) {
+                if (0 == desc.getNumberOfUnconsumedEntries()) {
+                    removeThese.add(desc);
+                }
+                else if (desc.getFile().isOpen()) {
+                    try {
+                        desc.getFile().forceFlush();
+                    }
+                    catch (IOException e) {
+                        logger.error("on shutdown - could not fsync journal file, {} -- ignoring", desc.getFile().getFile().getAbsolutePath());
+                    }
+                }
             }
-            else if (desc.getFile().isOpen()) {
-                try {
-                    desc.getFile().forceFlush();
-                }
-                catch (IOException e) {
-                    logger.error("on shutdown - could not fsync journal file, {} -- ignoring", desc.getFile().getFile().getAbsolutePath());
-                }
+        }
+        finally {
+            for (JournalDescriptor desc : removeThese) {
+                removeJournal(desc);
             }
         }
     }

@@ -26,22 +26,23 @@ package com.btoddb.fastpersitentqueue.chronicle.snoopers;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponentBaseImpl;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
+import com.btoddb.fastpersitentqueue.chronicle.FpqSnooper;
 
 
 /**
  * Adds timestamp to event.
  */
-public class TimestampSnooper implements Snooper {
-    private String id;
+public class TimestampSnooper extends ChronicleComponentBaseImpl implements FpqSnooper {
     private String headerName;
     private boolean overwrite;
 
 
     @Override
-    public void init(Config config) {
-        // do nothing
+    public void init(Config config) throws Exception {
+        super.init(config);
     }
 
     @Override
@@ -72,25 +73,5 @@ public class TimestampSnooper implements Snooper {
 
     public void setOverwrite(boolean overwrite) {
         this.overwrite = overwrite;
-    }
-
-    @Override
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    @Override
-    public Config getConfig() {
-        return null;
-    }
-
-    @Override
-    public void setConfig(Config config) {
-        // don't care
     }
 }

@@ -27,7 +27,9 @@ package com.btoddb.fastpersitentqueue.chronicle;
  */
 
 
-import java.util.Collection;
+import com.codahale.metrics.Gauge;
+
+import static com.codahale.metrics.MetricRegistry.name;
 
 
 /**
@@ -37,9 +39,41 @@ public abstract class ChronicleComponentBaseImpl implements ChronicleComponent {
     protected Config config;
     protected String id;
 
+    private String metricDomain;
+    private String componentType;
+
     @Override
     public void init(Config config) throws Exception {
         this.config = config;
+        determineComponentType();
+        metricDomain = getId();
+        config.getMetrics().getRegistry().register(name(metricDomain, "type"), new Gauge<String>() {
+            @Override
+            public String getValue() {
+                return componentType;
+            }
+        });
+    }
+
+    void determineComponentType() {
+        if (FpqCatcher.class.isAssignableFrom(this.getClass())) {
+            componentType = "catcher";
+        }
+        else if (FpqRouter.class.isAssignableFrom(this.getClass())) {
+            componentType = "router";
+        }
+        else if (FpqPlunker.class.isAssignableFrom(this.getClass())) {
+            componentType = "plunker";
+        }
+        else if (FpqSnooper.class.isAssignableFrom(this.getClass())) {
+            componentType = "snooper";
+        }
+        else if (FpqErrorHandler.class.isAssignableFrom(this.getClass())) {
+            componentType = "error-handler";
+        }
+        else {
+            componentType = "unknown";
+        }
     }
 
     @Override

@@ -34,11 +34,16 @@ import com.codahale.metrics.MetricRegistry;
  *
  */
 public class ChronicleMetrics {
-    public static MetricRegistry registry = new MetricRegistry();
-    public static JmxReporter reporter;
-    static {
-        reporter = JmxReporter.forRegistry(registry).inDomain("com.btoddb.fpq.chronicle").build();
+    private MetricRegistry registry = new MetricRegistry();
+    private JmxReporter reporter;
+
+
+    public ChronicleMetrics() {
+        reporter = JmxReporter.forRegistry(registry).inDomain("fpq.chronicle").build();
         reporter.start();
     }
 
+    public MetricRegistry getRegistry() {
+        return registry;
+    }
 }

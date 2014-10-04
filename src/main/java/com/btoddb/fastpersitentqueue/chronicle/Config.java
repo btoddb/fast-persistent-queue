@@ -46,8 +46,9 @@ import java.util.Map;
 public class Config {
     private static Logger logger = LoggerFactory.getLogger(Config.class);
 
+    ChronicleMetrics metrics;
     String configFilename;
-    ErrorHandler errorHandler;
+    FpqErrorHandler errorHandler;
     ObjectMapper objectMapper;
 
     Map<String, RouteAndSnoop> catchers = new HashMap<>();
@@ -56,6 +57,7 @@ public class Config {
 
 
     public Config() {
+        metrics = new ChronicleMetrics();
         objectMapper = new ObjectMapper();
     }
 
@@ -115,12 +117,20 @@ public class Config {
         this.objectMapper = objectMapper;
     }
 
-    public ErrorHandler getErrorHandler() {
+    public FpqErrorHandler getErrorHandler() {
         return errorHandler;
     }
 
-    public void setErrorHandler(ErrorHandler errorHandler) {
+    public void setErrorHandler(FpqErrorHandler errorHandler) {
         this.errorHandler = errorHandler;
+    }
+
+    public ChronicleMetrics getMetrics() {
+        return metrics;
+    }
+
+    public void setMetrics(ChronicleMetrics metrics) {
+        this.metrics = metrics;
     }
 
     public String toString() {

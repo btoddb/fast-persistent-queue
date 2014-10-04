@@ -352,8 +352,12 @@ public class Fpq {
                 cleanupTransaction(context);
             }
 
-            memoryMgr.shutdown();
-            journalMgr.shutdown();
+            if (null != memoryMgr) {
+                memoryMgr.shutdown();
+            }
+            if (null != journalMgr) {
+                journalMgr.shutdown();
+            }
         }
         finally {
             shutdownLock.writeLock().unlock();

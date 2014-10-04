@@ -26,7 +26,6 @@ package com.btoddb.fastpersitentqueue.chronicle;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.snoopers.Snooper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,19 +38,22 @@ import java.util.Map;
 /**
  *
  */
-public class RouteAndSnoop {
+public class RouteAndSnoop implements ChronicleComponent {
     private static final Logger logger = LoggerFactory.getLogger(RouteAndSnoop.class);
 
+    private String id;
+    private Config config;
     private FpqCatcher catcher;
-    private Map<String, Snooper> snoopers;
+    private Map<String, FpqSnooper> snoopers;
 
     private Chronicle chronicle;
 
     public void init(Config config) throws Exception {
+        this.config = config;
+
         if (null != snoopers) {
-            for (Map.Entry<String, Snooper> entry : snoopers.entrySet()) {
-                entry.getValue().setId(entry.getKey());
-                entry.getValue().init(config);
+            for (Map.Entry<String, FpqSnooper> entry : snoopers.entrySet()) {
+                initializeComponent(entry.getValue(), entry.getKey());
             }
         }
         else {
@@ -59,7 +61,14 @@ public class RouteAndSnoop {
         }
 
         // init the catcher last, after all snoopers are ready
-        catcher.init(config, this);
+        initializeComponent(catcher, id);
+    }
+
+    private void initializeComponent(ChronicleComponent component, String id) throws Exception {
+        if (null == component.getId()) {
+            component.setId(id);
+        }
+        component.init(config);
     }
 
     public void shutdown() {
@@ -71,7 +80,7 @@ public class RouteAndSnoop {
         }
 
         if (null != snoopers) {
-            for (Snooper snooper : snoopers.values()) {
+            for (FpqSnooper snooper : snoopers.values()) {
                 try {
                     snooper.shutdown();
                 }
@@ -82,11 +91,31 @@ public class RouteAndSnoop {
         }
     }
 
+    @Override
+    public String getId() {
+        return this.id;
+    }
+
+    @Override
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    @Override
+    public Config getConfig() {
+        return this.config;
+    }
+
+    @Override
+    public void setConfig(Config config) {
+        this.config = config;
+    }
+
     public void handleCatcher(String catcherId, Collection<FpqEvent> eventList) {
         Iterator<FpqEvent> iter = eventList.iterator();
         while (iter.hasNext()) {
             FpqEvent event = iter.next();
-            for (Snooper snooper : snoopers.values()) {
+            for (FpqSnooper snooper : snoopers.values()) {
                 if (!snooper.tap(event)) {
                     // don't want this event anymore, so no more snooping
                     iter.remove();
@@ -113,11 +142,11 @@ public class RouteAndSnoop {
         this.catcher = catcher;
     }
 
-    public Map<String, Snooper> getSnoopers() {
+    public Map<String, FpqSnooper> getSnoopers() {
         return snoopers;
     }
 
-    public void setSnoopers(Map<String, Snooper> snoopers) {
+    public void setSnoopers(Map<String, FpqSnooper> snoopers) {
         this.snoopers = snoopers;
     }
 }

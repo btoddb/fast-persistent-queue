@@ -63,7 +63,7 @@ public class Chronicle {
             configureCatchers(config);
         }
         catch (Exception e) {
-            Utils.logAndThrow(logger, "exception while configuring Chronicle - cannot continue", e);
+            logger.error("exception while configuring Chronicle - cannot continue", e);
             shutdown();
             setStopProcessing(true);
         }
@@ -75,11 +75,8 @@ public class Chronicle {
     private void configureCatchers(Config config) throws Exception {
         for (Map.Entry<String, RouteAndSnoop> entry : config.getCatchers().entrySet()) {
             RouteAndSnoop router = entry.getValue();
-            if (null == router.getCatcher().getId()) {
-                router.getCatcher().setId(entry.getKey());
-            }
             router.setChronicle(this);
-            router.init(config);
+            initializeComponent(router, entry.getKey());
         }
     }
 
@@ -90,8 +87,6 @@ public class Chronicle {
         for (Map.Entry<String, PlunkerRunner> entry : config.getPlunkers().entrySet()) {
             PlunkerRunner runner = entry.getValue();
             initializeComponent(runner, entry.getKey());
-            FpqPlunker plunker = runner.getPlunker();
-            initializeComponent(plunker, entry.getKey());
         }
     }
 
@@ -153,12 +148,12 @@ public class Chronicle {
         }
 
         if (null != config.getCatchers()) {
-            for (RouteAndSnoop catcher : config.getCatchers().values()) {
+            for (RouteAndSnoop router : config.getCatchers().values()) {
                 try {
-                    catcher.shutdown();
+                    router.shutdown();
                 }
                 catch (Exception e) {
-                    logger.error("exception while shutting down FPQ catcher, {}", catcher.getCatcher().getId(), e);
+                    logger.error("exception while shutting down FPQ catcher, {}", router.getCatcher().getId(), e);
                 }
             }
         }
@@ -195,8 +190,6 @@ public class Chronicle {
                 Thread.interrupted();
             }
         }
-
-        shutdown();
     }
 
     public boolean isStopProcessing() {
@@ -219,6 +212,6 @@ public class Chronicle {
         // we're live!
 
         chronicle.waitUntilStopped();
-
+        chronicle.shutdown();
     }
 }

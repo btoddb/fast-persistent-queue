@@ -49,6 +49,7 @@ public class PlunkerRunner implements ChronicleComponent, FpqBatchCallback {
     private Config config;
     private FpqBatchReader batchReader;
 
+    private String id;
     private FpqPlunker plunker;
     private Fpq fpq;
 
@@ -56,7 +57,7 @@ public class PlunkerRunner implements ChronicleComponent, FpqBatchCallback {
     public void init(Config config) throws Exception {
         this.config = config;
 
-        plunker.init(config);
+        initializeComponent(plunker, id);
 
         fpq.init();
 
@@ -66,6 +67,13 @@ public class PlunkerRunner implements ChronicleComponent, FpqBatchCallback {
         batchReader.init();
         // see this.available()
         batchReader.start();
+    }
+
+    private void initializeComponent(ChronicleComponent component, String id) throws Exception {
+        if (null == component.getId()) {
+            component.setId(id);
+        }
+        component.init(config);
     }
 
     /**
@@ -106,36 +114,42 @@ public class PlunkerRunner implements ChronicleComponent, FpqBatchCallback {
     }
 
     public void shutdown() {
-        try {
-            batchReader.shutdown();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down FPQ batch reader", e);
-        }
-
-        try {
-            fpq.shutdown();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down FPQ", e);
+        if (null != batchReader) {
+            try {
+                batchReader.shutdown();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down FPQ batch reader", e);
+            }
         }
 
-        try {
-            plunker.shutdown();
+        if (null != fpq) {
+            try {
+                fpq.shutdown();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down FPQ", e);
+            }
         }
-        catch (Exception e) {
-            logger.error("exception while shutting down plunker, {}", plunker.getId(), e);
+
+        if (null != plunker) {
+            try {
+                plunker.shutdown();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down plunker, {}", plunker.getId(), e);
+            }
         }
     }
 
     @Override
     public String getId() {
-        return null;
+        return id;
     }
 
     @Override
     public void setId(String id) {
-
+        this.id = id;
     }
 
     @Override

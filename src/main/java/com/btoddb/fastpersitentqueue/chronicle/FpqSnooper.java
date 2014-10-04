@@ -26,14 +26,21 @@ package com.btoddb.fastpersitentqueue.chronicle;
  * #L%
  */
 
-import java.util.Collection;
+import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponent;
+import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 
 
 /**
  *
  */
-public interface ErrorHandler {
+public interface FpqSnooper extends ChronicleComponent {
 
-    void handle(Collection<FpqEvent> events);
+    /**
+     *
+     * @param event
+     * @return true means keep the event, false means we don't want it anymore and will
+     * not be processed by any more Snoopers
+     */
+    boolean tap(FpqEvent event);
 
 }

@@ -144,11 +144,13 @@ public class RestCatcherImpl extends CatcherBaseImpl {
 
     @Override
     public void shutdown() {
-        try {
-            server.stop();
-        }
-        catch (Exception e) {
-            logger.error("exception while shutting down jetty server", e);
+        if (null != server) {
+            try {
+                server.stop();
+            }
+            catch (Exception e) {
+                logger.error("exception while shutting down jetty server", e);
+            }
         }
     }
 

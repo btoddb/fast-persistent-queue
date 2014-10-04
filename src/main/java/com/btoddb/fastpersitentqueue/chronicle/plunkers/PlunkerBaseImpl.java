@@ -28,8 +28,10 @@ package com.btoddb.fastpersitentqueue.chronicle.plunkers;
 
 import com.btoddb.fastpersitentqueue.chronicle.ChronicleMetrics;
 import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponentBaseImpl;
+import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.btoddb.fastpersitentqueue.chronicle.FpqPlunker;
+import com.codahale.metrics.Gauge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,9 +48,14 @@ public abstract class PlunkerBaseImpl extends ChronicleComponentBaseImpl impleme
 
 
     @Override
+    public void init(Config config) throws Exception {
+        super.init(config);
+    }
+
+    @Override
     public final boolean handle(Collection<FpqEvent> events) throws Exception {
         try {
-            ChronicleMetrics.registry.meter(getId()).mark(events.size());
+            config.getMetrics().getRegistry().meter(getId()).mark(events.size());
             return handleInternal(events);
         }
         catch (Exception e) {

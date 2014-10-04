@@ -126,8 +126,10 @@ public class FilePlunkerImpl extends PlunkerBaseImpl {
 
     @Override
     public void shutdown() {
-        printWriterCache.invalidateAll();
-        printWriterCache.cleanUp();
+        if (null != printWriterCache) {
+            printWriterCache.invalidateAll();
+            printWriterCache.cleanUp();
+        }
     }
 
     List<TokenizingPart> compileFilePattern(String file) {

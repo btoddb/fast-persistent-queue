@@ -26,7 +26,6 @@ package com.btoddb.fastpersitentqueue.chronicle;
  * #L%
  */
 
-import com.btoddb.fastpersitentqueue.chronicle.snoopers.Snooper;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -62,7 +61,7 @@ public class RouteAndSnoopTest {
         eventList.add(new FpqEvent("the-body", true).addHeader("id", "2"));
         eventList.add(new FpqEvent("the-body", true).addHeader("id", "3"));
 
-        Snooper snooper = mock(Snooper.class);
+        FpqSnooper snooper = mock(FpqSnooper.class);
         when(snooper.tap(any(FpqEvent.class))).thenReturn(false, true, false);
 
         RouteAndSnoop router = new RouteAndSnoop();

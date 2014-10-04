@@ -1,5 +1,8 @@
-
 catchers:
+  error-catcher:
+    catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.DirectCallCatcherImpl
+      id: error-catcher
+
   rest-catcher:
     catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.RestCatcherImpl
       bind: 0.0.0.0
@@ -10,18 +13,21 @@ catchers:
         overwrite: true
 
 routers:
-  - !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
-    id: rest-to-test
+  rest-to-test: !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
     catcher: rest-catcher
-    plunker: test-plunker
-
+    plunker: file-plunker
+  default-route: !!com.btoddb.fastpersitentqueue.chronicle.routers.ConditionalRouterImpl
+    condition: headers[skipDefaultRouting] = .+ AND body = hello
+    plunker: garbage-plunker
+  error-route: !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
+    catcher: errors
+    plunker: error-plunker
 
 # Plunkers are associated with a single FPQ
 plunkers:
-  test-plunker:
-    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FlumeAvroPlunkerImpl
-      hosts:
-        - localhost:4141
+  file-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FilePlunkerImpl
+      filePattern: tmp/app/data.out
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000
@@ -29,13 +35,12 @@ plunkers:
       maxJournalDurationInMs: 30000
       flushPeriodInMs: 1000
       numberOfFlushWorkers: 4
-      journalDirectory: tmp/journals
-      pagingDirectory: tmp/paging
+      journalDirectory: tmp/chronicle/file-plunker/journals
+      pagingDirectory: tmp/chronicle/file-plunker/pages
 
-  avro-plunker:
-    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FlumeAvroPlunkerImpl
-      hosts:
-        - localhost:4141
+  error-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FilePlunkerImpl
+      filePattern: tmp/${header.customer}/errors.out
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000
@@ -43,5 +48,8 @@ plunkers:
       maxJournalDurationInMs: 30000
       flushPeriodInMs: 1000
       numberOfFlushWorkers: 4
-      journalDirectory: tmp/journals
-      pagingDirectory: tmp/paging
+      journalDirectory: tmp/chronicle/error-plunker/journals
+      pagingDirectory: tmp/chronicle/error-plunker/pages
+
+errorHandler: !!com.btoddb.fastpersitentqueue.chronicle.ErrorHandlerImpl
+  catcher: errors
