@@ -457,7 +457,7 @@ public class JournalMgrIT {
 
     @Before
     public void setup() throws IOException {
-        theDir = new File("junitTmp_"+ UUID.randomUUID().toString()).getCanonicalFile();
+        theDir = new File("tmp/junitTmp_"+ UUID.randomUUID().toString()).getCanonicalFile();
         FileUtils.forceMkdir(theDir);
 
         mgr = new JournalMgr();

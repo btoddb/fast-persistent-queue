@@ -1,7 +1,7 @@
 catchers:
   error-catcher:
     catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.DirectCallCatcherImpl
-      id: errors
+      id: error-catcher
 
   rest-catcher:
     catcher: !!com.btoddb.fastpersitentqueue.chronicle.catchers.RestCatcherImpl
@@ -19,8 +19,8 @@ routers:
   default-route: !!com.btoddb.fastpersitentqueue.chronicle.routers.ConditionalRouterImpl
     condition: headers[skipDefaultRouting] = .+ AND body = hello
     plunker: garbage-plunker
-  errors: !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
-    catcher: errors
+  error-route: !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
+    catcher: error-catcher
     plunker: error-plunker
 
 # Plunkers are associated with a single FPQ
@@ -65,4 +65,4 @@ plunkers:
       pagingDirectory: will_be_overriden_by_junit
 
 errorHandler: !!com.btoddb.fastpersitentqueue.chronicle.ErrorHandlerImpl
-  catcher: errors
+  catcher: error-catcher

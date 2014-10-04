@@ -50,7 +50,7 @@ public class FpqBatchReaderIT {
 
     @Before
     public void setup() throws IOException {
-        theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
+        theDir = new File("tmp/junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
         fpq1 = new Fpq();

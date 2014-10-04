@@ -43,8 +43,8 @@ public class DirectCallCatcherImpl extends CatcherBaseImpl implements FpqCatcher
     private static final Logger logger = LoggerFactory.getLogger(DirectCallCatcherImpl.class);
 
     @Override
-    public void init(Config config, RouteAndSnoop router) throws Exception {
-        super.init(config, router);
+    public void init(Config config) throws Exception {
+        super.init(config);
     }
 
     @Override

@@ -104,7 +104,7 @@ public class FilePlunkerImplTest {
     public void testCreateFileName() throws Exception {
         FilePlunkerImpl plunker = new FilePlunkerImpl();
         plunker.setFilePattern("tmp/${customer}/file");
-        plunker.init(null);
+        plunker.init(new Config());
 
         String path = plunker.createFileName(new FpqEvent("the-body", true)
                                        .addHeader("customer", "the-customer")

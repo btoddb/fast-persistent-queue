@@ -37,6 +37,13 @@ public class ChronicleMetrics {
     private MetricRegistry registry = new MetricRegistry();
     private JmxReporter reporter;
 
+    private static ThreadLocal<RequestMetrics> metrics = new ThreadLocal<RequestMetrics>() {
+        @Override
+        protected RequestMetrics initialValue() {
+            return new RequestMetrics();
+        }
+    };
+
 
     public ChronicleMetrics() {
         reporter = JmxReporter.forRegistry(registry).inDomain("fpq.chronicle").build();
@@ -45,5 +52,26 @@ public class ChronicleMetrics {
 
     public MetricRegistry getRegistry() {
         return registry;
+    }
+
+    public void markBatchStart(String componentId) {
+        metrics.get().startBatch(registry, componentId);
+    }
+
+    public void markBatchEnd() {
+        metrics.get().endBatch();
+        metrics.remove();
+    }
+
+    public void setBatchSize(int batchSize) {
+        metrics.get().setBatchSize(batchSize);
+    }
+
+    public void markStartRouting() {
+//        metrics.get().startRouting();
+    }
+
+    public void markEndRouting() {
+//        metrics.get().endRouting();
     }
 }

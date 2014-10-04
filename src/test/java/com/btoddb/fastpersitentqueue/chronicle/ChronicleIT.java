@@ -60,7 +60,7 @@ public class ChronicleIT {
 
     @Before
     public void setup() throws Exception {
-        theDir = new File("junitTmp_"+ UUID.randomUUID().toString());
+        theDir = new File("tmp/junitTmp_"+ UUID.randomUUID().toString());
         FileUtils.forceMkdir(theDir);
 
         config = Config.create("src/test/resources/chronicle-test.yaml");

@@ -50,6 +50,7 @@ public class RouteAndSnoop implements ChronicleComponent {
 
     public void init(Config config) throws Exception {
         this.config = config;
+        catcher.setRouter(this);
 
         if (null != snoopers) {
             for (Map.Entry<String, FpqSnooper> entry : snoopers.entrySet()) {
@@ -61,6 +62,7 @@ public class RouteAndSnoop implements ChronicleComponent {
         }
 
         // init the catcher last, after all snoopers are ready
+        catcher.setRouter(this);
         initializeComponent(catcher, id);
     }
 

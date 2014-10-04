@@ -31,5 +31,5 @@ package com.btoddb.fastpersitentqueue.chronicle;
  *
  */
 public interface FpqCatcher extends ChronicleComponent {
-    void init(Config config, RouteAndSnoop router) throws Exception;
+    void setRouter(RouteAndSnoop router);
 }

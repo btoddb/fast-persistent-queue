@@ -243,7 +243,7 @@ public class JournalFileTest {
 
     @Before
     public void setup() throws IOException {
-        theDir = new File("junitTmp_"+new UUID().toString());
+        theDir = new File("tmp/junitTmp_"+new UUID().toString());
         FileUtils.forceMkdir(theDir);
         theFile = generateLogFileName();
     }

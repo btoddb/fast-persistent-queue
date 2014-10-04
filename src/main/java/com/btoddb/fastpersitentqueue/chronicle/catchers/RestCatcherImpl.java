@@ -69,8 +69,8 @@ public class RestCatcherImpl extends CatcherBaseImpl {
 
 
     @Override
-    public void init(Config config, RouteAndSnoop router) throws Exception {
-        super.init(config, router);
+    public void init(Config config) throws Exception {
+        super.init(config);
         startJettyServer();
     }
 
@@ -102,7 +102,6 @@ public class RestCatcherImpl extends CatcherBaseImpl {
         context.setContextPath("/v1");
         context.setHandler(statsHandler);
         context.setAllowNullPathInfo(true); // to avoid redirect on POST
-
 
         server.setConnectors(new Connector[] {connector});
         server.setHandler(context);
@@ -168,6 +167,16 @@ public class RestCatcherImpl extends CatcherBaseImpl {
             // TODO:BTB - check that request isn't "too large"
             //
 
+            config.getMetrics().markBatchStart(getId());
+            try {
+                doIt(baseRequest, request, response);
+            }
+            finally {
+                config.getMetrics().markBatchEnd();
+            }
+        }
+
+        private void doIt(Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException {
             List<FpqEvent> eventList;
             BufferedInputStream reqInStream = new BufferedInputStream(request.getInputStream());
 
@@ -178,8 +187,7 @@ public class RestCatcherImpl extends CatcherBaseImpl {
                     eventList = Collections.singletonList(event);
                 }
                 else {
-                    eventList = config.getObjectMapper().readValue(reqInStream, new TypeReference<List<FpqEvent>>() {
-                    });
+                    eventList = config.getObjectMapper().readValue(reqInStream, new TypeReference<List<FpqEvent>>() {});
                 }
             }
             catch (Exception e) {

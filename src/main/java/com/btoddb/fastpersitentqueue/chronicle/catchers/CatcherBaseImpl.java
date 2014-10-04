@@ -41,12 +41,23 @@ import java.util.Collection;
 public abstract class CatcherBaseImpl extends ChronicleComponentBaseImpl implements FpqCatcher {
     private RouteAndSnoop router;
 
-    public void init(Config config, RouteAndSnoop router) throws Exception {
+
+    public void init(Config config) throws Exception {
         super.init(config);
-        this.router = router;
     }
 
     protected void catchEvents(Collection<FpqEvent> events) {
+        getConfig().getMetrics().setBatchSize(events.size());
+        getConfig().getMetrics().markStartRouting();
         router.handleCatcher(getId(), events);
+        getConfig().getMetrics().markEndRouting();
+    }
+
+    public RouteAndSnoop getRouter() {
+        return router;
+    }
+
+    public void setRouter(RouteAndSnoop router) {
+        this.router = router;
     }
 }
