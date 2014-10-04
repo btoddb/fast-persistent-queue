@@ -27,7 +27,6 @@ package com.btoddb.fastpersitentqueue.chronicle.catchers;
  */
 
 import com.btoddb.fastpersitentqueue.Utils;
-import com.btoddb.fastpersitentqueue.chronicle.RouteAndSnoop;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -57,6 +56,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 
 public class RestCatcherImpl extends CatcherBaseImpl {
     private static final Logger logger = LoggerFactory.getLogger(RestCatcherImpl.class);
@@ -71,6 +72,9 @@ public class RestCatcherImpl extends CatcherBaseImpl {
     @Override
     public void init(Config config) throws Exception {
         super.init(config);
+
+        updateMetrics(null);
+
         startJettyServer();
     }
 
@@ -153,6 +157,15 @@ public class RestCatcherImpl extends CatcherBaseImpl {
         }
     }
 
+    private void updateMetrics(Integer contentLength) {
+        if (null != contentLength) {
+            config.getCatcherMetrics().getRegistry().histogram(name(getId(), "content-length")).update(contentLength);
+        }
+        else {
+            config.getCatcherMetrics().getRegistry().histogram(name(getId(), "content-length"));
+        }
+    }
+
     public class RequestHandler extends AbstractHandler {
         public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response)
                 throws IOException, ServletException {
@@ -167,12 +180,13 @@ public class RestCatcherImpl extends CatcherBaseImpl {
             // TODO:BTB - check that request isn't "too large"
             //
 
-            config.getMetrics().markBatchStart(getId());
+            config.getCatcherMetrics().markBatchStart(getId());
+            updateMetrics(request.getContentLength());
             try {
                 doIt(baseRequest, request, response);
             }
             finally {
-                config.getMetrics().markBatchEnd();
+                config.getCatcherMetrics().markBatchEnd(getId());
             }
         }
 

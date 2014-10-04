@@ -34,6 +34,8 @@ import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 
 import java.util.Collection;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 
 /**
  *
@@ -44,13 +46,17 @@ public abstract class CatcherBaseImpl extends ChronicleComponentBaseImpl impleme
 
     public void init(Config config) throws Exception {
         super.init(config);
+
+        getConfig().getCatcherMetrics().initialize(getId());
     }
 
     protected void catchEvents(Collection<FpqEvent> events) {
-        getConfig().getMetrics().setBatchSize(events.size());
-        getConfig().getMetrics().markStartRouting();
+        getConfig().getCatcherMetrics().setBatchSize(events.size());
+        getConfig().getCatcherMetrics().markStartRouting();
+
         router.handleCatcher(getId(), events);
-        getConfig().getMetrics().markEndRouting();
+
+        getConfig().getCatcherMetrics().markEndRouting();
     }
 
     public RouteAndSnoop getRouter() {

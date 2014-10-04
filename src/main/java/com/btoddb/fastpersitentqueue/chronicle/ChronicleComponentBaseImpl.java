@@ -47,7 +47,7 @@ public abstract class ChronicleComponentBaseImpl implements ChronicleComponent {
         this.config = config;
         determineComponentType();
         metricDomain = getId();
-        config.getMetrics().getRegistry().register(name(metricDomain, "type"), new Gauge<String>() {
+        config.getCatcherMetrics().getRegistry().register(name(metricDomain, "type"), new Gauge<String>() {
             @Override
             public String getValue() {
                 return componentType;

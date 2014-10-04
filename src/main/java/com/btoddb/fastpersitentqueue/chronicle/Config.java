@@ -46,7 +46,7 @@ import java.util.Map;
 public class Config {
     private static Logger logger = LoggerFactory.getLogger(Config.class);
 
-    ChronicleMetrics metrics;
+    CatcherMetrics catcherMetrics;
     String configFilename;
     FpqErrorHandler errorHandler;
     ObjectMapper objectMapper;
@@ -57,7 +57,7 @@ public class Config {
 
 
     public Config() {
-        metrics = new ChronicleMetrics();
+        catcherMetrics = new CatcherMetrics();
         objectMapper = new ObjectMapper();
     }
 
@@ -125,12 +125,12 @@ public class Config {
         this.errorHandler = errorHandler;
     }
 
-    public ChronicleMetrics getMetrics() {
-        return metrics;
+    public CatcherMetrics getCatcherMetrics() {
+        return catcherMetrics;
     }
 
-    public void setMetrics(ChronicleMetrics metrics) {
-        this.metrics = metrics;
+    public void setCatcherMetrics(CatcherMetrics catcherMetrics) {
+        this.catcherMetrics = catcherMetrics;
     }
 
     public String toString() {

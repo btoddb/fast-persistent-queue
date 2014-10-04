@@ -66,6 +66,21 @@ public class RouteAndSnoop implements ChronicleComponent {
         initializeComponent(catcher, id);
     }
 
+    public void handleCatcher(String catcherId, Collection<FpqEvent> eventList) {
+        Iterator<FpqEvent> iter = eventList.iterator();
+        while (iter.hasNext()) {
+            FpqEvent event = iter.next();
+            for (FpqSnooper snooper : snoopers.values()) {
+                if (!snooper.tap(event)) {
+                    // don't want this event anymore, so no more snooping
+                    iter.remove();
+                    break;
+                }
+            }
+        }
+        chronicle.handleCatcher(catcherId, eventList);
+    }
+
     private void initializeComponent(ChronicleComponent component, String id) throws Exception {
         if (null == component.getId()) {
             component.setId(id);
@@ -111,21 +126,6 @@ public class RouteAndSnoop implements ChronicleComponent {
     @Override
     public void setConfig(Config config) {
         this.config = config;
-    }
-
-    public void handleCatcher(String catcherId, Collection<FpqEvent> eventList) {
-        Iterator<FpqEvent> iter = eventList.iterator();
-        while (iter.hasNext()) {
-            FpqEvent event = iter.next();
-            for (FpqSnooper snooper : snoopers.values()) {
-                if (!snooper.tap(event)) {
-                    // don't want this event anymore, so no more snooping
-                    iter.remove();
-                    break;
-                }
-            }
-        }
-        chronicle.handleCatcher(catcherId, eventList);
     }
 
     public Chronicle getChronicle() {
