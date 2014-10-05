@@ -28,14 +28,30 @@
 
     <div class="container">
       <section id="main_content">
-
           <h3>Latest Maven Site Build</h3>
-          <p/><a href="0.0.1-SNAPSHOT/index.html">0.0.1-SNAPSHOT</a>
+          <p/><a href="0.0.11/index.html">0.0.1-SNAPSHOT</a>
 
 <h3>
 <a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<p/>
+  fast-persistent-queue (FPQ) is an attempt to make a mostly FIFO, durable, fault-tolerant, deliver-at-least-once queue.
+  If your needs are for a strictly FIFO queue, then this isn't the one for you (at least not at the moment).
+  If all is going well, all events are written to an append only log file for durability and only pushed/popped in-memory.
+<p/>
+  The memory management is setup in segments and are "paged" in/out from disk - totally separate from the log file.  When the
+  threshold for memory usage is exceeded, the "newest" complete segment will be paged to disk, leaving the oldest ones for "popping".
+<p/>  
+  When popping from the queue, the next event from the oldest segment is returned.  However, if the needed segment is paged
+  to disk the pop will use the next segment that *is* in memory - skipping some events.  As soon as the page is in memory
+  and ready, the next pop will return from the "just loaded" segment.  This is why the queue is "mostly" FIFO.
+<p/>
+  The downside is that disk space is not considered important and will basically be doubled if the queue starts backing up.
+  One copy of the data in the log files and the other in the segment page files.  A premium is put on speed and therefore
+  even when the queue is backing up, it is operating very fast since pops always come from memory, never (or very seldom)
+  waiting on disk I/O.
+  
+  
       </section>
     </div>
 
