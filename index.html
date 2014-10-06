@@ -44,7 +44,7 @@
 <p/>  
   When popping from the queue, the next event from the oldest segment is returned, which gives us FIFO.  However, if the
   needed segment is paged to disk the pop will use the next segment that *is* in memory - skipping some events, which breaks
-  FIFO.  As soon as the page is in memory and ready, the next pop will return from the "just loaded" segment.  This is
+  FIFO.  As soon as the segment is in memory and ready, the next pop will return from the "just loaded" segment.  This is
   why the queue is *mostly* FIFO.
 <p/>
   The downside is that disk space is not considered important and will basically be doubled if the queue starts backing up.
