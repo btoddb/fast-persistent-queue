@@ -38,12 +38,14 @@
   If your needs are for a strictly FIFO queue, then this isn't the one for you (at least not at the moment).
   If all is going well, all events are written to an append only log file for durability and only pushed/popped in-memory.
 <p/>
-  The memory management is setup in segments and are "paged" in/out from disk - totally separate from the log file.  When the
-  threshold for memory usage is exceeded, the "newest" complete segment will be paged to disk, leaving the oldest ones for "popping".
+  The memory management is setup in segments and are paged in/out from disk - totally separate from the log file.  When the
+  threshold for memory usage is exceeded, the newest *complete* segment will be paged to disk, leaving the newest *incomplete*
+  segment for pushing, and some of the oldest segments for "popping".
 <p/>  
-  When popping from the queue, the next event from the oldest segment is returned.  However, if the needed segment is paged
-  to disk the pop will use the next segment that *is* in memory - skipping some events.  As soon as the page is in memory
-  and ready, the next pop will return from the "just loaded" segment.  This is why the queue is "mostly" FIFO.
+  When popping from the queue, the next event from the oldest segment is returned, which gives us FIFO.  However, if the
+  needed segment is paged to disk the pop will use the next segment that *is* in memory - skipping some events, which breaks
+  FIFO.  As soon as the page is in memory and ready, the next pop will return from the "just loaded" segment.  This is
+  why the queue is *mostly* FIFO.
 <p/>
   The downside is that disk space is not considered important and will basically be doubled if the queue starts backing up.
   One copy of the data in the log files and the other in the segment page files.  A premium is put on speed and therefore
