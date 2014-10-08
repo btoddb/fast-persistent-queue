@@ -29,6 +29,7 @@ package com.btoddb.fastpersitentqueue.chronicle.plunkers;
 import com.btoddb.fastpersitentqueue.Utils;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
+import com.btoddb.fastpersitentqueue.chronicle.TokenizedFilePath;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -59,7 +60,7 @@ public class FilePlunkerImpl extends PlunkerBaseImpl {
     private int inactiveTimeout = 120;
     private int maxOpenFiles = 100;
 
-    private List<TokenizingPart> tokenizedFilename;
+    private TokenizedFilePath tokenizedFilePath;
 
     Cache<String, PrintWriter> printWriterCache;
 
@@ -67,7 +68,7 @@ public class FilePlunkerImpl extends PlunkerBaseImpl {
     public void init(Config config) throws Exception {
         super.init(config);
 
-        tokenizedFilename = compileFilePattern(filePattern);
+        tokenizedFilePath = new TokenizedFilePath(filePattern);
 
         printWriterCache = CacheBuilder.newBuilder()
                 .expireAfterAccess(inactiveTimeout, TimeUnit.SECONDS)
@@ -82,27 +83,13 @@ public class FilePlunkerImpl extends PlunkerBaseImpl {
     }
 
     @Override
-    protected boolean handleInternal(Collection<FpqEvent> events) throws Exception {
+    protected void handleInternal(Collection<FpqEvent> events) throws Exception {
         for (FpqEvent event : events) {
-            PrintWriter fw = retrievePrintWriter(createFileName(event));
+            PrintWriter fw = retrievePrintWriter(tokenizedFilePath.createFileName(event.getHeaders()));
             config.getObjectMapper().writeValue(fw, event);
             fw.println();
             fw.flush();
         }
-        return true;
-    }
-
-    String createFileName(FpqEvent event) {
-        StringBuilder sb = new StringBuilder();
-        for (TokenizingPart part : tokenizedFilename) {
-            if (part instanceof StringPart) {
-                sb.append(part.part);
-            }
-            else {
-                sb.append(event.getHeaders().get(part.part));
-            }
-        }
-        return sb.toString();
     }
 
     PrintWriter retrievePrintWriter(final String fn) {
@@ -132,38 +119,6 @@ public class FilePlunkerImpl extends PlunkerBaseImpl {
         }
     }
 
-    List<TokenizingPart> compileFilePattern(String file) {
-        List<TokenizingPart> compiledList = new ArrayList<>();
-
-        int startIndex = 0;
-        int endIndex = 0;
-
-        while (-1 != startIndex && -1 != endIndex && endIndex < file.length()) {
-            // find 'start of token'
-            startIndex = file.indexOf("${", endIndex);
-
-            // save the 'not-token' part
-            if (-1 != startIndex) {
-                if (0 < startIndex) {
-                    compiledList.add(new StringPart(file.substring(endIndex, startIndex)));
-                }
-                startIndex += 2;
-
-                // find 'end of token'
-                endIndex = file.indexOf("}", startIndex);
-
-                // replace the token
-                compiledList.add(new TokenPart(file.substring(startIndex, endIndex)));
-
-                endIndex++;
-            }
-            else {
-                compiledList.add(new StringPart(file.substring(endIndex)));
-            }
-        }
-        return compiledList;
-    }
-
     public String getFilePattern() {
         return filePattern;
     }
@@ -190,25 +145,6 @@ public class FilePlunkerImpl extends PlunkerBaseImpl {
 
     Cache<String, PrintWriter> getPrintWriterCache() {
         return printWriterCache;
-    }
-
-    // ----------
-
-    abstract class TokenizingPart {
-        final String part;
-        TokenizingPart(String part) {
-            this.part = part;
-        }
-    }
-    class StringPart extends TokenizingPart {
-        StringPart(String part) {
-            super(part);
-        }
-    }
-    class TokenPart extends TokenizingPart {
-        TokenPart(String part) {
-            super(part);
-        }
     }
 
 }

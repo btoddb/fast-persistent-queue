@@ -49,9 +49,8 @@ public class TestPlunkerImpl extends PlunkerBaseImpl {
     }
 
     @Override
-    protected boolean handleInternal(Collection<FpqEvent> events) throws Exception {
+    protected void handleInternal(Collection<FpqEvent> events) throws Exception {
         eventList.addAll(events);
-        return true;
     }
 
     @Override

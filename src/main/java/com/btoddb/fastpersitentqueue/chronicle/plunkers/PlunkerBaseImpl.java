@@ -26,6 +26,7 @@ package com.btoddb.fastpersitentqueue.chronicle.plunkers;
  * #L%
  */
 
+import com.btoddb.fastpersitentqueue.Utils;
 import com.btoddb.fastpersitentqueue.chronicle.ChronicleComponentBaseImpl;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
@@ -42,7 +43,15 @@ import java.util.Collection;
 public abstract class PlunkerBaseImpl extends ChronicleComponentBaseImpl implements FpqPlunker {
     private static final Logger logger = LoggerFactory.getLogger(PlunkerBaseImpl.class);
 
-    protected abstract boolean handleInternal(Collection<FpqEvent> events) throws Exception;
+
+    /**
+     * Derived classes implement this method to process the Collection of events.  Throwing any exception
+     * will cause a rollback, otherwise the transaction is committed.
+     *
+     * @param events Collection of {@linke FpqEvent}s
+     * @throws Exception
+     */
+    protected abstract void handleInternal(Collection<FpqEvent> events) throws Exception;
 
 
     @Override
@@ -51,18 +60,13 @@ public abstract class PlunkerBaseImpl extends ChronicleComponentBaseImpl impleme
     }
 
     @Override
-    public final boolean handle(Collection<FpqEvent> events) throws Exception {
+    public final void handle(Collection<FpqEvent> events) throws Exception {
         try {
             config.getCatcherMetrics().getRegistry().meter(getId()).mark(events.size());
-            return handleInternal(events);
+            handleInternal(events);
         }
         catch (Exception e) {
-            logger.error("exception while handling events in plunker, {}", getId());
+            Utils.logAndThrow(logger, String.format("exception while handling events in plunker, %s", getId()), e);
         }
-        finally {
-
-        }
-
-        return false;
     }
 }

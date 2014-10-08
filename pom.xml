@@ -24,6 +24,7 @@
         <jetty-version>9.2.3.v20140905</jetty-version>
         <fasterxml-version>2.4.2</fasterxml-version>
         <flume-version>1.5.0.1</flume-version>
+        <powermock-version>1.5.6</powermock-version>
     </properties>
 
     <issueManagement>
@@ -132,6 +133,14 @@
             <artifactId>commons-codec</artifactId>
             <version>1.9</version>
         </dependency>
+
+            <!-- HdfsPlunkerImpl -->
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-client</artifactId>
+                <version>2.5.1</version>
+            </dependency>
+            <!-- end HdfsPlunkerImpl -->
         <!-- end Chronicle optional -->
 
         <!-- flume - optional dependencies -->
@@ -192,6 +201,24 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-all</artifactId>
             <version>1.9.5</version>
+        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.powermock</groupId>-->
+            <!--<artifactId>powermock-api-mockito</artifactId>-->
+            <!--<version>${powermock-version}</version>-->
+            <!--<scope>test</scope>-->
+        <!--</dependency>-->
+        <!--<dependency>-->
+            <!--<groupId>org.powermock</groupId>-->
+            <!--<artifactId>powermock-module-junit4</artifactId>-->
+            <!--<version>${powermock-version}</version>-->
+            <!--<scope>test</scope>-->
+        <!--</dependency>-->
+        <dependency>
+            <groupId>org.jmockit</groupId>
+            <artifactId>jmockit</artifactId>
+            <version>1.12</version>
+            <scope>test</scope>
         </dependency>
         <!-- end test dependencies -->
     </dependencies>

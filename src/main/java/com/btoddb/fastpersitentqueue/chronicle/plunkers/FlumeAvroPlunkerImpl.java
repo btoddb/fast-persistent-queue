@@ -49,15 +49,8 @@ public class FlumeAvroPlunkerImpl extends PlunkerBaseImpl {
 
 
 
-    /**
-     * Happens inside a transaction.
-     *
-     * <p/>Any exceptions escaping this method will cauase a rollback
-     *
-     * @return true to commit TX, false to rollback
-     */
     @Override
-    protected boolean handleInternal(Collection<FpqEvent> events) throws Exception {
+    protected void handleInternal(Collection<FpqEvent> events) throws Exception {
         List<Event> flumeEventList = new ArrayList<Event>(events.size());
 
         // convert FPQ events to flume events
@@ -66,8 +59,6 @@ public class FlumeAvroPlunkerImpl extends PlunkerBaseImpl {
         }
 
         clientFactory.getInstanceAndSend(flumeEventList);
-
-        return true;
     }
 
     @Override

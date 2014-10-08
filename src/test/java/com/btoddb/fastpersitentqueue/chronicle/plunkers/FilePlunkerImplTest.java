@@ -27,7 +27,9 @@ package com.btoddb.fastpersitentqueue.chronicle.plunkers;
  */
 
 import com.btoddb.fastpersitentqueue.chronicle.Config;
+import com.btoddb.fastpersitentqueue.chronicle.FileTestUtils;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
+import com.btoddb.fastpersitentqueue.chronicle.TokenizedFilePath;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.hamcrest.Description;
@@ -55,11 +57,13 @@ import static org.hamcrest.Matchers.nullValue;
 
 public class FilePlunkerImplTest {
     File baseDir;
+    FileTestUtils ftUtils;
     Config config = new Config();
 
     @Before
     public void setup() {
         baseDir = new File("tmp/" + UUID.randomUUID().toString());
+        ftUtils = new FileTestUtils(config);
     }
 
     @After
@@ -70,64 +74,6 @@ public class FilePlunkerImplTest {
         catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    @Test
-    public void testCompileNoTokens() {
-        List<FilePlunkerImpl.TokenizingPart> list = new FilePlunkerImpl().compileFilePattern("this is the string");
-        assertThat(list, hasSize(1));
-        assertThat(list.get(0), is(instanceOf(FilePlunkerImpl.StringPart.class)));
-        assertThat(list.get(0).part, is("this is the string"));
-    }
-
-    @Test
-    public void testCompileWithSingleToken() {
-        List<FilePlunkerImpl.TokenizingPart> list = new FilePlunkerImpl().compileFilePattern("this ${is} the string");
-        assertThat(list, hasSize(3));
-        assertThat(list.get(0), is(instanceOf(FilePlunkerImpl.StringPart.class)));
-        assertThat(list.get(0).part, is("this "));
-        assertThat(list.get(1), is(instanceOf(FilePlunkerImpl.TokenPart.class)));
-        assertThat(list.get(1).part, is("is"));
-        assertThat(list.get(2), is(instanceOf(FilePlunkerImpl.StringPart.class)));
-        assertThat(list.get(2).part, is(" the string"));
-    }
-
-    @Test
-    public void testCompileWithOnlyAToken() {
-        List<FilePlunkerImpl.TokenizingPart> list = new FilePlunkerImpl().compileFilePattern("${token}");
-        assertThat(list, hasSize(1));
-        assertThat(list.get(0), is(instanceOf(FilePlunkerImpl.TokenPart.class)));
-        assertThat(list.get(0).part, is("token"));
-    }
-
-    @Test
-    public void testCreateFileName() throws Exception {
-        FilePlunkerImpl plunker = new FilePlunkerImpl();
-        plunker.setFilePattern("tmp/${customer}/file");
-        plunker.init(new Config());
-
-        String path = plunker.createFileName(new FpqEvent("the-body", true)
-                                       .addHeader("customer", "the-customer")
-                                       .addHeader("foo", "bar"));
-
-
-        assertThat(path, is("tmp/the-customer/file"));
-    }
-
-    @Test
-    public void testCompileWithMultipleTokens() {
-        List<FilePlunkerImpl.TokenizingPart> list = new FilePlunkerImpl().compileFilePattern("${this} string ${is} the string ${tokenizer}");
-        assertThat(list, hasSize(5));
-        assertThat(list.get(0), is(instanceOf(FilePlunkerImpl.TokenPart.class)));
-        assertThat(list.get(0).part, is("this"));
-        assertThat(list.get(1), is(instanceOf(FilePlunkerImpl.StringPart.class)));
-        assertThat(list.get(1).part, is(" string "));
-        assertThat(list.get(2), is(instanceOf(FilePlunkerImpl.TokenPart.class)));
-        assertThat(list.get(2).part, is("is"));
-        assertThat(list.get(3), is(instanceOf(FilePlunkerImpl.StringPart.class)));
-        assertThat(list.get(3).part, is(" the string "));
-        assertThat(list.get(4), is(instanceOf(FilePlunkerImpl.TokenPart.class)));
-        assertThat(list.get(4).part, is("tokenizer"));
     }
 
     @Test
@@ -148,10 +94,10 @@ public class FilePlunkerImplTest {
         assertThat(createFileObj("three/logs").exists(), is(true));
         assertThat(createFileObj("four/logs").exists(), is(true));
 
-        assertThat(createFileObj("one/logs"), hasEvents(new FpqEvent[] {eventList.get(0)}));
-        assertThat(createFileObj("two/logs"), hasEvents(new FpqEvent[] {eventList.get(1)}));
-        assertThat(createFileObj("three/logs"), hasEvents(new FpqEvent[] {eventList.get(2)}));
-        assertThat(createFileObj("four/logs"), hasEvents(new FpqEvent[] {eventList.get(3)}));
+        assertThat(createFileObj("one/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(0)}));
+        assertThat(createFileObj("two/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(1)}));
+        assertThat(createFileObj("three/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(2)}));
+        assertThat(createFileObj("four/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(3)}));
     }
 
     @Test
@@ -183,67 +129,5 @@ public class FilePlunkerImplTest {
         return new File(baseDir, fn);
     }
 
-    Matcher<File> hasEvents(final FpqEvent[] targetEvents) {
-        return new TypeSafeMatcher<File>() {
-            String errorDesc;
-            String expected;
-            String got;
-
-            @Override
-            protected boolean matchesSafely(final File f) {
-                FileReader fr = null;
-                try {
-                    fr  = new FileReader(f);
-                    List<String> lines = IOUtils.readLines(fr);
-                    if (targetEvents.length != lines.size()) {
-                        errorDesc = "number of events: ";
-                        expected = ""+targetEvents.length;
-                        got = ""+lines.size();
-                        return false;
-                    }
-
-                    for (int i=0;i < targetEvents.length;i++) {
-                        FpqEvent event = config.getObjectMapper().readValue(lines.get(i), FpqEvent.class);
-                        if (!targetEvents[i].equals(event)) {
-                            errorDesc = "event: ";
-                            expected = config.getObjectMapper().writeValueAsString(targetEvents[i]);
-                            got = lines.get(i);
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-                catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                    return false;
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                    return false;
-                }
-                finally {
-                    if (null != fr) {
-                        try {
-                            fr.close();
-                        }
-                        catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-
-            }
-
-            @Override
-            public void describeTo(final Description description) {
-                description.appendText(errorDesc).appendValue(expected);
-            }
-
-            @Override
-            protected void describeMismatchSafely(final File item, final Description mismatchDescription) {
-                mismatchDescription.appendText("  was: ").appendValue(got);
-            }
-        };
-    }
 
 }

@@ -33,5 +33,5 @@ import java.util.Collection;
  *
  */
 public interface FpqPlunker extends ChronicleComponent {
-    boolean handle(Collection<FpqEvent> events) throws Exception;
+    void handle(Collection<FpqEvent> events) throws Exception;
 }

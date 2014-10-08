@@ -36,9 +36,8 @@ import java.util.Collection;
  */
 public class GarbagePlunkerImpl extends PlunkerBaseImpl {
     @Override
-    public boolean handleInternal(Collection<FpqEvent> events) throws Exception {
-        // nothing to do
-        return true;
+    public void handleInternal(Collection<FpqEvent> events) throws Exception {
+        // do nothing - eat the events
     }
 
     @Override
