@@ -72,6 +72,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     private int maxOpenFiles = 100;
     private int numIdleTimeoutThreads = 2;
     private int numCloseThreads = 4;
+    private long shutdownWaitTimeout = 60;
 
 
     private Cache<String, WriterContext> writerCache;
@@ -140,6 +141,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
             @Override
             public void run() {
                 try {
+                    //TODO:BTB - can also close via cache eviction - probably need some sync'ing
                     context.getWriter().close();
                 }
                 catch (IOException e) {
@@ -199,19 +201,37 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     @Override
     public void shutdown() {
         if (!isShutdown.compareAndSet(false, true)) {
-            logger.error("shutdown already called - will not do it again");
+            logger.error("shutdown already called - returning");
             return;
         }
 
+        idleTimerExec.shutdown();
+
         canHandleRequests.writeLock().lock();
         try {
-            if (null != writerCache) {
-                writerCache.invalidateAll();
-                writerCache.cleanUp();
-            }
+            closeWritersAndWait();
         }
         finally {
             canHandleRequests.writeLock().unlock();
+        }
+    }
+
+    private void closeWritersAndWait() {
+        if (null != writerCache) {
+            for (WriterContext context : writerCache.asMap().values()) {
+                submitClose(context);
+            }
+        }
+
+        closeExec.shutdown();
+
+        try {
+            if (!closeExec.awaitTermination(shutdownWaitTimeout, TimeUnit.SECONDS)) {
+                closeExec.shutdownNow();
+            }
+        }
+        catch (InterruptedException e) {
+            logger.error("exception while waiting for HdfsWriters to clowe", e);
         }
     }
 
@@ -254,7 +274,6 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
 
     private void createWriterCache() {
         writerCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(idleTimeout, TimeUnit.SECONDS)
                 .maximumSize(maxOpenFiles)
                 .removalListener(new RemovalListener<String, WriterContext>() {
                     @Override

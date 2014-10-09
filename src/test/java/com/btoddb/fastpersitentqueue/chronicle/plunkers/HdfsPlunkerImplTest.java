@@ -5,6 +5,7 @@ import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriter;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriterFactory;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.WriterContext;
+import mockit.Injectable;
 import mockit.Mocked;
 import mockit.NonStrictExpectations;
 import mockit.integration.junit4.JMockit;
@@ -76,9 +77,9 @@ public class HdfsPlunkerImplTest {
     }
 
     @Test
-    public void testHandleEvent(
+    public void testInitThenHandleEventThenShutdown(
             @Mocked final HdfsWriterFactory writerFactory,
-            @Mocked final ScheduledThreadPoolExecutor idleExec,
+            @Injectable final ScheduledThreadPoolExecutor idleExec, // don't want closeExec affected
             @Mocked final WriterContext aContext,
             @Mocked final HdfsWriter aWriter,
             @Mocked final ScheduledFuture<Void> aFuture
@@ -94,6 +95,7 @@ public class HdfsPlunkerImplTest {
                 writer.init(config); times = 1;
                 writer.open(); times = 1;
                 writer.write(events.get(i-1)); times = 1;
+                writer.close(); times = 1;
 
                 writerFactory.createWriter(withSubstring("customer" + i), anyString); times = 1; result = writer;
 
@@ -101,7 +103,7 @@ public class HdfsPlunkerImplTest {
                 future.cancel(false); times = 1;
 
                 WriterContext context = new WriterContext(writer);
-                context.getWriter(); times = 1; result = writer;
+                context.getWriter(); times = 2; result = writer;
                 context.getIdleFuture(); times = 2; result = future;
 
                 idleExec.schedule((Runnable) any, plunker.getIdleTimeout(), TimeUnit.SECONDS); times = 2;
@@ -112,6 +114,7 @@ public class HdfsPlunkerImplTest {
         plunker.setIdleTimerExec(idleExec);
         plunker.init(config);
         plunker.handleInternal(events);
+        plunker.shutdown();
     }
 
     // ----------
