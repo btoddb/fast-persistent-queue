@@ -67,8 +67,8 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     private String pathPattern;
     private String permNamePattern;
     private String openNamePattern;
-    private int rollTimeout = 600; // seconds (10 minutes)
-    private int idleTimeout = 60; // seconds (1 minute)
+    private long rollTimeout = 600; // seconds (10 minutes)
+    private long idleTimeout = 60; // seconds (1 minute)
     private int maxOpenFiles = 100;
     private int numIdleTimeoutThreads = 2;
     private int numCloseThreads = 4;
@@ -145,7 +145,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
                 catch (IOException e) {
                     logger.error("exception while closing HdfsWriter - retrying", e);
                     submitClose(context);
-                    idleTimerExec.schedule(this, 1, TimeUnit.SECONDS);
+                    closeExec.schedule(this, 1, TimeUnit.SECONDS);
                 }
             }
         });
@@ -158,13 +158,14 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
         startIdleTimeout(context);
     }
 
-    WriterContext retrieveWriter(final FpqEvent event) {
+    private WriterContext retrieveWriter(final FpqEvent event) {
         try {
             return writerCache.get(keyTokenizedFilePath.createFileName(event.getHeaders()), new Callable<WriterContext>() {
                 @Override
                 public WriterContext call() throws IOException {
-                    HdfsWriter writer = writerFactory.createWriter(permTokenizedFilePath.createFileName(event.getHeaders()),
-                                                             openTokenizedFilePath.createFileName(event.getHeaders()));
+                    String permFileName = permTokenizedFilePath.createFileName(event.getHeaders());
+                    String openFileName = openTokenizedFilePath.createFileName(event.getHeaders());
+                    HdfsWriter writer = writerFactory.createWriter(permFileName, openFileName);
                     writer.init(config);
                     writer.open();
                     return new WriterContext(writer);
@@ -221,30 +222,34 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     }
 
     private void createExecutors() {
-        idleTimerExec = new ScheduledThreadPoolExecutor(
-                numIdleTimeoutThreads,
-                new ThreadFactory() {
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread t = new Thread(r);
-                        t.setName("FPQ-HDFS-IdleTimeout");
-                        return t;
+        if (null == idleTimerExec) {
+            idleTimerExec = new ScheduledThreadPoolExecutor(
+                    numIdleTimeoutThreads,
+                    new ThreadFactory() {
+                        @Override
+                        public Thread newThread(Runnable r) {
+                            Thread t = new Thread(r);
+                            t.setName("FPQ-HDFS-IdleTimeout");
+                            return t;
+                        }
                     }
-                }
-        );
+            );
+        }
 
-        closeExec = new ScheduledThreadPoolExecutor(
-                numCloseThreads,
-                new ThreadFactory() {
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread t = new Thread(r);
-                        t.setName("FPQ-HDFS-Closer");
-                        return t;
-                    }
-                },
-                new ThreadPoolExecutor.CallerRunsPolicy()
-        );
+        if (null == closeExec) {
+            closeExec = new ScheduledThreadPoolExecutor(
+                    numCloseThreads,
+                    new ThreadFactory() {
+                        @Override
+                        public Thread newThread(Runnable r) {
+                            Thread t = new Thread(r);
+                            t.setName("FPQ-HDFS-Closer");
+                            return t;
+                        }
+                    },
+                    new ThreadPoolExecutor.CallerRunsPolicy()
+            );
+        }
     }
 
     private void createWriterCache() {
@@ -284,7 +289,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
         this.openNamePattern = openNamePattern;
     }
 
-    public int getIdleTimeout() {
+    public long getIdleTimeout() {
         return idleTimeout;
     }
 
@@ -308,7 +313,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
         this.serializer = serializer;
     }
 
-    public int getRollTimeout() {
+    public long getRollTimeout() {
         return rollTimeout;
     }
 
@@ -322,6 +327,46 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
 
     public void setWriterFactory(HdfsWriterFactory writerFactory) {
         this.writerFactory = writerFactory;
+    }
+
+    public void setRollTimeout(long rollTimeout) {
+        this.rollTimeout = rollTimeout;
+    }
+
+    public void setIdleTimeout(long idleTimeout) {
+        this.idleTimeout = idleTimeout;
+    }
+
+    public int getNumIdleTimeoutThreads() {
+        return numIdleTimeoutThreads;
+    }
+
+    public void setNumIdleTimeoutThreads(int numIdleTimeoutThreads) {
+        this.numIdleTimeoutThreads = numIdleTimeoutThreads;
+    }
+
+    public int getNumCloseThreads() {
+        return numCloseThreads;
+    }
+
+    public void setNumCloseThreads(int numCloseThreads) {
+        this.numCloseThreads = numCloseThreads;
+    }
+
+    ScheduledThreadPoolExecutor getIdleTimerExec() {
+        return idleTimerExec;
+    }
+
+    void setIdleTimerExec(ScheduledThreadPoolExecutor idleTimerExec) {
+        this.idleTimerExec = idleTimerExec;
+    }
+
+    ScheduledThreadPoolExecutor getCloseExec() {
+        return closeExec;
+    }
+
+    void setCloseExec(ScheduledThreadPoolExecutor closeExec) {
+        this.closeExec = closeExec;
     }
 
     TokenizedFilePath getPermTokenizedFilePath() {
