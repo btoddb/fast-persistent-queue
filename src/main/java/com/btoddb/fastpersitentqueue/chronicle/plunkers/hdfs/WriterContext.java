@@ -18,6 +18,7 @@ public class WriterContext {
     public WriterContext(HdfsWriter writer) {
         this.writer = writer;
         this.createTime = System.currentTimeMillis();
+        this.active = true;
     }
 
     public HdfsWriter getWriter() {

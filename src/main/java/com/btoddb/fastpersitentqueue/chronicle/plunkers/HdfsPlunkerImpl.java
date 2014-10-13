@@ -31,11 +31,11 @@ import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.btoddb.fastpersitentqueue.chronicle.TokenizedFilePath;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.FileUtils;
+import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriter;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriterFacoryImpl;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriterFactory;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.WriterContext;
 import com.btoddb.fastpersitentqueue.chronicle.serializers.FpqEventSerializer;
-import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriter;
 import com.btoddb.fastpersitentqueue.chronicle.serializers.JsonSerializerImpl;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -72,7 +71,8 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     private int maxOpenFiles = 100;
     private int numIdleTimeoutThreads = 2;
     private int numCloseThreads = 4;
-    private long shutdownWaitTimeout = 60;
+    private long shutdownWaitTimeout = 60; // seconds
+    private int timeoutCheckPeriod = 10; // seconds
 
 
     private Cache<String, WriterContext> writerCache;
@@ -269,7 +269,9 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
                     for (String key : writerCache.asMap().keySet()) {
                         WriterContext context = writerCache.getIfPresent(key);
                         if (null != context && context.isActive()
-                                && (rollPeriodCutoff > context.getCreateTime() || lastAccessCutoff > context.getLastAccessTime())) {
+                                // if idle timeout == 0, then don't consider
+                                && (rollPeriodCutoff > context.getCreateTime()
+                                    || (idleTimeout > 0 && lastAccessCutoff > context.getLastAccessTime()))) {
                             context.writeLock();
                             try {
                                 // if current thread is the one that got the write lock while still active, then we
@@ -287,7 +289,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
                     }
                 }
             },
-            10, 10, TimeUnit.SECONDS); // check every 10 seconds if file needs closing
+            timeoutCheckPeriod, timeoutCheckPeriod, TimeUnit.SECONDS); // check periodically if file needs closing
     }
 
     private void createWriterCache() {
@@ -328,10 +330,6 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
 
     public long getIdleTimeout() {
         return idleTimeout;
-    }
-
-    public void setIdleTimeout(int idleTimeout) {
-        this.idleTimeout = idleTimeout;
     }
 
     public int getMaxOpenFiles() {
@@ -428,5 +426,13 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
 
     public Collection<WriterContext> getWriters() {
         return writerCache.asMap().values();
+    }
+
+    public int getTimeoutCheckPeriod() {
+        return timeoutCheckPeriod;
+    }
+
+    public void setTimeoutCheckPeriod(int timeoutCheckPeriod) {
+        this.timeoutCheckPeriod = timeoutCheckPeriod;
     }
 }
