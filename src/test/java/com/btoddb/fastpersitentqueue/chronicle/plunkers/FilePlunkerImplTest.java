@@ -29,19 +29,12 @@ package com.btoddb.fastpersitentqueue.chronicle.plunkers;
 import com.btoddb.fastpersitentqueue.chronicle.Config;
 import com.btoddb.fastpersitentqueue.chronicle.FileTestUtils;
 import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
-import com.btoddb.fastpersitentqueue.chronicle.TokenizedFilePath;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
-import org.hamcrest.TypeSafeMatcher;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +43,6 @@ import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -83,10 +75,10 @@ public class FilePlunkerImplTest {
         plunker.init(new Config());
 
         List<FpqEvent> eventList = new ArrayList<>();
-        eventList.add(new FpqEvent("one-body", true).addHeader("customer", "one"));
-        eventList.add(new FpqEvent("two-body", true).addHeader("customer", "two"));
-        eventList.add(new FpqEvent("three-body", true).addHeader("customer", "three"));
-        eventList.add(new FpqEvent("four-body", true).addHeader("customer", "four"));
+        eventList.add(new FpqEvent("one-body", true).withHeader("customer", "one"));
+        eventList.add(new FpqEvent("two-body", true).withHeader("customer", "two"));
+        eventList.add(new FpqEvent("three-body", true).withHeader("customer", "three"));
+        eventList.add(new FpqEvent("four-body", true).withHeader("customer", "four"));
         plunker.handleInternal(eventList);
 
         assertThat(createFileObj("one/logs").exists(), is(true));
@@ -107,7 +99,7 @@ public class FilePlunkerImplTest {
         plunker.setFilePattern(createFilename("${customer}/logs"));
         plunker.init(new Config());
 
-        plunker.handleInternal(Collections.singletonList(new FpqEvent("one-body", true).addHeader("customer", "one")));
+        plunker.handleInternal(Collections.singletonList(new FpqEvent("one-body", true).withHeader("customer", "one")));
 
         long endTime = System.currentTimeMillis()+5000;
         while (System.currentTimeMillis() < endTime && 0 < plunker.getPrintWriterCache().size()) {

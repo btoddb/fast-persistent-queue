@@ -40,7 +40,7 @@ public class StringBodyExpressionTest {
         StringBodyExpression exp = new StringBodyExpression("=", "is the");
 
         FpqEvent event = new FpqEvent("this is the body", true)
-                .addHeader("foo", "bar");
+                .withHeader("foo", "bar");
         assertThat(exp.match(event), is(true));
     }
 
@@ -49,7 +49,7 @@ public class StringBodyExpressionTest {
         StringBodyExpression exp = new StringBodyExpression("=", "is the");
 
         FpqEvent event = new FpqEvent("this is the body", true)
-                .addHeader("foo", "bar");
+                .withHeader("foo", "bar");
         assertThat(exp.match(event), is(true));
     }
 

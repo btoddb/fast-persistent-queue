@@ -46,9 +46,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -67,7 +67,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     private String pathPattern;
     private String permNamePattern;
     private String openNamePattern;
-    private long rollTimeout = 600; // seconds (10 minutes)
+    private long rollPeriod = 600; // seconds (10 minutes)
     private long idleTimeout = 60; // seconds (1 minute)
     private int maxOpenFiles = 100;
     private int numIdleTimeoutThreads = 2;
@@ -122,10 +122,15 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
             }
 
             for (FpqEvent event : events) {
+                // TODO:BTB - need some locking here to make sure we get a writer?
                 WriterContext context = retrieveWriter(event);
-                synchronized (context) {
+                context.readLock();
+                try {
                     context.getWriter().write(event);
-                    resetIdleTimeout(context);
+                    context.setLastAccessTime(System.currentTimeMillis());
+                }
+                finally {
+                    context.readUnlock();
                 }
             }
         }
@@ -141,23 +146,23 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
             @Override
             public void run() {
                 try {
-                    //TODO:BTB - can also close via cache eviction - probably need some sync'ing
+                    // writer must handle thread-safe closing
                     context.getWriter().close();
                 }
                 catch (IOException e) {
                     logger.error("exception while closing HdfsWriter - retrying", e);
-                    submitClose(context);
+                    try {
+                        Thread.sleep(1000);
+                    }
+                    catch (InterruptedException e1) {
+                        // ignore
+                        Thread.interrupted();
+                    }
+                    // wait one second then try again
                     closeExec.schedule(this, 1, TimeUnit.SECONDS);
                 }
             }
         });
-    }
-
-    private void resetIdleTimeout(WriterContext context) {
-        if (null != context.getIdleFuture()) {
-            context.getIdleFuture().cancel(false);
-        }
-        startIdleTimeout(context);
     }
 
     private WriterContext retrieveWriter(final FpqEvent event) {
@@ -169,7 +174,6 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
                     String openFileName = openTokenizedFilePath.createFileName(event.getHeaders());
                     HdfsWriter writer = writerFactory.createWriter(permFileName, openFileName);
                     writer.init(config);
-                    writer.open();
                     return new WriterContext(writer);
                 }
             });
@@ -178,24 +182,6 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
             Utils.logAndThrow(logger, "exception while trying to retrieve PrintWriter from cache", e);
             return null;
         }
-    }
-
-    // start the idle timeout period for a HdfsWriter
-    private void startIdleTimeout(final WriterContext context) {
-        Future f = idleTimerExec.schedule(new Runnable() {
-                                               @Override
-                                               public void run() {
-                                                   try {
-                                                       context.getWriter().close();
-                                                   }
-                                                   catch (IOException e) {
-                                                       logger.error("exception when trying to close HdfsWriter", e);
-                                                   }
-                                               }
-                                           },
-                                           idleTimeout, TimeUnit.SECONDS
-                                           );
-        context.setIdleFuture(f);
     }
 
     @Override
@@ -270,6 +256,38 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
                     new ThreadPoolExecutor.CallerRunsPolicy()
             );
         }
+
+        // start scheduled idle task that checks if time to close file because of roll period or idle timeout
+        idleTimerExec.scheduleWithFixedDelay(new Runnable() {
+                @Override
+                public void run() {
+                    // if any writer has been idle for longer than the "idle timeout"
+                    // or the roll period has been exceeded, then close the file.  it
+                    // will be reopened as needed when another request comes
+                    long rollPeriodCutoff = System.currentTimeMillis()-TimeUnit.SECONDS.toMillis(rollPeriod);
+                    long lastAccessCutoff = System.currentTimeMillis()-TimeUnit.SECONDS.toMillis(idleTimeout);
+                    for (String key : writerCache.asMap().keySet()) {
+                        WriterContext context = writerCache.getIfPresent(key);
+                        if (null != context && context.isActive()
+                                && (rollPeriodCutoff > context.getCreateTime() || lastAccessCutoff > context.getLastAccessTime())) {
+                            context.writeLock();
+                            try {
+                                // if current thread is the one that got the write lock while still active, then we
+                                // make it inactive so no other thread will do the same and start close procedure
+                                if (context.isActive()) {
+                                    context.setActive(false);
+                                    // invalidating the cache will cause the writer to be closed
+                                    writerCache.invalidate(key);
+                                }
+                            }
+                            finally {
+                                context.writeUnlock();
+                            }
+                        }
+                    }
+                }
+            },
+            10, 10, TimeUnit.SECONDS); // check every 10 seconds if file needs closing
     }
 
     private void createWriterCache() {
@@ -332,12 +350,12 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
         this.serializer = serializer;
     }
 
-    public long getRollTimeout() {
-        return rollTimeout;
+    public long getRollPeriod() {
+        return rollPeriod;
     }
 
-    public void setRollTimeout(int rollTimeout) {
-        this.rollTimeout = rollTimeout;
+    public void setRollPeriod(int rollPeriod) {
+        this.rollPeriod = rollPeriod;
     }
 
     public HdfsWriterFactory getWriterFactory() {
@@ -349,7 +367,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     }
 
     public void setRollTimeout(long rollTimeout) {
-        this.rollTimeout = rollTimeout;
+        this.rollPeriod = rollTimeout;
     }
 
     public void setIdleTimeout(long idleTimeout) {
@@ -398,5 +416,17 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
 
     TokenizedFilePath getKeyTokenizedFilePath() {
         return keyTokenizedFilePath;
+    }
+
+    public long getShutdownWaitTimeout() {
+        return shutdownWaitTimeout;
+    }
+
+    public void setShutdownWaitTimeout(long shutdownWaitTimeout) {
+        this.shutdownWaitTimeout = shutdownWaitTimeout;
+    }
+
+    public Collection<WriterContext> getWriters() {
+        return writerCache.asMap().values();
     }
 }

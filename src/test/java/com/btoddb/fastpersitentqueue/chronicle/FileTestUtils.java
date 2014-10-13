@@ -13,13 +13,40 @@ import java.util.List;
 
 
 /**
- * Created by burrb009 on 10/6/14.
+ *
  */
 public class FileTestUtils {
     Config config;
 
     public FileTestUtils(Config config) {
         this.config = config;
+    }
+
+    public Matcher<File> hasEvent(final FpqEvent event) {
+        return hasEvents(new FpqEvent[] { event });
+    }
+
+    public Matcher<File> exists() {
+        return new TypeSafeMatcher<File>() {
+            String errorDesc;
+            String expected;
+            String got;
+
+            @Override
+            protected boolean matchesSafely(final File f) {
+                return f.exists();
+            }
+
+            @Override
+            public void describeTo(final Description description) {
+                description.appendText(errorDesc).appendValue(expected);
+            }
+
+            @Override
+            protected void describeMismatchSafely(final File item, final Description mismatchDescription) {
+                mismatchDescription.appendText("  was: ").appendValue(got);
+            }
+        };
     }
 
     public Matcher<File> hasEvents(final FpqEvent[] targetEvents) {

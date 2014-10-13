@@ -86,7 +86,7 @@ public class FpqEvent {
         bodyIsText = false;
     }
 
-    public FpqEvent addHeader(String name, String value) {
+    public FpqEvent withHeader(String name, String value) {
         headers.put(name, value);
         return this;
     }

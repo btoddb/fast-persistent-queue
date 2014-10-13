@@ -3,9 +3,12 @@ package com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs;
 import com.btoddb.fastpersitentqueue.chronicle.TokenizedFilePath;
 import org.apache.commons.io.FilenameUtils;
 
+import java.io.File;
+import java.io.IOException;
+
 
 /**
- * Created by burrb009 on 10/6/14.
+ *
  */
 public class FileUtils {
 
@@ -27,5 +30,4 @@ public class FileUtils {
             return fn + ".${timestamp}";
         }
     }
-
 }

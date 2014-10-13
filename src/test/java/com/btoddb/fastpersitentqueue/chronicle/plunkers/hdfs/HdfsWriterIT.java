@@ -13,9 +13,10 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.not;
 
 
-public class HdfsWriterTest {
+public class HdfsWriterIT {
     FileTestUtils ftUtils;
     File baseDir;
     Config config = new Config();
@@ -44,14 +45,19 @@ public class HdfsWriterTest {
 
     @Test
     public void testOpenWriteClose() throws Exception {
-        FpqEvent event = new FpqEvent("hello-world!", true).addHeader("customer", "dsp");
+        FpqEvent event = new FpqEvent("hello-world!", true).withHeader("customer", "dsp");
 
         writer.init(config);
-
-        writer.open();
         writer.write(event);
+
+        // data isn't flushed to file until closed, so can't check for actual events in 'open' file
+        // ... and it doesn't matter if you call flush/sync
+        assertThat(new File(writer.getFileDescriptor().getPermFilename()), not(ftUtils.exists()));
+        assertThat(new File(writer.getFileDescriptor().getOpenFilename()), ftUtils.exists());
+
         writer.close();
 
-        assertThat(new File(writer.getCurrentFilename()), ftUtils.hasEvents(new FpqEvent[] {event}));
+        assertThat(new File(writer.getFileDescriptor().getPermFilename()), ftUtils.hasEvent(event));
+        assertThat(new File(writer.getFileDescriptor().getOpenFilename()), not(ftUtils.exists()));
     }
 }

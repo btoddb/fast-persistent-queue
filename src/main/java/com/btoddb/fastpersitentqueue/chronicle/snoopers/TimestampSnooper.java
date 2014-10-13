@@ -53,7 +53,7 @@ public class TimestampSnooper extends ChronicleComponentBaseImpl implements FpqS
     @Override
     public boolean tap(FpqEvent event) {
         if (overwrite || !event.getHeaders().containsKey(headerName)) {
-            event.addHeader(headerName, String.valueOf(System.currentTimeMillis()));
+            event.withHeader(headerName, String.valueOf(System.currentTimeMillis()));
         }
 
         return true;

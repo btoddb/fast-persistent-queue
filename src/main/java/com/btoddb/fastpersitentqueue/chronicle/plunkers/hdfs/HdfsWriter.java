@@ -5,14 +5,14 @@ import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.btoddb.fastpersitentqueue.chronicle.TokenizedFilePath;
 import com.btoddb.fastpersitentqueue.chronicle.serializers.FpqEventSerializer;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 /**
@@ -22,89 +22,70 @@ public class HdfsWriter {
     private static final Logger logger = LoggerFactory.getLogger(HdfsWriter.class);
 
     private Config config;
-
     private FpqEventSerializer serializer;
-    private String currentFilename;
-    private FileSystem fileSystem;
-    private Path path;
-    private FSDataOutputStream outStream;
 
     private TokenizedFilePath permTokenizedFilePath;
     private TokenizedFilePath openTokenizedFilePath;
     private String permFilenamePattern;
     private String openFilenamePattern;
 
+    private HdfsFileDescriptor fileDescriptor;
+    private ReentrantReadWriteLock closeLock = new ReentrantReadWriteLock();
 
-    public void init(Config config) {
+
+    public void init(Config config) throws IOException {
         this.config = config;
 
         this.permTokenizedFilePath = new TokenizedFilePath(permFilenamePattern);
         this.openTokenizedFilePath = new TokenizedFilePath(openFilenamePattern);
-    }
 
-    public void open() throws IOException {
-        long now = System.currentTimeMillis();
-        currentFilename = openTokenizedFilePath.createFileName(Collections.singletonMap("timestamp", String.valueOf(now)));
+        HdfsFileDescriptor desc = new HdfsFileDescriptor();
+
+        Map<String, String> fileNameParams = Collections.singletonMap("timestamp", String.valueOf(System.currentTimeMillis()));
+        desc.setOpenFilename(openTokenizedFilePath.createFileName(fileNameParams));
+        desc.setPermFilename(permTokenizedFilePath.createFileName(fileNameParams));
 
         Configuration conf = new Configuration();
-        path = new Path(currentFilename);
-        fileSystem = path.getFileSystem(conf);
+        Path path = new Path(desc.getOpenFilename());
+        desc.setFileSystem(path.getFileSystem(conf));
 
-        outStream = fileSystem.create(path);
-
-//        Path dstPath, FileSystem hdfs) throws
-//            if(useRawLocalFileSystem) {
-//                if(hdfs instanceof LocalFileSystem) {
-//                    hdfs = ((LocalFileSystem)hdfs).getRaw();
-//                } else {
-//                    logger.warn("useRawLocalFileSystem is set to true but file system " +
-//                                        "is not of type LocalFileSystem: " + hdfs.getClass().getName());
-//                }
-//            }
-//
-//            boolean appending = false;
-//            if (conf.getBoolean("hdfs.append.support", false) == true && hdfs.isFile
-//                    (dstPath)) {
-//                outStream = hdfs.append(dstPath);
-//                appending = true;
-//            } else {
-//                outStream = hdfs.create(dstPath);
-//            }
-//
-//            serializer = EventSerializerFactory.getInstance(
-//                    serializerType, serializerContext, outStream);
-//            if (appending && !serializer.supportsReopen()) {
-//                outStream.close();
-//                serializer = null;
-//                throw new IOException("serializer (" + serializerType +
-//                                              ") does not support append");
-//            }
-//
-//            // must call superclass to check for replication issues
-//            registerCurrentStream(outStream, hdfs, dstPath);
-//
-//            if (appending) {
-//                serializer.afterReopen();
-//            } else {
-//                serializer.afterCreate();
-//            }
-
+        desc.setOutputStream(desc.getFileSystem().create(path));
+        fileDescriptor = desc;
     }
 
     public void write(FpqEvent event) throws IOException {
-        serializer.serialize(outStream, event);
+        closeLock.readLock().lock();
+        try {
+            serializer.serialize(fileDescriptor.getOutputStream(), event);
+        }
+        finally {
+            closeLock.readLock().unlock();
+        }
     }
 
     public void flush() throws IOException {
-        outStream.flush();
-        outStream.sync();
+        fileDescriptor.getOutputStream().hflush();
+        // TODO:BTB - not sure if i need to flush+hsync
+        fileDescriptor.getOutputStream().hsync();
     }
 
     public void close() throws IOException {
-        flush();
-        if (null != outStream) {
-            outStream.close();
+        closeLock.writeLock().lock();
+        try {
+            if (null != fileDescriptor.getOutputStream()) {
+                fileDescriptor.getOutputStream().close();
+                fileDescriptor.setOutputStream(null);
+            }
         }
+        finally {
+            closeLock.writeLock().unlock();
+        }
+
+        renameToPerm();
+    }
+
+    void renameToPerm() throws IOException {
+        fileDescriptor.getFileSystem().rename(new Path(fileDescriptor.getOpenFilename()), new Path(fileDescriptor.getPermFilename()));
     }
 
     public FpqEventSerializer getSerializer() {
@@ -115,8 +96,8 @@ public class HdfsWriter {
         this.serializer = serializer;
     }
 
-    public String getCurrentFilename() {
-        return currentFilename;
+    String getCurrentFilename() {
+        return fileDescriptor.getOpenFilename();
     }
 
     @Override
@@ -169,5 +150,13 @@ public class HdfsWriter {
 
     public String getOpenFilenamePattern() {
         return openFilenamePattern;
+    }
+
+    public HdfsFileDescriptor getFileDescriptor() {
+        return fileDescriptor;
+    }
+
+    public void setFileDescriptor(HdfsFileDescriptor fileDescriptor) {
+        this.fileDescriptor = fileDescriptor;
     }
 }

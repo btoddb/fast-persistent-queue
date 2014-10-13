@@ -5,6 +5,7 @@ import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriter;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsWriterFactory;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.WriterContext;
+import mockit.Expectations;
 import mockit.Injectable;
 import mockit.Mocked;
 import mockit.NonStrictExpectations;
@@ -29,7 +30,6 @@ import java.util.concurrent.TimeoutException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 
 
 @RunWith(JMockit.class)
@@ -70,48 +70,78 @@ public class HdfsPlunkerImplTest {
         assertThat(plunker.getPermNamePattern(), is("file.avro"));
         assertThat(plunker.getOpenNamePattern(), is("_file.avro.tmp"));
 
-        FpqEvent event = new FpqEvent("the-body", true).addHeader("customer", "dsp").addHeader("timestamp", "123");
+        FpqEvent event = new FpqEvent("the-body", true).withHeader("customer", "dsp").withHeader("timestamp", "123");
         assertThat(plunker.getKeyTokenizedFilePath().createFileName(event.getHeaders()), is(prefix + "the/dsp/path/file.avro"));
         assertThat(plunker.getPermTokenizedFilePath().createFileName(event.getHeaders()), is(prefix + "the/dsp/path/file.123.avro"));
         assertThat(plunker.getOpenTokenizedFilePath().createFileName(event.getHeaders()), is(prefix + "the/dsp/path/_file.avro.123.tmp"));
     }
 
     @Test
+    public void testInit(
+            @Injectable final ScheduledThreadPoolExecutor closeExec, // don't want other executors affected
+            @Injectable final ScheduledThreadPoolExecutor idleExec // don't want other executors affected
+    ) throws Exception {
+        new Expectations() {{
+            idleExec.scheduleWithFixedDelay((Runnable) any, 10, 10, TimeUnit.SECONDS); times = 1;
+        }};
+        plunker.setCloseExec(closeExec);
+        plunker.setIdleTimerExec(idleExec);
+        plunker.init(config);
+    }
+
+    @Test
+    public void testShutdown(
+            @Injectable final ScheduledThreadPoolExecutor closeExec, // don't want other executors affected
+            @Injectable final ScheduledThreadPoolExecutor idleExec // don't want other executors affected
+    ) throws Exception {
+        new Expectations() {{
+            idleExec.scheduleWithFixedDelay((Runnable) any, 10, 10, TimeUnit.SECONDS); times = 1;
+            idleExec.shutdown(); times = 1;
+            closeExec.shutdown(); times = 1;
+            closeExec.awaitTermination(plunker.getShutdownWaitTimeout(), TimeUnit.SECONDS); times = 1; result = true;
+        }};
+        plunker.setCloseExec(closeExec);
+        plunker.setIdleTimerExec(idleExec);
+        plunker.init(config);
+        plunker.shutdown();
+    }
+
+    @Test
     public void testInitThenHandleEventThenShutdown(
             @Mocked final HdfsWriterFactory writerFactory,
-            @Injectable final ScheduledThreadPoolExecutor idleExec, // don't want closeExec affected
+            @Injectable final ScheduledThreadPoolExecutor closeExec, // don't want other executors affected
             @Mocked final WriterContext aContext,
             @Mocked final HdfsWriter aWriter,
             @Mocked final ScheduledFuture<Void> aFuture
     ) throws Exception {
         final List<FpqEvent> events = Arrays.asList(
-                new FpqEvent("the-body", true).addHeader("msgId", "msg1").addHeader("customer", "customer1"),
-                new FpqEvent("the-body", true).addHeader("msgId", "msg2").addHeader("customer", "customer2")
+                new FpqEvent("the-body", true).withHeader("msgId", "msg1").withHeader("customer", "customer1"),
+                new FpqEvent("the-body", true).withHeader("msgId", "msg2").withHeader("customer", "customer2")
         );
 
         new NonStrictExpectations() {{
             for (int i=1;i <= 2;i++) {
                 HdfsWriter writer = new HdfsWriter();
                 writer.init(config); times = 1;
-                writer.open(); times = 1;
-                writer.write(events.get(i-1)); times = 1;
-                writer.close(); times = 1;
+                writer.write(events.get(i - 1)); times = 1;
+//                writer.close(); times = 1;
 
                 writerFactory.createWriter(withSubstring("customer" + i), anyString); times = 1; result = writer;
 
-                ScheduledFuture<Void> future = new ScheduledFutureMock();
-                future.cancel(false); times = 1;
-
                 WriterContext context = new WriterContext(writer);
-                context.getWriter(); times = 2; result = writer;
-                context.getIdleFuture(); times = 2; result = future;
+                context.getWriter(); times = 1; result = writer;
 
-                idleExec.schedule((Runnable) any, plunker.getIdleTimeout(), TimeUnit.SECONDS); times = 2;
+                context.readLock(); times = 1;
+                context.readUnlock(); times = 1;
+//                context.writeLock(); times = 1;
+//                context.writeUnlock(); times = 1;
+
+                closeExec.submit((Runnable) any); times = 2;
             }
         }};
 
         plunker.setWriterFactory(writerFactory);
-        plunker.setIdleTimerExec(idleExec);
+        plunker.setCloseExec(closeExec);
         plunker.init(config);
         plunker.handleInternal(events);
         plunker.shutdown();

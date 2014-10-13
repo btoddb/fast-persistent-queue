@@ -86,7 +86,7 @@ public class ChronicleIT {
     @Test
     public void testPutSingleEvent() throws Exception {
         FpqEvent event = new FpqEvent("some-data-for-body", true)
-                .addHeader("foo", "bar");
+                .withHeader("foo", "bar");
 
         Client client = ClientBuilder.newClient();
         Response resp = client.target("http://localhost:8083/v1")

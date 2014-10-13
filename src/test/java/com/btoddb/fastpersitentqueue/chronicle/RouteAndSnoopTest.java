@@ -57,9 +57,9 @@ public class RouteAndSnoopTest {
     @Test
     public void testHandleCatcherRemovesEventsProperly() throws Exception {
         List<FpqEvent> eventList = new LinkedList<>();
-        eventList.add(new FpqEvent("the-body", true).addHeader("id", "1"));
-        eventList.add(new FpqEvent("the-body", true).addHeader("id", "2"));
-        eventList.add(new FpqEvent("the-body", true).addHeader("id", "3"));
+        eventList.add(new FpqEvent("the-body", true).withHeader("id", "1"));
+        eventList.add(new FpqEvent("the-body", true).withHeader("id", "2"));
+        eventList.add(new FpqEvent("the-body", true).withHeader("id", "3"));
 
         FpqSnooper snooper = mock(FpqSnooper.class);
         when(snooper.tap(any(FpqEvent.class))).thenReturn(false, true, false);

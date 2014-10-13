@@ -71,8 +71,8 @@ public class TokenizedFilePathTest {
         TokenizedFilePath tokenizer = new TokenizedFilePath("tmp/${customer}/file");
 
         String path = tokenizer.createFileName(new FpqEvent("the-body", true)
-                                                       .addHeader("customer", "the-customer")
-                                                       .addHeader("foo", "bar").getHeaders());
+                                                       .withHeader("customer", "the-customer")
+                                                       .withHeader("foo", "bar").getHeaders());
 
 
         assertThat(path, is("tmp/the-customer/file"));
@@ -83,8 +83,8 @@ public class TokenizedFilePathTest {
         TokenizedFilePath tokenizer = new TokenizedFilePath("tmp/${customer}/file-${timestamp}");
 
         String path = tokenizer.createFileName(new FpqEvent("the-body", true)
-                                                       .addHeader("customer", "the-customer")
-                                                       .addHeader("foo", "bar").getHeaders());
+                                                       .withHeader("customer", "the-customer")
+                                                       .withHeader("foo", "bar").getHeaders());
 
 
         assertThat(path, is("tmp/the-customer/file-${timestamp}"));
