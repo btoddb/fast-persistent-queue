@@ -108,7 +108,7 @@ public class HdfsPlunkerImplTest {
             @Injectable final ScheduledThreadPoolExecutor idleExec // don't want other executors affected
     ) throws Exception {
         new Expectations() {{
-            idleExec.scheduleWithFixedDelay((Runnable) any, 10, 10, TimeUnit.SECONDS); times = 1;
+            idleExec.scheduleWithFixedDelay((Runnable) any, 10000, 10000, TimeUnit.MILLISECONDS); times = 1;
         }};
         plunker.setCloseExec(closeExec);
         plunker.setIdleTimerExec(idleExec);
@@ -121,7 +121,7 @@ public class HdfsPlunkerImplTest {
             @Injectable final ScheduledThreadPoolExecutor idleExec // don't want other executors affected
     ) throws Exception {
         new Expectations() {{
-            idleExec.scheduleWithFixedDelay((Runnable) any, 10, 10, TimeUnit.SECONDS); times = 1;
+            idleExec.scheduleWithFixedDelay((Runnable) any, 10000, 10000, TimeUnit.MILLISECONDS); times = 1;
             idleExec.shutdown(); times = 1;
             closeExec.shutdown(); times = 1;
             closeExec.awaitTermination(plunker.getShutdownWaitTimeout(), TimeUnit.SECONDS); times = 1; result = true;

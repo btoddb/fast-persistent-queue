@@ -168,7 +168,7 @@ public class FileTestUtils {
                             String line;
                             while (null != (line = reader.readLine())) {
                                 FpqEvent event = config.getObjectMapper().readValue(line, FpqEvent.class);
-                                if (!targetEvents[index].equals(event)) {
+                                if (index < targetEvents.length && !targetEvents[index].equals(event)) {
                                     errorDesc = "event: ";
                                     expected = config.getObjectMapper().writeValueAsString(targetEvents[index]);
                                     got = line;
@@ -182,7 +182,15 @@ public class FileTestUtils {
                         }
                     }
 
-                    return true;
+                    if (targetEvents.length == index) {
+                        return true;
+                    }
+                    else {
+                        errorDesc = "number of events: ";
+                        expected = String.valueOf(targetEvents.length);
+                        got = String.valueOf(index);
+                        return false;
+                    }
                 }
                 catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -192,17 +200,6 @@ public class FileTestUtils {
                     e.printStackTrace();
                     return false;
                 }
-                finally {
-                    if (null != reader) {
-                        try {
-                            reader.close();
-                        }
-                        catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-
             }
 
             @Override
