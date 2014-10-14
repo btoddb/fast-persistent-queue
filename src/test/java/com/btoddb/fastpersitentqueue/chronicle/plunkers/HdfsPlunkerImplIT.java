@@ -32,14 +32,21 @@ import com.btoddb.fastpersitentqueue.chronicle.FpqEvent;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.HdfsFileDescriptor;
 import com.btoddb.fastpersitentqueue.chronicle.plunkers.hdfs.WriterContext;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -55,9 +62,21 @@ public class HdfsPlunkerImplIT {
     String dirPattern;
 
 
+    @BeforeClass
+    public static void primeHdfs() {
+        // need to do this to load HDFS so some tests requiring accurate timing work
+        try {
+            new Path("/doesnt-matter").getFileSystem(new Configuration());
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Before
     public void setup() throws Exception {
         baseDir = new File("tmp/" + UUID.randomUUID().toString());
+
         dirPattern = String.format("%s/the/${customer}/path", baseDir.getPath());
         ftUtils = new FileTestUtils(config);
 
@@ -157,9 +176,63 @@ public class HdfsPlunkerImplIT {
                     new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf("odd"))}
         ));
 
-        assertThat(new File(String.format("%s/the/cust/path", baseDir.getPath())), ftUtils.numWithSuffix(".tmp", 1));
-        assertThat(new File(String.format("%s/the/cust/path", baseDir.getPath())), ftUtils.numWithSuffix(".avro", 1));
+        assertThat(new File(String.format("%s/the/cust/path", baseDir.getPath())), ftUtils.countWithSuffix(".tmp", 1));
+        assertThat(new File(String.format("%s/the/cust/path", baseDir.getPath())), ftUtils.countWithSuffix(".avro", 1));
 
         plunker.shutdown();
+    }
+
+    @Test
+    public void testLongRun() throws Exception {
+        plunker.setIdleTimeout(0);
+        plunker.setRollPeriod(2);
+        plunker.setTimeoutCheckPeriod(100);
+        plunker.init(config);
+
+        final int sleep = 200;
+        final int maxCount = 100; // 20 seconds at 'sleep' interval should be 10
+        final AtomicInteger count = new AtomicInteger();
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
+        executor.scheduleAtFixedRate(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        System.out.println("time = " + System.currentTimeMillis());
+                        plunker.handleInternal(Arrays.asList(new FpqEvent[] {
+                                  new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf(count.get()))
+                                  }
+                        ));
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    count.incrementAndGet();
+                }
+            },
+            0, sleep, TimeUnit.MILLISECONDS);
+
+        while (count.get() < maxCount) {
+            Thread.sleep(sleep/2);
+        }
+
+        executor.shutdown();
+        executor.awaitTermination(60, TimeUnit.SECONDS);
+
+        Thread.sleep(1200);
+        plunker.shutdown();
+
+        FpqEvent[] events = new FpqEvent[count.get()];
+        for (int i=0;i < count.get();i++) {
+            events[i] = new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf(i));
+        }
+
+        File theDir = new File(String.format("%s/the/cust/path", baseDir.getPath()));
+
+        assertThat(theDir, ftUtils.countWithSuffix(".tmp", 0));
+        assertThat(theDir, ftUtils.countWithSuffix(".avro", 10));
+
+        assertThat(theDir, ftUtils.hasEventsInDir(events));
     }
 }

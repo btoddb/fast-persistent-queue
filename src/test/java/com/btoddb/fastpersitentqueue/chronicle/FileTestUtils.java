@@ -31,11 +31,13 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -50,7 +52,7 @@ public class FileTestUtils {
     }
 
     public Matcher<File> hasEvent(final FpqEvent event) {
-        return hasEvents(new FpqEvent[] { event });
+        return hasEventsInOrder(new FpqEvent[] {event});
     }
 
     public Matcher<File> exists() {
@@ -76,7 +78,7 @@ public class FileTestUtils {
         };
     }
 
-    public Matcher<File> hasEvents(final FpqEvent[] targetEvents) {
+    public Matcher<File> hasEventsInOrder(final FpqEvent[] targetEvents) {
         return new TypeSafeMatcher<File>() {
             String errorDesc;
             String expected;
@@ -118,6 +120,82 @@ public class FileTestUtils {
                     if (null != fr) {
                         try {
                             fr.close();
+                        }
+                        catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+            }
+
+            @Override
+            public void describeTo(final Description description) {
+                description.appendText(errorDesc).appendValue(expected);
+            }
+
+            @Override
+            protected void describeMismatchSafely(final File item, final Description mismatchDescription) {
+                mismatchDescription.appendText("  was: ").appendValue(got);
+            }
+        };
+    }
+
+    public Matcher<File> hasEventsInDir(final FpqEvent[] targetEvents) {
+        return new TypeSafeMatcher<File>() {
+            String errorDesc;
+            String expected;
+            String got;
+
+            @Override
+            protected boolean matchesSafely(final File dir) {
+                BufferedReader reader = null;
+                try {
+                    // find files
+                    File[] files = dir.listFiles(new FilenameFilter() {
+                        @Override
+                        public boolean accept(File dir, String name) {
+                            return name.endsWith(".avro");
+                        }
+                    });
+
+                    Arrays.sort(files);
+
+                    int index = 0;
+                    for (File f : files) {
+                        reader  = new BufferedReader(new FileReader(f));
+                        try {
+                            String line;
+                            while (null != (line = reader.readLine())) {
+                                FpqEvent event = config.getObjectMapper().readValue(line, FpqEvent.class);
+                                if (!targetEvents[index].equals(event)) {
+                                    errorDesc = "event: ";
+                                    expected = config.getObjectMapper().writeValueAsString(targetEvents[index]);
+                                    got = line;
+                                    return false;
+                                }
+                                index++;
+                            }
+                        }
+                        finally {
+                            reader.close();
+                        }
+                    }
+
+                    return true;
+                }
+                catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    return false;
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                    return false;
+                }
+                finally {
+                    if (null != reader) {
+                        try {
+                            reader.close();
                         }
                         catch (IOException e) {
                             e.printStackTrace();
@@ -185,11 +263,9 @@ public class FileTestUtils {
         };
     }
 
-    public Matcher<? super File> numWithSuffix(final String suffix, final int count) {
+    public Matcher<? super File> countWithSuffix(final String suffix, final int count) {
         return new TypeSafeMatcher<File>() {
-            String errorDesc;
-            String expected;
-            String got;
+            int got;
 
             @Override
             protected boolean matchesSafely(final File dir) {
@@ -199,12 +275,13 @@ public class FileTestUtils {
                         return name.endsWith(suffix);
                     }
                 });
-                return files.length == count;
+                got = files.length;
+                return got == count;
             }
 
             @Override
             public void describeTo(final Description description) {
-                description.appendText(errorDesc).appendValue(expected);
+                description.appendValue(count);
             }
 
             @Override

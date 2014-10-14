@@ -72,7 +72,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
     private int numIdleTimeoutThreads = 2;
     private int numCloseThreads = 4;
     private long shutdownWaitTimeout = 60; // seconds
-    private int timeoutCheckPeriod = 10; // seconds
+    private int timeoutCheckPeriod = 10000; // millis
 
 
     private Cache<String, WriterContext> writerCache;
@@ -289,7 +289,7 @@ public class HdfsPlunkerImpl extends PlunkerBaseImpl {
                     }
                 }
             },
-            timeoutCheckPeriod, timeoutCheckPeriod, TimeUnit.SECONDS); // check periodically if file needs closing
+            timeoutCheckPeriod, timeoutCheckPeriod, TimeUnit.MILLISECONDS); // check periodically if file needs closing
     }
 
     private void createWriterCache() {

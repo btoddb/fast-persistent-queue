@@ -86,10 +86,10 @@ public class FilePlunkerImplTest {
         assertThat(createFileObj("three/logs").exists(), is(true));
         assertThat(createFileObj("four/logs").exists(), is(true));
 
-        assertThat(createFileObj("one/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(0)}));
-        assertThat(createFileObj("two/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(1)}));
-        assertThat(createFileObj("three/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(2)}));
-        assertThat(createFileObj("four/logs"), ftUtils.hasEvents(new FpqEvent[] {eventList.get(3)}));
+        assertThat(createFileObj("one/logs"), ftUtils.hasEventsInOrder(new FpqEvent[] {eventList.get(0)}));
+        assertThat(createFileObj("two/logs"), ftUtils.hasEventsInOrder(new FpqEvent[] {eventList.get(1)}));
+        assertThat(createFileObj("three/logs"), ftUtils.hasEventsInOrder(new FpqEvent[] {eventList.get(2)}));
+        assertThat(createFileObj("four/logs"), ftUtils.hasEventsInOrder(new FpqEvent[] {eventList.get(3)}));
     }
 
     @Test
