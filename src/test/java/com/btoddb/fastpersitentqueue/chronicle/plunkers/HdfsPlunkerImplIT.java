@@ -99,8 +99,8 @@ public class HdfsPlunkerImplIT {
     @Test
     public void testHandlingEvents() throws Exception {
         FpqEvent[] events = new FpqEvent[] {
-                new FpqEvent("the-body", true).withHeader("msgId", "1").withHeader("customer", "cust-one"),
-                new FpqEvent("the-body", true).withHeader("msgId", "2").withHeader("customer", "cust-two")
+                new FpqEvent("the-body").withHeader("msgId", "1").withHeader("customer", "cust-one"),
+                new FpqEvent("the-body").withHeader("msgId", "2").withHeader("customer", "cust-two")
         };
         plunker.init(config);
         plunker.handleInternal(Arrays.asList(events));
@@ -117,8 +117,8 @@ public class HdfsPlunkerImplIT {
     @Test
     public void testIdleTimeout() throws Exception {
         FpqEvent[] events = new FpqEvent[] {
-                new FpqEvent("the-body", true).withHeader("msgId", "1").withHeader("customer", "cust-one"),
-                new FpqEvent("the-body", true).withHeader("msgId", "2").withHeader("customer", "cust-two")
+                new FpqEvent("the-body").withHeader("msgId", "1").withHeader("customer", "cust-one"),
+                new FpqEvent("the-body").withHeader("msgId", "2").withHeader("customer", "cust-two")
         };
         plunker.setIdleTimeout(1);
         plunker.setTimeoutCheckPeriod(1);
@@ -141,7 +141,7 @@ public class HdfsPlunkerImplIT {
         plunker.setRollPeriod(60);
         plunker.setTimeoutCheckPeriod(1);
         plunker.init(config);
-        plunker.handleInternal(Arrays.asList(new FpqEvent[] {new FpqEvent("the-body", true).withHeader("msgId", "2").withHeader("customer", "cust-one")}));
+        plunker.handleInternal(Arrays.asList(new FpqEvent[] {new FpqEvent("the-body").withHeader("msgId", "2").withHeader("customer", "cust-one")}));
 
         long endTime = System.currentTimeMillis()+3000;
         while (System.currentTimeMillis() < endTime) {
@@ -163,7 +163,7 @@ public class HdfsPlunkerImplIT {
         // should take ~2.2 seconds - which forces the writer to roll
         for (int i=0;i < 11;i++) {
             plunker.handleInternal(Arrays.asList(new FpqEvent[] {
-                    new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf(i))}
+                    new FpqEvent("the-body").withHeader("customer", "cust").withHeader("msgId", String.valueOf(i))}
             ));
             Thread.sleep(200);
         }
@@ -173,7 +173,7 @@ public class HdfsPlunkerImplIT {
 
         // send another to make a new file
         plunker.handleInternal(Arrays.asList(new FpqEvent[] {
-                    new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf("odd"))}
+                    new FpqEvent("the-body").withHeader("customer", "cust").withHeader("msgId", String.valueOf("odd"))}
         ));
 
         assertThat(new File(String.format("%s/the/cust/path", baseDir.getPath())), ftUtils.countWithSuffix(".tmp", 1));
@@ -200,7 +200,7 @@ public class HdfsPlunkerImplIT {
                     try {
                         System.out.println("time = " + System.currentTimeMillis());
                         plunker.handleInternal(Arrays.asList(new FpqEvent[] {
-                                  new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf(count.get()))
+                                  new FpqEvent("the-body").withHeader("customer", "cust").withHeader("msgId", String.valueOf(count.get()))
                                   }
                         ));
                     }
@@ -225,7 +225,7 @@ public class HdfsPlunkerImplIT {
 
         FpqEvent[] events = new FpqEvent[count.get()];
         for (int i=0;i < count.get();i++) {
-            events[i] = new FpqEvent("the-body", true).withHeader("customer", "cust").withHeader("msgId", String.valueOf(i));
+            events[i] = new FpqEvent("the-body").withHeader("customer", "cust").withHeader("msgId", String.valueOf(i));
         }
 
         File theDir = new File(String.format("%s/the/cust/path", baseDir.getPath()));

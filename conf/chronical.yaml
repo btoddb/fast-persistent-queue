@@ -15,7 +15,7 @@ catchers:
 routers:
   rest-to-test: !!com.btoddb.fastpersitentqueue.chronicle.routers.OneToOneRouterImpl
     catcher: rest-catcher
-    plunker: file-plunker
+    plunker: hdfs-plunker
   default-route: !!com.btoddb.fastpersitentqueue.chronicle.routers.ConditionalRouterImpl
     condition: headers[skipDefaultRouting] = .+ AND body = hello
     plunker: garbage-plunker
@@ -23,11 +23,14 @@ routers:
     catcher: errors
     plunker: error-plunker
 
-# Plunkers are associated with a single FPQ
+#
+# plunkers
+#
+
 plunkers:
   file-plunker:
     plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FilePlunkerImpl
-      pathPattern: tmp/app/data.out
+      filePattern: tmp/app/data.out
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000
@@ -38,9 +41,24 @@ plunkers:
       journalDirectory: tmp/chronicle/file-plunker/journals
       pagingDirectory: tmp/chronicle/file-plunker/pages
 
+  hdfs-plunker:
+    plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.HdfsPlunkerImpl
+      pathPattern: hdfs://dn7dmphnn01.dcloud.starwave.com:9000/user/tburruss/fpq/${customer}
+      permNamePattern: file.json
+      openNamePattern: _file.json.tmp
+    fpq:
+      maxTransactionSize: 2000
+      maxMemorySegmentSizeInBytes: 10000
+      maxJournalFileSize: 10000000
+      maxJournalDurationInMs: 30000
+      flushPeriodInMs: 1000
+      numberOfFlushWorkers: 4
+      journalDirectory: tmp/chronicle/hdfs-plunker/journals
+      pagingDirectory: tmp/chronicle/hdfs-plunker/pages
+
   error-plunker:
     plunker: !!com.btoddb.fastpersitentqueue.chronicle.plunkers.FilePlunkerImpl
-      pathPattern: tmp/${header.customer}/errors.out
+      filePattern: tmp/${header.customer}/errors.out
     fpq:
       maxTransactionSize: 2000
       maxMemorySegmentSizeInBytes: 10000

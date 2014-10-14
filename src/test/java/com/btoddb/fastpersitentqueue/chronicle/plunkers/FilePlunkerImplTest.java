@@ -75,10 +75,10 @@ public class FilePlunkerImplTest {
         plunker.init(new Config());
 
         List<FpqEvent> eventList = new ArrayList<>();
-        eventList.add(new FpqEvent("one-body", true).withHeader("customer", "one"));
-        eventList.add(new FpqEvent("two-body", true).withHeader("customer", "two"));
-        eventList.add(new FpqEvent("three-body", true).withHeader("customer", "three"));
-        eventList.add(new FpqEvent("four-body", true).withHeader("customer", "four"));
+        eventList.add(new FpqEvent("one-body").withHeader("customer", "one"));
+        eventList.add(new FpqEvent("two-body").withHeader("customer", "two"));
+        eventList.add(new FpqEvent("three-body").withHeader("customer", "three"));
+        eventList.add(new FpqEvent("four-body").withHeader("customer", "four"));
         plunker.handleInternal(eventList);
 
         assertThat(createFileObj("one/logs").exists(), is(true));
@@ -99,7 +99,7 @@ public class FilePlunkerImplTest {
         plunker.setFilePattern(createFilename("${customer}/logs"));
         plunker.init(new Config());
 
-        plunker.handleInternal(Collections.singletonList(new FpqEvent("one-body", true).withHeader("customer", "one")));
+        plunker.handleInternal(Collections.singletonList(new FpqEvent("one-body").withHeader("customer", "one")));
 
         long endTime = System.currentTimeMillis()+5000;
         while (System.currentTimeMillis() < endTime && 0 < plunker.getPrintWriterCache().size()) {

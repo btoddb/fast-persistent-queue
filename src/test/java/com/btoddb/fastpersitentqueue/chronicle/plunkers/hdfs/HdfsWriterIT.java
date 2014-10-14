@@ -71,7 +71,7 @@ public class HdfsWriterIT {
 
     @Test
     public void testOpenWriteClose() throws Exception {
-        FpqEvent event = new FpqEvent("hello-world!", true).withHeader("customer", "dsp");
+        FpqEvent event = new FpqEvent("hello-world!").withHeader("customer", "dsp");
 
         writer.init(config);
         writer.write(event);

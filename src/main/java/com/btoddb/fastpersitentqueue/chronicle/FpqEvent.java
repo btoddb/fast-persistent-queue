@@ -54,6 +54,16 @@ public class FpqEvent {
         bodyIsText = false;
     }
 
+    public FpqEvent(String body) {
+        this.bodyIsText = true;
+        if (bodyIsText) {
+            this.body = body.getBytes();
+        }
+        else {
+            this.body = Base64.decodeBase64(body);
+        }
+    }
+
     public FpqEvent(String body, boolean bodyIsText) {
         this.bodyIsText = bodyIsText;
         if (bodyIsText) {
@@ -68,11 +78,11 @@ public class FpqEvent {
     public FpqEvent(
             @JsonProperty("headers") Map<String, String> headers,
             @JsonProperty("body") String body,
-            @JsonProperty("bodyIsText") boolean bodyIsText
+            @JsonProperty("bodyIsText") Boolean bodyIsText
             ) {
         this.headers = headers;
-        this.bodyIsText = bodyIsText;
-        if (bodyIsText) {
+        this.bodyIsText = null != bodyIsText ? bodyIsText.booleanValue() : true;
+        if (this.bodyIsText) {
             this.body = body.getBytes();
         }
         else {

@@ -42,7 +42,7 @@ public class HdfsFileDescriptor {
     private String permFilename;
 
     public void setOpenFilename(String filename) {
-        this.openFilename = new File(filename).getAbsolutePath();
+        this.openFilename = filename;
     }
 
     public String getOpenFilename() {

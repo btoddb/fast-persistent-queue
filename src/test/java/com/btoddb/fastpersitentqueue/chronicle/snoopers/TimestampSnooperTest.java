@@ -42,7 +42,7 @@ public class TimestampSnooperTest {
         TimestampSnooper tap = new TimestampSnooper();
         tap.setHeaderName("the-header");
 
-        FpqEvent event = new FpqEvent("the-body", true)
+        FpqEvent event = new FpqEvent("the-body")
                 .withHeader("foo", "bar");
 
         tap.tap(event);
@@ -55,7 +55,7 @@ public class TimestampSnooperTest {
         TimestampSnooper tap = new TimestampSnooper();
         tap.setHeaderName("the-header");
 
-        FpqEvent event = new FpqEvent("the-body", true)
+        FpqEvent event = new FpqEvent("the-body")
                 .withHeader("foo", "bar")
                 .withHeader(tap.getHeaderName(), "123")
                 ;
@@ -71,7 +71,7 @@ public class TimestampSnooperTest {
         tap.setHeaderName("the-header");
         tap.setOverwrite(true);
 
-        FpqEvent event = new FpqEvent("the-body", true)
+        FpqEvent event = new FpqEvent("the-body")
                 .withHeader("foo", "bar")
                 .withHeader(tap.getHeaderName(), "123")
                 ;

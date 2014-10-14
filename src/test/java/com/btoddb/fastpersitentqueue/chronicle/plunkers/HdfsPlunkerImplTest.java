@@ -96,7 +96,7 @@ public class HdfsPlunkerImplTest {
         assertThat(plunker.getPermNamePattern(), is("file.avro"));
         assertThat(plunker.getOpenNamePattern(), is("_file.avro.tmp"));
 
-        FpqEvent event = new FpqEvent("the-body", true).withHeader("customer", "dsp").withHeader("timestamp", "123");
+        FpqEvent event = new FpqEvent("the-body").withHeader("customer", "dsp").withHeader("timestamp", "123");
         assertThat(plunker.getKeyTokenizedFilePath().createFileName(event.getHeaders()), is(prefix + "the/dsp/path/file.avro"));
         assertThat(plunker.getPermTokenizedFilePath().createFileName(event.getHeaders()), is(prefix + "the/dsp/path/file.123.avro"));
         assertThat(plunker.getOpenTokenizedFilePath().createFileName(event.getHeaders()), is(prefix + "the/dsp/path/_file.avro.123.tmp"));
@@ -141,8 +141,8 @@ public class HdfsPlunkerImplTest {
             @Mocked final ScheduledFuture<Void> aFuture
     ) throws Exception {
         final List<FpqEvent> events = Arrays.asList(
-                new FpqEvent("the-body", true).withHeader("msgId", "msg1").withHeader("customer", "customer1"),
-                new FpqEvent("the-body", true).withHeader("msgId", "msg2").withHeader("customer", "customer2")
+                new FpqEvent("the-body").withHeader("msgId", "msg1").withHeader("customer", "customer1"),
+                new FpqEvent("the-body").withHeader("msgId", "msg2").withHeader("customer", "customer2")
         );
 
         new NonStrictExpectations() {{

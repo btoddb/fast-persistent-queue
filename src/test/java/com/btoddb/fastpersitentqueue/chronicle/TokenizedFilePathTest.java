@@ -70,7 +70,7 @@ public class TokenizedFilePathTest {
     public void testCreateFileName() throws Exception {
         TokenizedFilePath tokenizer = new TokenizedFilePath("tmp/${customer}/file");
 
-        String path = tokenizer.createFileName(new FpqEvent("the-body", true)
+        String path = tokenizer.createFileName(new FpqEvent("the-body")
                                                        .withHeader("customer", "the-customer")
                                                        .withHeader("foo", "bar").getHeaders());
 
@@ -82,7 +82,7 @@ public class TokenizedFilePathTest {
     public void testCreateFileNameUnknownToken() throws Exception {
         TokenizedFilePath tokenizer = new TokenizedFilePath("tmp/${customer}/file-${timestamp}");
 
-        String path = tokenizer.createFileName(new FpqEvent("the-body", true)
+        String path = tokenizer.createFileName(new FpqEvent("the-body")
                                                        .withHeader("customer", "the-customer")
                                                        .withHeader("foo", "bar").getHeaders());
 

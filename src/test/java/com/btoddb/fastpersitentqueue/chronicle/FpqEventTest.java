@@ -41,7 +41,7 @@ public class FpqEventTest {
 
     @Test
     public void testInstantiateWithBody() {
-        FpqEvent event = new FpqEvent("the-body", true);
+        FpqEvent event = new FpqEvent("the-body");
         assertThat(event.getBody(), is("the-body".getBytes()));
     }
 

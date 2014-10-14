@@ -39,7 +39,7 @@ public class StringBodyExpressionTest {
     public void testBodyMatcherTrue() {
         StringBodyExpression exp = new StringBodyExpression("=", "is the");
 
-        FpqEvent event = new FpqEvent("this is the body", true)
+        FpqEvent event = new FpqEvent("this is the body")
                 .withHeader("foo", "bar");
         assertThat(exp.match(event), is(true));
     }
@@ -48,7 +48,7 @@ public class StringBodyExpressionTest {
     public void testBodyMatcherFalse() {
         StringBodyExpression exp = new StringBodyExpression("=", "is the");
 
-        FpqEvent event = new FpqEvent("this is the body", true)
+        FpqEvent event = new FpqEvent("this is the body")
                 .withHeader("foo", "bar");
         assertThat(exp.match(event), is(true));
     }
