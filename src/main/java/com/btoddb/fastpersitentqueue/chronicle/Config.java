@@ -50,6 +50,7 @@ public class Config {
     String configFilename;
     FpqErrorHandler errorHandler;
     ObjectMapper objectMapper;
+    String stopFile;
 
     Map<String, RouteAndSnoop> catchers = new HashMap<>();
     Map<String, PlunkerRunner> plunkers = new HashMap<>();
@@ -135,5 +136,13 @@ public class Config {
 
     public String toString() {
         return ToStringBuilder.reflectionToString(this);
+    }
+
+    public String getStopFile() {
+        return stopFile;
+    }
+
+    public void setStopFile(String stopFile) {
+        this.stopFile = stopFile;
     }
 }

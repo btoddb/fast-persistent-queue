@@ -71,3 +71,5 @@ plunkers:
 
 errorHandler: !!com.btoddb.fastpersitentqueue.chronicle.ErrorHandlerImpl
   catcher: errors
+
+stopFile: /tmp/chronicle.stop

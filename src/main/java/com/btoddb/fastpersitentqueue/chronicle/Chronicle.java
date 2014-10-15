@@ -33,6 +33,7 @@ import com.google.common.collect.Multimap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Collection;
 import java.util.Map;
@@ -41,11 +42,11 @@ import java.util.Map;
 /**
  *
  */
-public class Chronicle {
+public class Chronicle implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(Chronicle.class);
 
     private Config config;
-    private boolean stopProcessing;
+    private boolean canAppEnd;
 
     /**
      * Call this method to configure and initialize the bus.
@@ -65,7 +66,6 @@ public class Chronicle {
         catch (Exception e) {
             logger.error("exception while configuring Chronicle - cannot continue", e);
             shutdown();
-            setStopProcessing(true);
         }
     }
 
@@ -148,12 +148,12 @@ public class Chronicle {
         }
 
         if (null != config.getCatchers()) {
-            for (RouteAndSnoop router : config.getCatchers().values()) {
+            for (RouteAndSnoop routeAndSnoop : config.getCatchers().values()) {
                 try {
-                    router.shutdown();
+                    routeAndSnoop.shutdown();
                 }
                 catch (Exception e) {
-                    logger.error("exception while shutting down FPQ catcher, {}", router.getCatcher().getId(), e);
+                    logger.error("exception while shutting down FPQ catcher, {}", routeAndSnoop.getCatcher().getId(), e);
                 }
             }
         }
@@ -179,39 +179,64 @@ public class Chronicle {
                 }
             }
         }
+
+        canAppEnd = true;
     }
 
     public void waitUntilStopped() {
-        while (!stopProcessing) {
+        File stopFile = new File(config.getStopFile());
+        stopFile.delete();
+        while (!canAppEnd) {
             try {
                 Thread.sleep(1000);
             }
             catch (InterruptedException e) {
                 Thread.interrupted();
             }
+
+            if (stopFile.exists()) {
+                stopFile.delete();
+                shutdown();
+            }
         }
-    }
-
-    public boolean isStopProcessing() {
-        return stopProcessing;
-    }
-
-    public void setStopProcessing(boolean stopProcessing) {
-        this.stopProcessing = stopProcessing;
     }
 
     public Config getConfig() {
         return config;
     }
 
+    /**
+     * This is only for the java shutdown hook so we can catch CTRL-C or KILL
+     *
+     */
+    @Override
+    public void run() {
+        shutdown();
+    }
+
     public static void main(String[] args) throws FileNotFoundException {
-        Config config = Config.create("conf/chronical.yaml");
+        if (args.length != 1) {
+            System.out.println();
+            System.out.println(String.format("usage: java -cp chronicle.jar %s <chronical.yaml>", Chronicle.class.getName()));
+            System.out.println("       (config file is not required to be named 'chronical.yaml')");
+            System.out.println();
+            System.exit(1);
+        }
+
         Chronicle chronicle = new Chronicle();
+        Runtime.getRuntime().addShutdownHook(new Thread(chronicle));
+
+        Config config = Config.create(args[0]);
         chronicle.init(config);
 
-        // we're live!
+
+        // we're live!  end the application by CTRL-C, unix 'kill' command, or touching the 'stopFile' file
+        // (Note: if you use kill -9 *cannot* be intercepted)
+
+        System.out.println();
+        System.out.println("  Chronicle can be killed by touching the file, '" + config.getStopFile() + "'");
+        System.out.println();
 
         chronicle.waitUntilStopped();
-        chronicle.shutdown();
     }
 }
