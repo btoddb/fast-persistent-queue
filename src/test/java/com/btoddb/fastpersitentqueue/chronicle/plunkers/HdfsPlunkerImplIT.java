@@ -62,17 +62,6 @@ public class HdfsPlunkerImplIT {
     String dirPattern;
 
 
-    @BeforeClass
-    public static void primeHdfs() {
-        // need to do this to load HDFS so some tests requiring accurate timing work
-        try {
-            new Path("/doesnt-matter").getFileSystem(new Configuration());
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     @Before
     public void setup() throws Exception {
         baseDir = new File("tmp/" + UUID.randomUUID().toString());
@@ -193,7 +182,12 @@ public class HdfsPlunkerImplIT {
         final int maxCount = 100; // 20 seconds at 'sleep' interval should be 10
         final AtomicInteger count = new AtomicInteger();
 
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
+        plunker.handleInternal(Arrays.asList(new FpqEvent[] {
+                                                     new FpqEvent("the-body").withHeader("customer", "cust").withHeader("msgId", String.valueOf(count.getAndIncrement()))
+                                             }
+        ));
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         executor.scheduleAtFixedRate(new Runnable() {
                 @Override
                 public void run() {
@@ -220,7 +214,7 @@ public class HdfsPlunkerImplIT {
         executor.shutdown();
         executor.awaitTermination(60, TimeUnit.SECONDS);
 
-        Thread.sleep(1200);
+        Thread.sleep(1500);
         plunker.shutdown();
 
         FpqEvent[] events = new FpqEvent[count.get()];
