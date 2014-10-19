@@ -43,14 +43,13 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class Fpq {
     private static final Logger logger = LoggerFactory.getLogger(Fpq.class);
-    private static final Object MAP_OBJECT = new Object();
 
     private File journalDirectory;
     private JournalMgr journalMgr;
 
     private InMemorySegmentMgr memoryMgr;
 
-    private String queueName = "queue-name-not-set";
+    private String queueName;
     private File pagingDirectory;
     private long maxMemorySegmentSizeInBytes = 1000000;
     private int maxTransactionSize = 100;
@@ -64,6 +63,9 @@ public class Fpq {
     private AtomicLong entryIdGenerator = new AtomicLong();
     private long journalEntriesReplayed;
     private JmxMetrics jmxMetrics = new JmxMetrics(this);
+
+    // a map is used only because there isn't a ConcurrentHashSet
+    private static final Object MAP_OBJECT = new Object();
     private ConcurrentHashMap<FpqContext, Object> activeContexts = new ConcurrentHashMap<FpqContext, Object>();
     ThreadLocal<FpqContext> threadLocalFpqContext = new ThreadLocal<FpqContext>();
 
@@ -72,23 +74,15 @@ public class Fpq {
     private volatile boolean shuttingDown;
     private long waitBeforeKillOnShutdown = 10000;
 
-//    public void init(Config config) throws IOException {
-//        setMaxMemorySegmentSizeInBytes(config.getMaxMemorySegmentSizeInBytes());
-//        setMaxTransactionSize(config.getMaxTransactionSize());
-//        setJournalDirectory(new File(config.getDirectory(), "journal"));
-//        setPagingDirectory(new File(config.getDirectory(), "paging"));
-//        setNumberOfFlushWorkers(config.getNumberOfFlushWorkers());
-//        setFlushPeriodInMs(config.getFlushPeriodInMs());
-//        setMaxJournalFileSize(config.getMaxJournalFileSize());
-//        setMaxJournalDurationInMs(config.getMaxJournalDurationInMs());
-//
-//        init();
-//    }
 
     public void init() throws IOException {
         initializing = true;
 
         logger.info("initializing FPQ");
+
+        if (null == queueName) {
+            queueName = "queue-name-not-set";
+        }
 
         jmxMetrics.init();
 
@@ -347,7 +341,7 @@ public class Fpq {
 
         shutdownLock.writeLock().lock();
         try {
-            // any pop'ed entries in progress will be preserved by jounrals
+            // any pop'ed entries in progress will be preserved by journals
             for (FpqContext context : activeContexts.keySet()) {
                 cleanupTransaction(context);
             }
