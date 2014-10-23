@@ -109,8 +109,17 @@ public class FpqBatchReader implements Runnable {
             catch (Exception e) {
                 logger.error("exception while reading from FPQ", e);
                 fpq.rollback();
-                // TODO:BTB - do backoff algorithm - exception causes polling w/o sleep
+                backoffOnPolling();
             }
+        }
+    }
+
+    private void backoffOnPolling() {
+        try {
+            Thread.sleep(1000);
+        }
+        catch (InterruptedException e) {
+            Thread.interrupted();
         }
     }
 
