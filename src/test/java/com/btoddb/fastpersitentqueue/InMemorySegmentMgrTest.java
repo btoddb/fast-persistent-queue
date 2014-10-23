@@ -152,7 +152,7 @@ public class InMemorySegmentMgrTest {
         }
         mgr.shutdown();
 
-        mgr = new InMemorySegmentMgr();
+        mgr = new InMemorySegmentMgr(null);
         mgr.setMaxSegmentSizeInBytes(1000);
         mgr.setPagingDirectory(theDir);
         mgr.init();
@@ -345,7 +345,7 @@ public class InMemorySegmentMgrTest {
         theDir = new File("tmp/junitTmp_"+new UUID().toString());
         FileUtils.forceMkdir(theDir);
 
-        mgr = new InMemorySegmentMgr();
+        mgr = new InMemorySegmentMgr(null);
         mgr.setMaxSegmentSizeInBytes(1000);
         mgr.setPagingDirectory(theDir);
     }

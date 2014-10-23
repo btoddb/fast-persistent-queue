@@ -94,7 +94,7 @@ public class Fpq {
         journalMgr.setMaxJournalDurationInMs(maxJournalDurationInMs);
         journalMgr.init();
 
-        memoryMgr = new InMemorySegmentMgr();
+        memoryMgr = new InMemorySegmentMgr(jmxMetrics);
         memoryMgr.setMaxSegmentSizeInBytes(maxMemorySegmentSizeInBytes);
         memoryMgr.setPagingDirectory(pagingDirectory);
         memoryMgr.init();

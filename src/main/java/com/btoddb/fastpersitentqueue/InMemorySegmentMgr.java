@@ -64,6 +64,7 @@ public class InMemorySegmentMgr {
     private final Object selectWhichSegmentLoadMonitor = new Object();
     private ConcurrentSkipListSet<MemorySegment> segments = new ConcurrentSkipListSet<MemorySegment>();
     private MemorySegmentSerializer segmentSerializer = new MemorySegmentSerializer();
+    private JmxMetrics jmxMetrics;
 
     // statistics/reporting
     private AtomicInteger numberOfActiveSegments = new AtomicInteger();
@@ -91,6 +92,10 @@ public class InMemorySegmentMgr {
                                                               return t;
                                                           }
                                                       });
+
+    public InMemorySegmentMgr(JmxMetrics jmxMetrics) {
+        this.jmxMetrics = jmxMetrics;
+    }
 
     public void init() throws IOException {
         if (0 == maxSegmentSizeInBytes) {
@@ -222,8 +227,10 @@ public class InMemorySegmentMgr {
             // this thread should check if needed to be paged out to disk
             catch (FpqPushFinished e) {
                 createNewSegment();
-                if (numberOfActiveSegments.get() > maxNumberOfActiveSegments) {
-                    pageSegmentToDisk(segment);
+                synchronized (numberOfActiveSegments) {
+                    if (numberOfActiveSegments.get() > maxNumberOfActiveSegments) {
+                        pageSegmentToDisk(segment);
+                    }
                 }
                 logger.debug("creating new segment - now {} active segments", numberOfActiveSegments.get());
             }
@@ -320,6 +327,10 @@ public class InMemorySegmentMgr {
             public void run() {
                 try {
                     logger.debug("serializing segment {} to page file", segment.getId());
+                    if (null != jmxMetrics) {
+                        jmxMetrics.pageOutSize.update(segment.getNumberOfEntries());
+                    }
+
                     segmentSerializer.saveToDisk(segment);
                     segment.clearQueue();
                     segment.setStatus(MemorySegment.Status.OFFLINE);

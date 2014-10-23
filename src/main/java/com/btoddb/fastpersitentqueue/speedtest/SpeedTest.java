@@ -123,6 +123,7 @@ public class SpeedTest {
             long endPushing = 0;
             long displayTimer = 0;
             while (0 == endPushing || !queue.isEmpty()) {
+                // display status every second
                 if (1000 < (System.currentTimeMillis()-displayTimer)) {
                     System.out.println(String.format("status (%ds) : journals = %d : memory segments = %d",
                                                      (endTime - System.currentTimeMillis()) / 1000,
@@ -133,15 +134,13 @@ public class SpeedTest {
                 }
 
                 pusherExecSrvc.shutdown();
-                if (pusherExecSrvc.awaitTermination(0, TimeUnit.SECONDS)) {
+                if (pusherExecSrvc.awaitTermination(100, TimeUnit.SECONDS)) {
                     endPushing = System.currentTimeMillis();
                     // tell poppers, all pushers are finished
                     for (SpeedPopWorker sw : popWorkers) {
                         sw.stopWhenQueueEmpty();
                     }
                 }
-
-                Thread.sleep(100);
             }
 
             long endPopping = System.currentTimeMillis();

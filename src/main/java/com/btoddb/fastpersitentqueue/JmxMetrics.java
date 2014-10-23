@@ -27,6 +27,7 @@ package com.btoddb.fastpersitentqueue;
  */
 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
@@ -43,6 +44,7 @@ public class JmxMetrics {
 
     public Meter pushes;
     public Meter pops;
+    public Histogram pageOutSize;
 
     private final Fpq fpq;
 
@@ -56,6 +58,7 @@ public class JmxMetrics {
 
         pushes = metricsRegistry.meter(MetricRegistry.name("pushes"));
         pops = metricsRegistry.meter(MetricRegistry.name("pops"));
+        pageOutSize = metricsRegistry.histogram("entriesInPageOut");
         metricsRegistry.register(MetricRegistry.name("size"),
                                  new Gauge<Long>() {
                              @Override
@@ -97,14 +100,6 @@ public class JmxMetrics {
                                      }
                                  }
         );
-
-//        metricsRegistry.register(MetricRegistry.name(JMX_ROOT_NAME, fpq, "rollbacks"),
-//                         new Gauge<Long>() {
-//                             @Override
-//                             public Long getValue() {
-//                                 return getNumberOfRollbacks();
-//                             }
-//                         });
     }
 
 }

@@ -2,8 +2,9 @@ durationOfTest: 10
 numberOfPushers: 4
 numberOfPoppers: 4
 entrySize: 2000
-pushBatchSize: 2000
+pushBatchSize: 1
 popBatchSize: 2000
+batchDelay: 0
 directory: speedtest
 
 fpq: !!com.btoddb.fastpersitentqueue.Fpq

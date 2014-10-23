@@ -64,15 +64,23 @@ public class SpeedPushWorker implements Runnable {
                     fpq.beginTransaction();
                 }
                 long x = counter.getAndIncrement();
-                pushSum.addAndGet(x);
                 fpq.push(createBody(x));
+                pushSum.addAndGet(x);
                 numberOfEntries++;
 
                 if (fpq.getCurrentTxSize() >= config.getPushBatchSize()) {
                     fpq.commit();
                 }
+                if (0 < config.getBatchDelay()) {
+                    try {
+                        Thread.sleep(config.getBatchDelay());
+                    }
+                    catch (InterruptedException e) {
+                        Thread.interrupted();
+                    }
+                }
             }
-            if (0 < fpq.getCurrentTxSize()) {
+            if (fpq.isTransactionActive()) {
                 fpq.commit();
             }
         }

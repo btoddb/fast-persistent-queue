@@ -53,6 +53,7 @@ public class SpeedTestConfig {
     int maxTransactionSize = 2000;
     int pushBatchSize = 1;
     int popBatchSize = 2000;
+    int batchDelay = 0;
     String directory;
     Fpq fpq;
 
@@ -135,6 +136,14 @@ public class SpeedTestConfig {
 
     public void setPopBatchSize(int popBatchSize) {
         this.popBatchSize = popBatchSize;
+    }
+
+    public int getBatchDelay() {
+        return batchDelay;
+    }
+
+    public void setBatchDelay(int batchDelay) {
+        this.batchDelay = batchDelay;
     }
 
     public String toString() {
