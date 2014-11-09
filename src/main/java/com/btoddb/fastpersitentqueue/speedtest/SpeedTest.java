@@ -134,7 +134,7 @@ public class SpeedTest {
                 }
 
                 pusherExecSrvc.shutdown();
-                if (pusherExecSrvc.awaitTermination(100, TimeUnit.SECONDS)) {
+                if (pusherExecSrvc.awaitTermination(100, TimeUnit.MILLISECONDS)) {
                     endPushing = System.currentTimeMillis();
                     // tell poppers, all pushers are finished
                     for (SpeedPopWorker sw : popWorkers) {

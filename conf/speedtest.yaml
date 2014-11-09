@@ -1,7 +1,7 @@
 durationOfTest: 10
 numberOfPushers: 4
 numberOfPoppers: 4
-entrySize: 2000
+entrySize: 1000
 pushBatchSize: 1
 popBatchSize: 2000
 batchDelay: 0
