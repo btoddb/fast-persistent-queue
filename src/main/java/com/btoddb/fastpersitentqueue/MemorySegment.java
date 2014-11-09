@@ -129,7 +129,7 @@ public class MemorySegment implements Comparable<MemorySegment> {
             // find out if enough data remains in the segment.  if this segment has been removed, paged
             // to disk, etc, the adjustment will detect that too
             long remaining = numberOfOnlineEntries.addAndGet(-batchSize);
-            int available = batchSize + (int) remaining;
+            long available = (long)batchSize + remaining;
 
             // if > 0 then we have a good segment, so pop from it!
             if (available > 0) {

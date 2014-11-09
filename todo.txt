@@ -7,12 +7,19 @@ required
 - on pop, instead of removing from memory segments, mark them as popped.  then on commit, remove them and report
   to journal.  this should be doable because the segments use a Map for fast lookup of entries
 - insure two Fpq instances cannot use same directory - somehow will require use of the Fpq 'name' or 'id'
+- have two memory segments available for push'ing so pushing never needs to slow down
+- need to pop across segments to fulfill batch size request.  if we don't, the Batch Reader may find a 'partial batch'
+  and rollback waiting for more.  however since the memory segment may be too small to hold enough entries (possibly
+  because an entry is HUGE), it can't provide enough entries to fulfill the batch.  this causes the batch reader
+  to 'back off', waiting the maximum time before relenting and returning a partial batch.
 
 desired
 
 - work on a serialization and queue paradigm such that byte[] are not copied until out to disk or popped.
   maintain an ordered collection of byte[] throughout pushing and popping until written to disk or popped to customer
-- add assertions to operations that should have known state - like paging in/out
+- add "assertions" on operations that should have known state - like paging in/out
 - disk space is wasted because paged memory segments dupe what is already in journals.  maybe someone can optimize this?
 - want a "pops pending commit" and "pushes pending commit" stat
+- semantic checks on parameters
+  - batchSize must fit within one memory segment, since pop's will not span segments
 

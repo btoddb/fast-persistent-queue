@@ -237,6 +237,16 @@ public class InMemorySegmentMgr {
         }
     }
 
+    public FpqEntry pop() {
+        Collection<FpqEntry> entries = pop(1);
+        if (null != entries) {
+            return entries.iterator().next();
+        }
+        else {
+            return null;
+        }
+    }
+
     /**
      * pick segment and pop up to 'batchSize' events from it.
      *
@@ -305,26 +315,18 @@ public class InMemorySegmentMgr {
         numberOfActiveSegments.incrementAndGet();
     }
 
-    public FpqEntry pop() {
-        Collection<FpqEntry> entries = pop(1);
-        if (null != entries) {
-            return entries.iterator().next();
-        }
-        else {
-            return null;
-        }
-    }
-
     private void pageSegmentToDisk(final MemorySegment segment) {
         // thread-safe in the respect that only one thread should schedule this
-
-        logger.debug("set status to SAVING for segment {}", segment.getId());
-
-        segment.setStatus(MemorySegment.Status.SAVING);
 
         serializerExecSrvc.submit(new Runnable() {
             @Override
             public void run() {
+                // make sure not determining which segment to page-in from disk
+                logger.debug("set status to SAVING for segment {}", segment.getId());
+                synchronized (selectWhichSegmentLoadMonitor) {
+                    segment.setStatus(MemorySegment.Status.SAVING);
+                }
+
                 try {
                     logger.debug("serializing segment {} to page file", segment.getId());
                     if (null != jmxMetrics) {
@@ -348,13 +350,31 @@ public class InMemorySegmentMgr {
     // this should be done in a thread and not in line with a customer call
     private void kickOffLoadIfNeeded() {
         MemorySegment tmp = null;
+        boolean keepChecking = true;
 
-        synchronized (selectWhichSegmentLoadMonitor) {
-            for (MemorySegment seg : segments) {
-                if (seg.getStatus() == MemorySegment.Status.OFFLINE) {
-                    seg.setStatus(MemorySegment.Status.LOADING);
-                    tmp = seg;
-                    break;
+        while (keepChecking) {
+            keepChecking = false;
+            synchronized (selectWhichSegmentLoadMonitor) {
+                for (MemorySegment seg : segments) {
+                    if (seg.getStatus() == MemorySegment.Status.OFFLINE) {
+                        seg.setStatus(MemorySegment.Status.LOADING);
+                        tmp = seg;
+                        keepChecking = false;
+                        break;
+                    }
+                    // if any segment is SAVING, then we want to keep checking if haven't found an OFFLINE
+                    keepChecking = keepChecking || seg.getStatus() == MemorySegment.Status.SAVING;
+                }
+            }
+
+            // let's sleep a bit while waiting on the save
+            if (keepChecking) {
+                try {
+                    Thread.sleep(100);
+                }
+                catch (InterruptedException e) {
+                    // set keepChecking to false so we stop looping and exit
+                    keepChecking = false;
                 }
             }
         }
