@@ -1,6 +1,9 @@
 required
 
 *** - set a max size for the queue.  currently disk space can be used until exhausted
+
+*** - create metric that shows how many memory segments are paged out at any given time
+
 - on pop, instead of removing from memory segments, mark them as popped.  then on commit, remove them and report
   to journal.  this should be doable because the segments use a Map for fast lookup of entries
 - insure two Fpq instances cannot use same directory - somehow will require use of the Fpq 'name' or 'id'
@@ -11,4 +14,5 @@ desired
   maintain an ordered collection of byte[] throughout pushing and popping until written to disk or popped to customer
 - add assertions to operations that should have known state - like paging in/out
 - disk space is wasted because paged memory segments dupe what is already in journals.  maybe someone can optimize this?
+- want a "pops pending commit" and "pushes pending commit" stat
 

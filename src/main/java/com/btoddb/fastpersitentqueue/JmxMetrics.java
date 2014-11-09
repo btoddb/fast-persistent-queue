@@ -26,6 +26,7 @@ package com.btoddb.fastpersitentqueue;
  * #L%
  */
 
+import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.JmxReporter;
@@ -40,11 +41,11 @@ public class JmxMetrics {
     public static final String JMX_ROOT_NAME = "com.btoddb.fpq";
 
     private final MetricRegistry metricsRegistry = new MetricRegistry();
-    private JmxReporter reporter;
 
-    public Meter pushes;
-    public Meter pops;
+    private Meter pushes;
+    private Meter pops;
     public Histogram pageOutSize;
+    public Counter size;
 
     private final Fpq fpq;
 
@@ -53,36 +54,13 @@ public class JmxMetrics {
     }
 
     public void init() {
-        reporter = JmxReporter.forRegistry(metricsRegistry).inDomain(JMX_ROOT_NAME+"."+fpq.getQueueName()).build();
+        JmxReporter reporter = JmxReporter.forRegistry(metricsRegistry).inDomain(JMX_ROOT_NAME+"."+fpq.getQueueName()).build();
         reporter.start();
 
         pushes = metricsRegistry.meter(MetricRegistry.name("pushes"));
         pops = metricsRegistry.meter(MetricRegistry.name("pops"));
         pageOutSize = metricsRegistry.histogram("entriesInPageOut");
-        metricsRegistry.register(MetricRegistry.name("size"),
-                                 new Gauge<Long>() {
-                             @Override
-                             public Long getValue() {
-                                 return fpq.getNumberOfEntries();
-                             }
-                         }
-        );
-        metricsRegistry.register(MetricRegistry.name("numberOfPushes"),
-                                 new Gauge<Long>() {
-                                     @Override
-                                     public Long getValue() {
-                                         return fpq.getNumberOfPushes();
-                                     }
-                                 }
-        );
-        metricsRegistry.register(MetricRegistry.name("numberOfPops"),
-                                 new Gauge<Long>() {
-                                     @Override
-                                     public Long getValue() {
-                                         return fpq.getNumberOfPops();
-                                     }
-                                 }
-        );
+        size = metricsRegistry.counter("size");
 
         metricsRegistry.register(MetricRegistry.name("journalFilesReplayed"),
                                  new Gauge<Long>() {
@@ -102,4 +80,21 @@ public class JmxMetrics {
         );
     }
 
+    public long getPopCount() {
+        return pops.getCount();
+    }
+
+    public void incrementPops(int count) {
+        pops.mark(count);
+        size.dec(count);
+    }
+
+    public long getPushCount() {
+        return pushes.getCount();
+    }
+
+    public void incrementPushes(int count) {
+        pushes.mark(count);
+        size.inc(count);
+    }
 }

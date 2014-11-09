@@ -172,8 +172,8 @@ public class FpqIT {
         fpq1.commit();
 
         assertThat(fpq1.getNumberOfEntries(), is(0L));
-        assertThat(fpq1.getNumberOfPushes(), is(3L));
-        assertThat(fpq1.getNumberOfPops(), is(3L));
+        assertThat(fpq1.getJmxMetrics().getPushCount(), is(3L));
+        assertThat(fpq1.getJmxMetrics().getPopCount(), is(3L));
     }
 
     @Test
@@ -332,11 +332,11 @@ public class FpqIT {
         }
 
         assertThat(fpq1.getNumberOfEntries(), is(0L));
-        assertThat(fpq1.getNumberOfPushes(), is(3000L));
-        assertThat(fpq1.getNumberOfPops(), is(3000L));
+        assertThat(fpq1.getJmxMetrics().getPushCount(), is(3000L));
+        assertThat(fpq1.getJmxMetrics().getPopCount(), is(3000L));
         assertThat(fpq2.getNumberOfEntries(), is(0L));
-        assertThat(fpq2.getNumberOfPushes(), is(3000L));
-        assertThat(fpq2.getNumberOfPops(), is(3000L));
+        assertThat(fpq2.getJmxMetrics().getPushCount(), is(3000L));
+        assertThat(fpq2.getJmxMetrics().getPopCount(), is(3000L));
     }
 
     @Test

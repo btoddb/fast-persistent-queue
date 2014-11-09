@@ -58,8 +58,6 @@ public class Fpq {
     private long maxJournalFileSize = 100000000;
     private long maxJournalDurationInMs = 5 * 60 * 1000;
 
-    private AtomicLong numberOfPushes = new AtomicLong();
-    private AtomicLong numberOfPops = new AtomicLong();
     private AtomicLong entryIdGenerator = new AtomicLong();
     private long journalEntriesReplayed;
     private JmxMetrics jmxMetrics = new JmxMetrics(this);
@@ -118,7 +116,7 @@ public class Fpq {
     }
 
     private FpqContext createContext() {
-        return new FpqContext(entryIdGenerator, maxTransactionSize, jmxMetrics);
+        return new FpqContext(entryIdGenerator, maxTransactionSize);
     }
 
     private FpqContext contextThrowException() {
@@ -258,7 +256,7 @@ public class Fpq {
 
         if (!context.isQueueEmpty()) {
             journalMgr.reportTake(context.getQueue());
-            numberOfPops.addAndGet(context.size());
+            jmxMetrics.incrementPops(context.size());
         }
     }
 
@@ -273,7 +271,7 @@ public class Fpq {
 
         Collection<FpqEntry> entries = journalMgr.append(context.getQueue());
         memoryMgr.push(entries);
-        numberOfPushes.addAndGet(context.size());
+        jmxMetrics.incrementPushes(entries.size());
     }
 
     /**
@@ -462,19 +460,15 @@ public class Fpq {
         this.queueName = queueName;
     }
 
-    public long getNumberOfPushes() {
-        return numberOfPushes.get();
-    }
-
-    public long getNumberOfPops() {
-        return numberOfPops.get();
-    }
-
     public long getJournalFilesReplayed() {
         return journalMgr.getJournalsLoadedAtStartup();
     }
 
     public long getJournalEntriesReplayed() {
         return journalEntriesReplayed;
+    }
+
+    JmxMetrics getJmxMetrics() {
+        return jmxMetrics;
     }
 }

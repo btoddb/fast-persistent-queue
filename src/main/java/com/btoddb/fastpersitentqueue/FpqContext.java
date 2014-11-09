@@ -44,12 +44,10 @@ public class FpqContext {
     private Collection<FpqEntry> queue = new LinkedList<FpqEntry>();
     private boolean pushing;
     private boolean popping;
-    private JmxMetrics jmxMetrics;
 
-    FpqContext(AtomicLong idGen, int maxTransactionSize, JmxMetrics jmxMetrics) {
+    FpqContext(AtomicLong idGen, int maxTransactionSize) {
         this.idGen = idGen;
         this.maxTransactionSize = maxTransactionSize;
-        this.jmxMetrics = jmxMetrics;
     }
 
     public void push(Collection<byte[]> entries) {
@@ -68,7 +66,6 @@ public class FpqContext {
         else {
             throw new FpqException("pushing " + entries.size() + " will exceed maximum transaction size of " + maxTransactionSize + " events");
         }
-        jmxMetrics.pushes.mark(entries.size());
     }
 
     public void createPoppedEntries(Collection<FpqEntry> entries) {
@@ -85,7 +82,6 @@ public class FpqContext {
 
         // TODO:BTB - could use commons-collections to create a collection of collections
         this.queue.addAll(entries);
-        jmxMetrics.pops.mark(entries.size());
     }
 
     public void cleanup() {
