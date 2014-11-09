@@ -80,6 +80,11 @@ public class FpqBatchReader implements Runnable {
                 // grab a batch - may not be large enough
                 Collection<FpqEntry> entries = fpq.pop(maxBatchSize);
 
+                // TODO:BTB - if the maximum entries were popped from a single segment, but less than
+                // the batch size request, we will wait the maximum time ('waitTimeEnd') for every pop
+                // creating a massive slowdown!!!  Need information about the 'pop' to make a informed
+                // decision about how long to wait (if at all) for a full batch!
+
                 // if not large enough and wait duration not exceeded, then rollback and wait some more
                 if (null == entries || entries.size() < maxBatchSize) {
                     // if we haven't reached the end of our "wait for full batch" time, then rollback and sleep
