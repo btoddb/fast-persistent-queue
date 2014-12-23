@@ -27,6 +27,7 @@ package com.btoddb.fastpersitentqueue;
  */
 
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
+import org.apache.commons.collections.collection.CompositeCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -214,12 +215,13 @@ public class Fpq {
             throw new FpqException("size of " + batchSize + " exceeds maximum transaction size of " + maxTransactionSize);
         }
 
-        Collection<FpqEntry> entries;
+        CompositeCollection returnColl = new CompositeCollection();
+        Collection<FpqEntry> tmp;
         int numPopped = 0;
         do {
-            entries = memoryMgr.pop(batchSize);
-            if (null != entries) {
-                numPopped += entries.size();
+            tmp = memoryMgr.pop(batchSize);
+            if (null != tmp) {
+                numPopped += tmp.size();
 
                 // at this point, if system crashes, the entries are in the journal files
 
@@ -227,11 +229,12 @@ public class Fpq {
                 //   entries have been pop'ed.  on shutdown the journal files are drained into memory segments,
                 //   which are then serialized to disk (this is done to avoid dupes)
 
-                context.addPoppedEntries(entries);
+                context.addPoppedEntries(tmp);
+                returnColl.addComposited(tmp);
             }
-        } while (null != entries && entries.size() > 0 && numPopped < batchSize);
+        } while (null != tmp && tmp.size() > 0 && numPopped < batchSize);
 
-        return context.getQueue();
+        return returnColl;
     }
 
     /**

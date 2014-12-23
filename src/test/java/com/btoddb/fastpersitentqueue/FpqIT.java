@@ -243,7 +243,7 @@ public class FpqIT {
     @Test
     public void testReplayAfterPopTxWithoutShutdown() throws Exception {
         fpq1.setMaxTransactionSize(100);
-        fpq1.setMaxMemorySegmentSizeInBytes(1000);
+        fpq1.setMaxMemorySegmentSizeInBytes(1500);
         fpq1.setMaxJournalFileSize(1000);
         fpq1.init();
 
@@ -419,8 +419,8 @@ public class FpqIT {
                                         System.out.println("popped ID = " + entry.getId());
                                     }
                                 }
-                                fpq1.commit();
                                 numPops.addAndGet(entries.size());
+                                fpq1.commit();
                                 entries.clear();
                             }
                             finally {
@@ -506,7 +506,6 @@ public class FpqIT {
         while (numPops < expectedPops && System.currentTimeMillis() < end) {
             fpq.beginTransaction();
             Collection<FpqEntry> entries = fpq.pop(1);
-            fpq.commit();
             if (null != entries && !entries.isEmpty()) {
                 numPops += entries.size();
                 sum += extractId(entries.iterator().next().getData());
@@ -520,6 +519,7 @@ public class FpqIT {
                     Thread.interrupted();
                 }
             }
+            fpq.commit();
         }
         assertThat(numPops, is(expectedPops));
         assertThat(sum, is(expectedSum));
