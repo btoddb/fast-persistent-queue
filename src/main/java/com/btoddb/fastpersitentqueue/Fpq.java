@@ -32,7 +32,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -193,10 +194,10 @@ public class Fpq {
 
     /**
      *
-     * @param size
+     * @param batchSize
      * @return
      */
-    public Collection<FpqEntry> pop(int size) {
+    public Collection<FpqEntry> pop(int batchSize) {
         checkInitializing();
         checkShutdown();
 
@@ -209,20 +210,28 @@ public class Fpq {
 
         FpqContext context = contextThrowException();
 
-        if (size > maxTransactionSize) {
-            throw new FpqException("size of " + size + " exceeds maximum transaction size of " + maxTransactionSize);
+        if (batchSize > maxTransactionSize) {
+            throw new FpqException("size of " + batchSize + " exceeds maximum transaction size of " + maxTransactionSize);
         }
 
-        Collection<FpqEntry> entries= memoryMgr.pop(size);
+        Collection<FpqEntry> entries;
+        int numPopped = 0;
+        do {
+            entries = memoryMgr.pop(batchSize);
+            if (null != entries) {
+                numPopped += entries.size();
 
-        // at this point, if system crashes, the entries are in the journal files
+                // at this point, if system crashes, the entries are in the journal files
 
-        // TODO:BTB - however this is not true if system has been previously shutdown and not all of the
-        //   entries have been pop'ed.  on shutdown the journal files are drained into memory segments,
-        //   which are then serialized to disk (this is done to avoid dupes)
+                // TODO:BTB - however this is not true if system has been previously shutdown and not all of the
+                //   entries have been pop'ed.  on shutdown the journal files are drained into memory segments,
+                //   which are then serialized to disk (this is done to avoid dupes)
 
-        context.createPoppedEntries(entries);
-        return entries;
+                context.addPoppedEntries(entries);
+            }
+        } while (null != entries && entries.size() > 0 && numPopped < batchSize);
+
+        return context.getQueue();
     }
 
     /**

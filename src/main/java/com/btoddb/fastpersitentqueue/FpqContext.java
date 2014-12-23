@@ -27,6 +27,7 @@ package com.btoddb.fastpersitentqueue;
  */
 
 import com.btoddb.fastpersitentqueue.exceptions.FpqException;
+import org.apache.commons.collections.collection.CompositeCollection;
 
 import java.util.Collection;
 import java.util.LinkedList;
@@ -41,7 +42,7 @@ public class FpqContext {
     private final int maxTransactionSize;
     private final AtomicLong idGen;
 
-    private Collection<FpqEntry> queue = new LinkedList<FpqEntry>();
+    private Collection<FpqEntry> queue;
     private boolean pushing;
     private boolean popping;
 
@@ -52,7 +53,10 @@ public class FpqContext {
 
     public void push(Collection<byte[]> entries) {
         if (!popping) {
-            pushing = true;
+            if (null == queue) {
+                queue = new LinkedList<>();
+                pushing = true;
+            }
         }
         else {
             throw new FpqException("This context has already been used for 'popping'.  can't switch to pushing - create a new context");
@@ -68,9 +72,12 @@ public class FpqContext {
         }
     }
 
-    public void createPoppedEntries(Collection<FpqEntry> entries) {
+    public void addPoppedEntries(Collection<FpqEntry> entries) {
         if (!pushing) {
-            popping = true;
+            if (null == queue) {
+                queue = new CompositeCollection();
+                popping = true;
+            }
         }
         else {
             throw new FpqException("This context has already been used for 'pushing'.  can't switch to popping - create a new context");
@@ -80,14 +87,14 @@ public class FpqContext {
             return;
         }
 
-        // TODO:BTB - could use commons-collections to create a collection of collections
-        this.queue.addAll(entries);
+        ((CompositeCollection)queue).addComposited(entries);
     }
 
     public void cleanup() {
         if (null != queue) {
             // clearing the queue means that the push/pop methods must make a reference-copy of the entries
             queue.clear();
+            queue = null;
         }
         pushing = false;
         popping = false;

@@ -4,6 +4,10 @@ required
 
 *** - create metric that shows how many memory segments are paged out at any given time
 
+*** - on startup, page files should be "replayed" into journal files and memory pages instead of just loaded and pop'ed.
+      this is because the journal files were removed on proper shutdown to avoid dupes, but this leaves a window such
+      that if the app crashes, data can be lost
+
 - on pop, instead of removing from memory segments, mark them as popped.  then on commit, remove them and report
   to journal.  this should be doable because the segments use a Map for fast lookup of entries
 - insure two Fpq instances cannot use same directory - somehow will require use of the Fpq 'name' or 'id'
